@@ -2187,6 +2187,10 @@ main.drag-active::before {
     margin: 0;
     line-height: 1.5;
 }
+.velkommen-flytt {
+    font-size: 0.85rem;
+    color: var(--muted);
+}
 .velkommen-ikon {
     display: inline-block;
     padding: 0 6px;

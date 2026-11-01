@@ -2,7 +2,7 @@
 
 Et digitalt klasseromsdashboard for lærere — navnetrekning, gruppeinndeling, timer, dagsplan og mer, rett i nettleseren. Ingen innlogging, ingen installasjon, ingenting sendes til en server.
 
-**👉 Prøv den her: [knitresletta.github.io/klasserom-dashboard](https://knitresletta.github.io/klasserom-dashboard/)**
+**👉 Prøv den her: [skoledash.app](https://skoledash.app)**
 
 ![Skjermbilde av klasserom-dashbordet](og-image.png)
 
@@ -58,4 +58,4 @@ Skoledash er gratis å bruke, uten konto og uten abonnement. Vil du støtte utvi
 
 ## Tilbakemeldinger
 
-Funnet en feil, eller savner du noe? Åpne gjerne et [issue](https://github.com/Knitresletta/klasserom-dashboard/issues) — eller bruk 💬 Tilbakemelding-knappen i appen.
+Funnet en feil, eller savner du noe? Åpne gjerne et [issue](https://github.com/Knitresletta/skoledash/issues) — eller bruk 💬 Tilbakemelding-knappen i appen.

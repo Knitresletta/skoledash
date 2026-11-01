@@ -2262,6 +2262,13 @@ const OPPDATERINGSLOGG_HTML = `
     </ul>
   </details>
   <div class="logg-entry">
+    <div class="logg-versjon">v2.22</div>
+    <div class="logg-dato">1. november 2026</div>
+    <ul>
+      <li><strong>Skoledash har fått sin egen adresse: <a href="https://skoledash.app" target="_blank" rel="noopener">skoledash.app</a>.</strong> Har du brukt appen på den gamle adressen, ligger dataene dine fortsatt der. Gå til den gamle adressen, trykk <strong>📤 Eksporter og åpne skoledash.app</strong> i banneret øverst, og velg <strong>📥 Importer data</strong> i 🏫-menyen her</li>
+    </ul>
+  </div>
+  <div class="logg-entry">
     <div class="logg-versjon">v2.21</div>
     <div class="logg-dato">1. november 2026</div>
     <ul>
@@ -2549,6 +2556,8 @@ const OPPDATERINGSLOGG_HTML = `
 
 // Brukerveiledningen som vises i info-modalen (se note over OPPDATERINGSLOGG_HTML).
 const BRUKERVEILEDNING_HTML = `
+  <h4>📦 Flytte fra den gamle adressen</h4>
+  <p>Skoledash lå tidligere på <em>knitresletta.github.io/klasserom-dashboard</em> og bor nå på <strong>skoledash.app</strong>. Nettleseren holder data fra hver adresse adskilt, så klasselister og sider blir ikke med av seg selv. Åpne den gamle adressen, trykk <strong>📤 Eksporter og åpne skoledash.app</strong> i banneret øverst, og velg <strong>📥 Importer data</strong> i 🏫-menyen på den nye siden.</p>
   <h4>☕ Gratis, uten innlogging</h4>
   <p>Skoledash er gratis å bruke. Du trenger verken konto eller abonnement, og alt du legger inn blir liggende i nettleseren din. Vil du støtte utviklingen, trykker du på <strong>☕</strong> helt øverst til høyre. Da åpnes en side for donasjoner i en ny fane. Hva som kommer framover, ser du øverst i <strong>📋 Oppdateringslogg</strong>.</p>
   <h4>Sider — ett arbeidsbord per klasse</h4>
