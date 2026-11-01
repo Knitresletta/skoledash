@@ -2262,6 +2262,13 @@ const OPPDATERINGSLOGG_HTML = `
     </ul>
   </details>
   <div class="logg-entry">
+    <div class="logg-versjon">v2.23</div>
+    <div class="logg-dato">1. november 2026</div>
+    <ul>
+      <li><strong>Roligere toppfelt i det lyse temaet:</strong> toppfeltet er nå ensfarget lilla i stedet for å gå over i rosa. De andre temaene er som før</li>
+    </ul>
+  </div>
+  <div class="logg-entry">
     <div class="logg-versjon">v2.22</div>
     <div class="logg-dato">1. november 2026</div>
     <ul>

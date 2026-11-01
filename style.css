@@ -296,7 +296,7 @@ body {
 
 /* ===================== Header ===================== */
 header {
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 55%, #ec4899 100%);
+    background: #8b5cf6; /* ensfarget lilla i standardtemaet, temaene overstyrer */
     color: white;
     padding: 10px 20px;
     display: flex;
