@@ -12,6 +12,54 @@
   Fargene refereres alltid via var(--…), så et temabytte = bytte av variabler på <html>.
 */
 
+/* ===================== Webfonter ===================== */
+/* Fontene ligger i fonts/ og serveres fra skoledash.app selv, så appen aldri kontakter
+   Google. Nettleseren laster ned en @font-face først når tekst faktisk bruker familien,
+   så fonter som ikke er valgt koster ingenting. Kilder og lisenser: fonts/README.md.
+   Variable fonter dekker hele vektområdet 400-700 med én fil. */
+@font-face {
+    font-family: "Lexend";
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url("fonts/lexend/lexend.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Outfit";
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url("fonts/outfit/outfit-latin.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Sniglet";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("fonts/sniglet/sniglet-latin.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Kalam";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("fonts/kalam/kalam-400-latin.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Kalam";
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url("fonts/kalam/kalam-700-latin.woff2") format("woff2");
+}
+@font-face {
+    font-family: "JetBrains Mono";
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url("fonts/jetbrains-mono/jetbrains-mono-latin.woff2") format("woff2");
+}
+
 /* ===================== Custom properties ===================== */
 /* Standardtemaet (lyst). Alle andre temaer arver herfra og overstyrer kun det de
    trenger. JS endrer aldri fargene direkte — kun data-theme-attributtet på <html>. */
@@ -38,7 +86,7 @@
     --r-sm: 8px;
     --font: system-ui, -apple-system, "Segoe UI", sans-serif;
     /* Skriftstørrelse settes på roten slik at alle rem-baserte størrelser skalerer */
-    font-size: var(--font-size, 16px);
+    font-size: var(--font-size, 19px); /* = «normal» i STØRRELSER (app.js) */
 }
 
 /* ===================== Temaer ===================== */
@@ -288,7 +336,7 @@ body {
     font-family: var(--font);
     background: var(--bg);
     color: var(--text);
-    font-size: 0.875rem; /* 14px ved normal rot (16px) — skalerer med --font-size */
+    font-size: 0.875rem; /* ca. 16,6px ved normal rot (19px), skalerer med --font-size */
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -646,41 +694,52 @@ header h1 {
     min-width: 240px;
 }
 
+/* Undermenyen åpnes ved hover. :focus-within holder den åpen mens markøren står i et
+   tallfelt, ellers forsvinner feltet idet musa glipper ut mens man skriver. */
+.kl-has-submenu:focus-within .kl-submenu {
+    display: block;
+}
+
+/* Én rad per synlig widget: navn til venstre, tallfelt med % til høyre. */
 .widget-str-rad {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 4px 12px;
     gap: 8px;
+    cursor: pointer;
 }
-.widget-str-rad span {
+.widget-str-rad > span:first-child {
     font-size: 0.85em;
     color: var(--muted);
     flex: 1;
 }
-.str-knapper {
+.widget-str-felt {
     display: flex;
-    gap: 2px;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8em;
+    color: var(--muted);
 }
-.str-knapp {
-    background: none;
+.widget-str-felt input {
+    width: 4.5em;
+    padding: 2px 6px;
     border: 1px solid var(--border);
-    border-radius: 3px;
+    border-radius: 4px;
+    background: var(--card);
     color: var(--text);
-    cursor: pointer;
-    font-size: 0.75em;
-    line-height: 1;
-    padding: 2px 5px;
+    font: inherit;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }
-.str-knapp:hover {
-    background: var(--primary-l);
-    color: var(--primary);
+.widget-str-felt input:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
 }
-.str-knapp.aktiv {
-    background: var(--primary);
-    color: #fff;
-    border-color: var(--primary);
-    font-weight: 700;
+.widget-str-tom {
+    padding: 4px 12px 8px;
+    font-size: 0.8em;
+    color: var(--muted);
 }
 
 textarea[id^="notat-textarea"].kursiv {

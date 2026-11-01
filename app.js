@@ -201,6 +201,21 @@ function standardBredder(n) {
 
 // Den ene, sentrale tilstanden hele appen leser og skriver. Lastes fra localStorage
 // (eller defaults) ved oppstart, og persisteres med saveState() etter hver endring.
+// Størrelse per widget er et avvik i prosent fra den globale størrelsen: 0 = som alle,
+// -20 = 20 % mindre, +30 = 30 % større. Grensene hindrer at et kort forsvinner ut av
+// skjermen eller blir uleselig smått. Ligger før loadState(), som bruker dem ved
+// omgjøring av gamle verdier: const-er lenger ned finnes ikke ennå når den kjører.
+const WIDGET_PROSENT_MIN = -50;
+const WIDGET_PROSENT_MAKS = 100;
+
+// Gjør vilkårlig input (tekst fra feltet, gamle lagrede verdier) om til et helt tall
+// innenfor grensene. Tomt felt, «-» midt i skrivingen og annet ugyldig blir 0.
+function klemWidgetProsent(verdi) {
+  const tall = Math.round(Number(verdi));
+  if (!Number.isFinite(tall)) return 0;
+  return Math.min(WIDGET_PROSENT_MAKS, Math.max(WIDGET_PROSENT_MIN, tall));
+}
+
 let state = loadState();
 let værData = null;    // siste værsvar fra met.no, delt mellom topptekst, popup og klokkekort
 let pollenData = null; // siste pollensvar fra Open-Meteo, brukt av klokkekortet
@@ -317,6 +332,17 @@ function loadState() {
       if (!TERNING_TYPER.includes(state.terning_type)) state.terning_type = 6;
       state.terning_antall = Math.min(MAKS_TERNINGER, Math.max(1, state.terning_antall | 0 || 1));
       if (!Array.isArray(state.terning_kast)) state.terning_kast = [];
+      // Størrelse per widget (v2.24) er prosent avvik fra global størrelse. Før var det
+      // trinnene liten/stor/xl, som zoomet 14/16, 18/16 og 20/16. De gjøres om til
+      // nærmeste hele prosent, så kortene ser like ut som før. Gjelder også import,
+      // siden «Erstatt alt» skriver til localStorage og laster siden på nytt.
+      const GAMLE_TRINN = { liten: -13, normal: 0, stor: 13, xl: 25 };
+      const størrelser = {};
+      for (const [id, v] of Object.entries(state.widget_størrelser ?? {})) {
+        const pst = klemWidgetProsent(typeof v === 'string' ? GAMLE_TRINN[v] : v);
+        if (pst) størrelser[id] = pst;
+      }
+      state.widget_størrelser = størrelser;
       return state;
     }
   } catch (e) {
@@ -1766,6 +1792,9 @@ function applyLayout() {
   document.querySelectorAll('[id^="card-notat-"], [id^="card-bilde-"]').forEach(el => {
     if (!aktivIds.has(el.id)) el.style.display = 'none';
   });
+
+  // Skriftstørrelse-menyen viser bare widgets som er synlige på denne siden.
+  renderWidgetStørrelseMeny();
 }
 
 // Bygger innholdet i ⊞ Widgets-nedtrekket: av/på-avkrysning for enkeltinstans-
@@ -2262,6 +2291,18 @@ const OPPDATERINGSLOGG_HTML = `
     </ul>
   </details>
   <div class="logg-entry">
+    <div class="logg-versjon">v2.24</div>
+    <div class="logg-dato">2. november 2026</div>
+    <ul>
+      <li><strong>Nye fonter:</strong> Lexend, Outfit, Sniglet, Kalam og JetBrains Mono. Lexend er laget for å gjøre lesing lettere. I fontmenyen står hvert navn i sin egen font, så du ser hvordan den ser ut før du velger</li>
+      <li><strong>Størrelse på én widget i prosent:</strong> under <strong>📏 Skriftstørrelse → Enkelt widget</strong> skriver du nå et tall i stedet for å velge S/M/L/XL. 0 er samme som alle, -20 er 20 % mindre og 30 er 30 % større. Størrelsene du hadde fra før, er gjort om og ser like ut</li>
+      <li>Lista under <strong>Enkelt widget</strong> viser bare widgetene som er på siden. Størrelsen huskes også når en widget er tatt bort</li>
+      <li><strong>Større tekst overalt:</strong> alle fire valgene under <strong>📏 Skriftstørrelse → Alle widgets</strong> er gjort større, så appen leses bedre på store tavler. Normal er nå omtrent like stor som Stor var før. Synes du det blir for stort på din skjerm, velg Liten</li>
+      <li><strong>Ingen kontakt med Google:</strong> fontene ligger nå på skoledash.app. Før ble de hentet fra Google Fonts, og da fikk Google vite IP-adressen din</li>
+      <li>Victor Mono, Inter, Nunito, Roboto Slab, Playfair Display og Caveat er tatt ut. Hadde du valgt en av dem, bruker appen nå systemfonten. Velg en ny under <strong>🔤 Font</strong> i Skoledash-menyen</li>
+    </ul>
+  </div>
+  <div class="logg-entry">
     <div class="logg-versjon">v2.23</div>
     <div class="logg-dato">1. november 2026</div>
     <ul>
@@ -2656,10 +2697,12 @@ const BRUKERVEILEDNING_HTML = `
   <p>Åpne <strong>Skoledash-menyen</strong> (🏫 Skoledash øverst til venstre) og hold musen over <strong>🎨 Tema</strong>. Velg blant tre standardtemaer (Lyst, Mørkt, Høy kontrast) eller åtte kreative temaer: Under vann, På fjellet, I skogen, I en vulkan, I eventyrland, Matrix, Cyberspace og Equestria. Temaet lagres automatisk.</p>
 
   <h4>Font</h4>
-  <p>Hold musen over <strong>🔤 Font</strong> i Skoledash-menyen. Velg blant systemstandard og seks Google Fonts — inkludert <em>Victor Mono</em> (monospace), <em>Caveat</em> (håndskrevet) og <em>Playfair Display</em> (serif). Fonten lastes dynamisk og lagres til neste gang.</p>
+  <p>Hold musen over <strong>🔤 Font</strong> i Skoledash-menyen. Velg blant systemstandard og fem andre: <em>Lexend</em> (laget for å gjøre lesing lettere), <em>Outfit</em> (ren og moderne), <em>Sniglet</em> (rund og leken), <em>Kalam</em> (håndskrift) og <em>JetBrains Mono</em> (alle tegn like brede). Valget lagres til neste gang.</p>
+  <p>Fontene ligger på skoledash.app, så appen henter ingenting fra Google eller andre fonttjenester.</p>
 
   <h4>Skriftstørrelse</h4>
-  <p>Hold musen over <strong>📏 Skriftstørrelse</strong> i Skoledash-menyen. Under <strong>Alle widgets</strong> skalerer du hele grensesnittet (Liten → Ekstra stor), der Normal er standardstørrelsen. Under <strong>Enkelt widget</strong> kan du forstørre eller forminske ett kort om gangen med S/M/L/XL-knapper uten å lukke menyen — størrelsen legger seg oppå den globale.</p>
+  <p>Hold musen over <strong>📏 Skriftstørrelse</strong> i Skoledash-menyen. Under <strong>Alle widgets</strong> skalerer du hele grensesnittet (Liten → Ekstra stor), der Normal er standardstørrelsen. Under <strong>Enkelt widget</strong> står hver widget som er på siden, med et tall i prosent. <strong>0</strong> betyr samme størrelse som alle de andre. Skriv for eksempel <strong>-20</strong> for å gjøre kortet 20 % mindre, eller <strong>30</strong> for å gjøre det 30 % større. Du kan også bruke piltastene. Tallet kan være fra -50 til 100.</p>
+  <p>Størrelsen huskes selv om du tar bort widgeten. Slår du den på igjen senere, har den samme størrelse som før.</p>
 
   <h4>Kursiv tekst i Notat</h4>
   <p>Trykk <strong><em>𝐼</em></strong>-knappen øverst i Notat-kortet for å slå kursiv tekst av og på. Innstillingen lagres automatisk.</p>
@@ -2792,43 +2835,42 @@ function settTema(tema) {
 }
 
 // ===================== Font =====================
-// Tilgjengelige fonter. `css` er font-family-verdien som settes; `url` peker på et
-// Google Fonts-stilark som lastes inn ved behov (system-fonten trenger ingen, url=null).
+// Tilgjengelige fonter. `css` er font-family-verdien som settes. Webfontene er
+// deklarert med @font-face i style.css og ligger i fonts/, så appen henter ingenting
+// fra Google. Nøkkelen lagres i state.font og i eksportfiler: ikke gi nytt navn til en
+// nøkkel, da faller brukerens valg tilbake til system.
 const FONTER = {
-  'system':      { css: 'system-ui,-apple-system,"Segoe UI",sans-serif', url: null },
-  'victor-mono': { css: '"Victor Mono",monospace', url: 'https://fonts.googleapis.com/css2?family=Victor+Mono:ital,wght@0,400;0,700;1,400&display=swap' },
-  'inter':       { css: '"Inter",sans-serif', url: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap' },
-  'nunito':      { css: '"Nunito",sans-serif', url: 'https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap' },
-  'roboto-slab': { css: '"Roboto Slab",serif', url: 'https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@400;700&display=swap' },
-  'playfair':    { css: '"Playfair Display",serif', url: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap' },
-  'caveat':      { css: '"Caveat",cursive', url: 'https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&display=swap' },
+  'system':         { css: 'system-ui,-apple-system,"Segoe UI",sans-serif' },
+  'lexend':         { css: '"Lexend",sans-serif' },
+  'outfit':         { css: '"Outfit",sans-serif' },
+  'sniglet':        { css: '"Sniglet",sans-serif' },
+  'kalam':          { css: '"Kalam",cursive' },
+  'jetbrains-mono': { css: '"JetBrains Mono",monospace' },
 };
 
-// Bytter skrifttype. Webfonter lastes først ved behov: vi injiserer <link>-en bare
-// hvis fonten har en url og ikke alt er lastet (data-font hindrer dobbeltlasting).
-// Selve fonten brukes via CSS-variabelen --font.
+// Bytter skrifttype via CSS-variabelen --font. Nettleseren laster selv ned fontfila
+// første gang tekst bruker familien, så her trengs ingen egen lastelogikk.
+// En ukjent nøkkel (f.eks. en font som er fjernet, fra gammel lagring eller en
+// importert backup) blir til 'system', og det er det som lagres.
 function settFont(fontKey) {
-  const f = FONTER[fontKey] ?? FONTER['system'];
-  if (f.url && !document.querySelector(`link[data-font="${fontKey}"]`)) {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet'; link.href = f.url; link.dataset.font = fontKey;
-    document.head.appendChild(link);
-  }
-  document.documentElement.style.setProperty('--font', f.css);
-  state.font = fontKey;
+  const nøkkel = Object.hasOwn(FONTER, fontKey) ? fontKey : 'system';
+  document.documentElement.style.setProperty('--font', FONTER[nøkkel].css);
+  state.font = nøkkel;
   saveState();
   document.querySelectorAll('.font-valg').forEach(el => {
-    el.classList.toggle('aktiv', el.dataset.font === fontKey);
+    el.classList.toggle('aktiv', el.dataset.font === nøkkel);
   });
 }
 
-// Rot-skriftstørrelser (px). «normal» = 16px = nettleserens standardrot, så
-// grensesnittet ser likt ut som før ved normal og skalerer proporsjonalt ellers.
+// Rot-skriftstørrelser (px). Alt i grensesnittet måles i rem, så dette ene tallet
+// skalerer hele appen. Skalaen ble flyttet 3px opp i v2.24 (var 14/16/18/20), fordi
+// appen mest brukes på store tavler. Nøklene er uendret, så lagrede valg virker.
+// Standarden (19px) står også i style.css, så siden ikke hopper før JS har kjørt.
 const STØRRELSER = {
-  'liten':  '14px',
-  'normal': '16px',
-  'stor':   '18px',
-  'xl':     '20px',
+  'liten':  '17px',
+  'normal': '19px',
+  'stor':   '21px',
+  'xl':     '23px',
 };
 
 // Setter global skriftstørrelse ved å endre rot-størrelsen (--font-size). Siden alt
@@ -2843,31 +2885,58 @@ function settSkriftstørrelse(key) {
   });
 }
 
-// Setter skriftstørrelse for ETT enkelt widget-kort, oppå den globale størrelsen.
-// «normal» betyr «følg det globale» og lagres derfor ikke (slettes fra state).
-function settWidgetSkriftstørrelse(widgetId, key) {
-  const card = document.getElementById(widgetId);
-  if (!card) return;
+// Setter størrelsen for ETT widget-kort, oppå den globale størrelsen. 0 lagres ikke
+// (slettes fra state), så «som alle» er standard. Verdien ligger i state også når
+// widgeten er skjult, så den er den samme neste gang widgeten slås på.
+function settWidgetSkriftstørrelse(widgetId, prosent) {
+  const pst = klemWidgetProsent(prosent);
   // Bruker zoom (ikke font-size), ellers ignorerer kortets rem-baserte tekst endringen.
-  // Faktor er relativ til normal (16px), så per-widget legger seg oppå den globale størrelsen.
-  const faktor = STØRRELSER[key] ? parseInt(STØRRELSER[key], 10) / 16 : 1;
-  card.style.zoom = (key && key !== 'normal') ? faktor : '';
+  const card = document.getElementById(widgetId);
+  if (card) card.style.zoom = pst ? String(1 + pst / 100) : '';
   if (!state.widget_størrelser) state.widget_størrelser = {};
-  if (key === 'normal') {
-    delete state.widget_størrelser[widgetId];
+  if (pst) {
+    state.widget_størrelser[widgetId] = pst;
   } else {
-    state.widget_størrelser[widgetId] = key;
+    delete state.widget_størrelser[widgetId];
   }
   saveState();
-  document.querySelectorAll(`.widget-str-valg[data-widget="${widgetId}"]`).forEach(btn => {
-    btn.classList.toggle('aktiv', btn.dataset.størrelse === key);
-  });
 }
 
 // Gjenoppretter alle lagrede per-widget-størrelser ved oppstart.
 function applyWidgetStørrelser() {
   const map = state.widget_størrelser ?? {};
-  Object.entries(map).forEach(([id, key]) => settWidgetSkriftstørrelse(id, key));
+  Object.entries(map).forEach(([id, pst]) => settWidgetSkriftstørrelse(id, pst));
+}
+
+// Bygger «Enkelt widget»-delen av Skriftstørrelse-menyen: én rad med tallfelt per
+// widget som er synlig på aktiv side. Kalles fra applyLayout(), så lista følger med
+// når widgets slås av og på eller man bytter side.
+function renderWidgetStørrelseMeny() {
+  const liste = document.getElementById('widget-str-liste');
+  if (!liste) return;
+  const skjult = aktivSide().widget_hidden ?? [];
+  const synlige = Object.keys(WIDGET_NAVN).filter(id => !skjult.includes(id));
+  if (!synlige.length) {
+    liste.innerHTML = '<div class="widget-str-tom">Ingen widgets på denne siden</div>';
+    return;
+  }
+  liste.innerHTML = synlige.map(id => {
+    // Klassebamse kan ha fått eget navn på siden. Ellers navnet uten ledende emoji.
+    const navn = id === 'card-ulv'
+      ? (aktivSide().ulv_navn || WIDGET_NAVN[id])
+      : WIDGET_NAVN[id].replace(/^[^\p{L}]+/u, '');
+    const pst = state.widget_størrelser?.[id] ?? 0;
+    return `
+      <label class="widget-str-rad" for="str-${id}">
+        <span>${esc(navn)}</span>
+        <span class="widget-str-felt">
+          <input type="number" id="str-${id}" data-widget="${id}" value="${pst}"
+                 min="${WIDGET_PROSENT_MIN}" max="${WIDGET_PROSENT_MAKS}" step="5"
+                 title="0 = samme som alle widgets. Negativt tall krymper, positivt forstørrer">
+          %
+        </span>
+      </label>`;
+  }).join('');
 }
 
 // ===================== Event setup =====================
@@ -3056,6 +3125,10 @@ function settOppHendelser() {
     };
   });
   document.querySelectorAll('.font-valg').forEach(el => {
+    // Hvert valg vises i sin egen font, hentet fra FONTER så det bare finnes ett sted
+    // å endre. Pris: når menyen åpnes, laster nettleseren alle fontene (ca. 170 kB,
+    // én gang). Mens menyen er skjult, lastes ingenting.
+    el.style.fontFamily = (FONTER[el.dataset.font] ?? FONTER['system']).css;
     el.onclick = () => {
       settFont(el.dataset.font);
       klasseromDrop.classList.add('hidden');
@@ -3067,11 +3140,18 @@ function settOppHendelser() {
       klasseromDrop.classList.add('hidden');
     };
   });
-  document.querySelectorAll('.widget-str-valg').forEach(btn => {
-    btn.onclick = e => {
-      e.stopPropagation();
-      settWidgetSkriftstørrelse(btn.dataset.widget, btn.dataset.størrelse);
-    };
+  // Tallfeltene bygges på nytt av renderWidgetStørrelseMeny(), så vi lytter på
+  // beholderen. «input» gir endring mens man skriver eller bruker piltastene.
+  // «change» (Enter eller når feltet forlates) retter feltet til lagret verdi, slik at
+  // f.eks. 500 vises som 100 og tomt felt som 0.
+  const strListe = document.getElementById('widget-str-liste');
+  strListe.addEventListener('input', e => {
+    const felt = e.target.closest('input[data-widget]');
+    if (felt) settWidgetSkriftstørrelse(felt.dataset.widget, felt.value);
+  });
+  strListe.addEventListener('change', e => {
+    const felt = e.target.closest('input[data-widget]');
+    if (felt) felt.value = state.widget_størrelser?.[felt.dataset.widget] ?? 0;
   });
 
   // Info-modal lukk
