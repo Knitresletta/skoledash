@@ -1,10 +1,21 @@
 // Oppsett for Cloudflare Workers (statiske filer). Skoledash har ingen serverkode:
 // Workers leverer bare filene i rotmappa. Hva som holdes utenfor, står i .assetsignore.
 // Bygges automatisk ved push til main (Workers Builds, koblet til GitHub).
+// Domenet skoledash.app er koblet til Workeren som custom domain. www sendes videre
+// med en redirect-regel i Cloudflare (ligger i dashbordet, ikke her).
 {
   "name": "skoledash",
   "compatibility_date": "2026-11-01",
   "assets": {
     "directory": "."
-  }
+  },
+  // Appen skal bare finnes på skoledash.app. En egen adresse (workers.dev eller en
+  // forhåndsvisning) ville fått egen localStorage, og lærere som havnet der, ville sett
+  // en tom app uten klasselistene sine.
+  "workers_dev": false,
+  "preview_urls": false,
+  // Hoveddomenet, også koblet i dashbordet. Står her så en deploy alltid beholder det.
+  "routes": [
+    { "pattern": "skoledash.app", "custom_domain": true }
+  ]
 }

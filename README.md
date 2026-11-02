@@ -36,7 +36,7 @@ Alt lagres lokalt i nettleseren din (localStorage + IndexedDB). Ingen elevdata f
 
 Noen funksjoner henter data fra andre tjenester. Det som sendes, er aldri elevdata, men tjenesten ser IP-adressen din, slik alle nettsider gjør:
 
-- **Selve siden** lastes fra GitHub Pages.
+- **Selve siden** lastes fra skoledash.app, som leveres av Cloudflare.
 - **Vær og pollen** hentes når appen starter og hvert tiende minutt. Stedets koordinater sendes til api.met.no (Meteorologisk institutt) og open-meteo.com. Søker du opp et sted, sendes stedsnavnet til open-meteo.com.
 - **Posisjon:** første gang du åpner appen, spør nettleseren om posisjonen din. Sier du ja, eller trykker 📍 Bruk min posisjon, sendes koordinatene til bigdatacloud.net for å finne stedsnavnet. Sier du nei, brukes Eidsvoll.
 - **YouTube-widgeten** laster YouTube sin spiller og viser videoer fra youtube-nocookie.com. Det skjer bare når widgeten er i bruk.
