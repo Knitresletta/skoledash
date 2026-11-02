@@ -2458,6 +2458,13 @@ const OPPDATERINGSLOGG_HTML = `
     </ul>
   </details>
   <div class="logg-entry">
+    <div class="logg-versjon">v2.30</div>
+    <div class="logg-dato">2. november 2026</div>
+    <ul>
+      <li><strong>YouTube-kortet</strong> viser nå videoen i en egen ramme som er helt adskilt fra resten av appen. YouTube får ikke lenger kjøre kode i Skoledash, og kan dermed ikke se klasselistene dine. Video, kun lyd, volum og spill/pause virker som før</li>
+    </ul>
+  </div>
+  <div class="logg-entry">
     <div class="logg-versjon">v2.29</div>
     <div class="logg-dato">2. november 2026</div>
     <ul>
@@ -2946,10 +2953,10 @@ const BRUKERVEILEDNING_HTML = `
   <p>Alt du legger inn, lagres automatisk i nettleseren din: elevnavn, klasselister, grupper, notater og bilder. <strong>Ingen elevdata forlater maskinen.</strong> Ulike nettlesere eller private vinduer har hver sin lagring.</p>
   <p>Noen funksjoner henter likevel data fra andre tjenester. Det som sendes, er aldri elevdata, men tjenesten ser IP-adressen din, slik alle nettsider gjør:</p>
   <ul>
-    <li><strong>Selve appen</strong> lastes fra skoledash.app. Fontene ligger også der, så Google eller andre fonttjenester får ingenting.</li>
+    <li><strong>Selve appen</strong> lastes fra skoledash.app. Fontene ligger også der, og hentes ikke fra Google eller andre fonttjenester.</li>
     <li><strong>Vær og pollen</strong> hentes når appen starter og hvert tiende minutt. Koordinatene til stedet sendes til Meteorologisk institutt (api.met.no) og open-meteo.com. Søker du opp et sted, sendes stedsnavnet til open-meteo.com.</li>
     <li><strong>Posisjon:</strong> første gang du åpner appen, spør nettleseren om posisjonen din. Sier du ja, eller trykker <strong>📍 Bruk min posisjon</strong>, sendes koordinatene til bigdatacloud.net for å finne stedsnavnet. Sier du nei, brukes Eidsvoll.</li>
-    <li><strong>YouTube-widgeten</strong> laster YouTube sin spiller og viser videoer fra youtube-nocookie.com. Det skjer bare når du bruker widgeten.</li>
+    <li><strong>YouTube-widgeten</strong> viser videoer fra youtube-nocookie.com i en egen ramme. Rammen er adskilt fra resten av appen, så YouTube kan ikke lese elevdataene dine. Spilleren lastes når appen åpnes, så lenge et YouTube-kort har en video, også om kortet ligger på en annen side. YouTube ser at videoen vises på skoledash.app, og kan sette egne informasjonskapsler inne i spilleren.</li>
   </ul>
 
   <h4>📤 Eksportere og 📥 importere data</h4>
@@ -3798,30 +3805,34 @@ function leggTilBilde() {
 }
 
 // ===================== YouTube-widget =====================
-// Flerinstans, speiler bilde-kortet. state.youtube[id] = { url, videoId, start, modus }.
-// Video spilles via YouTube IFrame Player API, slik at lyd-modus kan skjule bildet og
-// likevel styre avspillingen med våre egne knapper. Player-instansene holdes her, ikke
-// i state (de er DOM-objekter), og rives ned når et kort fjernes eller bytter lenke.
+// Flerinstans, speiler bilde-kortet. state.youtube[id] = { url, videoId, start, modus, volum }.
+//
+// Personvern: appen lager iframen selv og styrer den med postMessage. Vi laster IKKE
+// YouTube sitt IFrame API-skript (www.youtube.com/iframe_api). Det skriptet ville kjørt
+// inne i Skoledash sin egen side, med tilgang til localStorage og dermed elevdataene, og
+// det setter sporingscookies fra youtube.com. Nå kjører all YouTube-kode inne i
+// iframen fra youtube-nocookie.com, som nettleseren holder adskilt fra appens data.
+//
+// Protokollen er den samme som IFrame API-et bruker under panseret: vi sender
+// {"event":"listening"} til iframen til den svarer, og kommandoer som
+// {"event":"command","func":"playVideo"}. Iframen svarer med onReady, onStateChange og
+// infoDelivery (der videotittel og avspillingsstatus står).
+//
+// Spiller-objektene holdes her, ikke i state (de peker på DOM-elementer), og rives ned
+// når et kort fjernes eller bytter lenke.
 const ytPlayers = {};
-let ytApiPromise = null;
+const YT_OPPRINNELSE = 'https://www.youtube-nocookie.com';
 
-// Laster YouTube IFrame Player API én gang og resolver når YT.Player er klar. API-et
-// kaller den globale onYouTubeIframeAPIReady — vi kjeder oss på en evt. eksisterende.
-function lastYoutubeApi() {
-  if (ytApiPromise) return ytApiPromise;
-  ytApiPromise = new Promise(resolve => {
-    if (window.YT && window.YT.Player) { resolve(window.YT); return; }
-    const forrige = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => { if (forrige) forrige(); resolve(window.YT); };
-    if (!document.getElementById('yt-iframe-api')) {
-      const s = document.createElement('script');
-      s.id = 'yt-iframe-api';
-      s.src = 'https://www.youtube.com/iframe_api';
-      document.head.appendChild(s);
-    }
-  });
-  return ytApiPromise;
-}
+// Én felles lytter for svar fra alle YouTube-iframer. Meldinger fra andre opprinnelser,
+// eller som ikke kommer fra en av våre iframer, ignoreres.
+window.addEventListener('message', e => {
+  if (e.origin !== YT_OPPRINNELSE || typeof e.data !== 'string') return;
+  const [instansId, spiller] = Object.entries(ytPlayers).find(([, s]) => s.iframe.contentWindow === e.source) ?? [];
+  if (!spiller) return;
+  let melding;
+  try { melding = JSON.parse(e.data); } catch (_) { return; }
+  spiller.mottatt(instansId, melding);
+});
 
 // Plukker ut 11-tegns video-ID fra de vanlige YouTube-lenkeformatene (watch?v=, youtu.be,
 // /embed/, /shorts/, /live/) — eller en rå ID. Returnerer null hvis ingenting matcher.
@@ -3907,26 +3918,88 @@ function renderYoutube(instansId) {
   opprettYoutubePlayer(instansId, data.videoId, data.start || 0);
 }
 
-// Oppretter YT.Player i mål-diven (som API-et bytter ut med en iframe). nocookie-verten
-// gir færre cookies. onReady setter lyd-panelets tittel; onStateChange holder play/pause-
-// knappen i synk. Guard hvis kortet ble fjernet mens API-et lastet.
-async function opprettYoutubePlayer(instansId, videoId, start) {
-  const YT = await lastYoutubeApi();
+// Lager iframen i mål-diven og et lite spiller-objekt med de samme metodene resten av
+// koden bruker (playVideo, pauseVideo, setVolume, unMute, getPlayerState, destroy).
+// videoId er allerede sjekket mot [\w-]{11} (parseYoutubeId og normaliserState).
+function opprettYoutubePlayer(instansId, videoId, start) {
   const mål = document.getElementById(`youtube-player-${instansId}`);
-  if (!mål || !state.youtube[instansId]) return;
-  ytPlayers[instansId] = new YT.Player(mål, {
-    videoId,
-    host: 'https://www.youtube-nocookie.com',
-    playerVars: { start, rel: 0, modestbranding: 1, playsinline: 1 },
-    events: {
-      onReady: e => {
-        const t = document.getElementById(`yt-tittel-${instansId}`);
-        if (t) { const d = e.target.getVideoData?.(); t.textContent = '🎵 ' + (d?.title || 'YouTube'); }
-        const v = state.youtube[instansId]?.volum;
-        if (typeof v === 'number') { e.target.setVolume(v); if (v > 0) e.target.unMute?.(); }
-      },
-      onStateChange: e => oppdaterSpillKnapp(instansId, e.data),
+  if (!mål || !state.youtube[instansId] || !YOUTUBE_VIDEO_ID.test(videoId)) return;
+
+  const parametre = new URLSearchParams({
+    enablejsapi: '1',
+    origin: location.origin, // iframen sender bare svar til denne opprinnelsen
+    rel: '0',
+    playsinline: '1',
+    start: String(start || 0),
+  });
+  const iframe = document.createElement('iframe');
+  iframe.id = mål.id;
+  iframe.className = mål.className;
+  iframe.title = 'YouTube-video';
+  iframe.src = `${YT_OPPRINNELSE}/embed/${videoId}?${parametre}`;
+  iframe.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+  iframe.allowFullscreen = true;
+  iframe.referrerPolicy = 'strict-origin-when-cross-origin'; // YouTube krever Referer
+  mål.replaceWith(iframe);
+
+  const spiller = {
+    iframe,
+    tilstand: -1,      // YouTube sitt skjema: -1 ikke startet, 1 spiller, 2 pause, 0 ferdig
+    klar: false,
+    kø: [],            // kommandoer som kommer før iframen er klar
+    lytteTimer: null,
+    send(func, args = []) {
+      const melding = JSON.stringify({ event: 'command', func, args, id: instansId, channel: 'widget' });
+      if (!this.klar) { this.kø.push(melding); return; }
+      iframe.contentWindow?.postMessage(melding, YT_OPPRINNELSE);
     },
+    playVideo()   { this.send('playVideo'); },
+    pauseVideo()  { this.send('pauseVideo'); },
+    setVolume(v)  { this.send('setVolume', [v]); },
+    unMute()      { this.send('unMute'); },
+    getPlayerState() { return this.tilstand; },
+    destroy() {
+      clearInterval(this.lytteTimer);
+      iframe.remove();
+    },
+    mottatt(id, melding) {
+      if (!this.klar && (melding.event === 'onReady' || melding.event === 'initialDelivery')) {
+        this.klar = true;
+        clearInterval(this.lytteTimer);
+        this.kø.forEach(m => iframe.contentWindow?.postMessage(m, YT_OPPRINNELSE));
+        this.kø = [];
+        const v = state.youtube[id]?.volum;
+        if (typeof v === 'number') { this.setVolume(v); if (v > 0) this.unMute(); }
+      }
+      if (melding.event === 'onStateChange' && Number.isInteger(melding.info)) {
+        this.tilstand = melding.info;
+        oppdaterSpillKnapp(id, this.tilstand);
+      }
+      const info = melding.info;
+      if (melding.event === 'infoDelivery' || melding.event === 'initialDelivery') {
+        if (info && Number.isInteger(info.playerState)) {
+          this.tilstand = info.playerState;
+          oppdaterSpillKnapp(id, this.tilstand);
+        }
+        const tittel = info?.videoData?.title;
+        const felt = document.getElementById(`yt-tittel-${id}`);
+        if (felt && typeof tittel === 'string' && tittel) felt.textContent = '🎵 ' + tittel;
+      }
+    },
+  };
+  ytPlayers[instansId] = spiller;
+
+  // Iframen begynner ikke å sende før vi har sagt at vi lytter. Gjenta til den svarer,
+  // slik IFrame API-et også gjør. Gi opp etter 20 sekunder.
+  iframe.addEventListener('load', () => {
+    let forsøk = 0;
+    const lytt = () => {
+      if (spiller.klar || ++forsøk > 80) { clearInterval(spiller.lytteTimer); return; }
+      iframe.contentWindow?.postMessage(
+        JSON.stringify({ event: 'listening', id: instansId, channel: 'widget' }), YT_OPPRINNELSE);
+    };
+    lytt();
+    spiller.lytteTimer = setInterval(lytt, 250);
   });
 }
 

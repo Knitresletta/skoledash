@@ -8,8 +8,11 @@
 #
 # Midlertidig, ryddes når koden er strammet inn:
 #  - 'unsafe-inline' i script-src: index.html og app.js bruker onclick="..." i HTML.
-#  - https://www.youtube.com i script-src: YouTube-widgeten laster IFrame API-et.
-#    Faller bort når widgeten styrer iframen med postMessage i stedet.
+#
+# YouTube: appen laster ikke YouTube sitt skript. Videoen vises i en iframe fra
+# youtube-nocookie.com (frame-src) og styres med postMessage. Ikke legg
+# www.youtube.com inn i script-src igjen.
+#
 # connect-src data: trengs fordi bilder flyttes til IndexedDB med fetch() på en data-URL.
 #
 # Permissions-Policy stenger kamera og mikrofon. Når dokumentkamera eller
@@ -17,7 +20,7 @@
 # Referrer-Policy kan ikke være no-referrer: YouTube-innbygging krever Referer.
 
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.youtube.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' data: https://api.met.no https://air-quality-api.open-meteo.com https://geocoding-api.open-meteo.com https://api.bigdatacloud.net; frame-src https://www.youtube-nocookie.com https://www.youtube.com; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' data: https://api.met.no https://air-quality-api.open-meteo.com https://geocoding-api.open-meteo.com https://api.bigdatacloud.net; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=(self), payment=(), usb=(), serial=(), bluetooth=(), hid=(), midi=()
