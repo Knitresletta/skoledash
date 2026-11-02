@@ -101,11 +101,28 @@ const SKALER_MED_KORT = ['card-klokke', 'card-timer', 'card-tilfeldig',
 const KLOKKE_VISNINGER = ['begge', 'analog', 'digital'];
 const KLOKKE_VISNING_NAVN = { begge: 'Begge', analog: 'Analog', digital: 'Digital' };
 
+// Widgets med voksende innhold: høyden følger innholdet. Høyden læreren drar kortet
+// til, blir en minstehøyde (w.hMin), ikke en fast høyde. Se «Høyde som følger
+// innholdet». Står her oppe fordi normaliserState() bruker den.
+const FØLGER_INNHOLD = ['elever', 'dagsplan', 'grupper', 'notat'];
+
+// Kort som viser et medium (bilde, YouTube): høyden er alltid det mediet trenger ved
+// kortets bredde, så proporsjonene holder. Læreren endrer størrelsen med bredden;
+// kantene oppe og nede finnes ikke for disse (se CSS og startOperasjon).
+const MEDIA_KORT = ['bilde', 'youtube'];
+
+// Tekststørrelsene A− og A+ går gjennom i et notat, som faktor av standardstørrelsen.
+// Står her oppe fordi normaliserState() sjekker lagret verdi mot lista.
+const NOTAT_STØRRELSER = [0.75, 0.9, 1, 1.25, 1.5, 2, 2.5, 3, 4];
+
 // Terningtypene widgeten tilbyr, og taket for hvor mange som kan kastes samtidig.
+// Taket er 36 (et 6×6-kvadrat): kortet skalerer, så flere får plass, men et tak må
+// finnes fordi lagring og import sjekkes mot det. Uten det ville en fil med
+// «antall: 10000» tegnet ti tusen SVG-er.
 // Bare d6 har ekte prikkeflater — d4, d8, d10, d12 og d20 har tall på flatene også i
 // virkeligheten, og tegnes derfor med sin egen silhuett og tallet i midten.
 const TERNING_TYPER  = [4, 6, 8, 10, 12, 20];
-const MAKS_TERNINGER = 6;
+const MAKS_TERNINGER = 36;
 
 // Silhuetten til hver terningtype som SVG-polygon i et 100×100-rutenett. d6 står ikke
 // her — den tegnes som et avrundet kvadrat med <rect>, siden polygon ikke gir runde
@@ -385,6 +402,11 @@ function normaliserState(s) {
     // Kolonneoppsett fra før v2.35 (eller et kort uten gyldig plass): regn om hele
     // siden til fri plassering. Se migrerTilFlate().
     if (side.widget_layout.some(w => w.x === undefined)) migrerTilFlate(side);
+    // Voksende kort læreren har satt størrelsen på før minstehøyden fantes: høyden
+    // de har nå, blir minstehøyden, så ingenting krymper.
+    side.widget_layout.forEach(w => {
+      if (w.fast && w.hMin === undefined && FØLGER_INNHOLD.includes(kortType(w.id))) w.hMin = w.h;
+    });
     return side;
   });
   s.aktiv_side = heltall(s.aktiv_side, 0, s.sider.length - 1, 0);
@@ -403,6 +425,7 @@ function normaliserState(s) {
     notater[id] = {
       tekst: erObjekt(n) && typeof n.tekst === 'string' ? n.tekst.slice(0, 100000) : '',
       kursiv: erObjekt(n) && n.kursiv === true,
+      størrelse: erObjekt(n) && NOTAT_STØRRELSER.includes(n.størrelse) ? n.størrelse : 1,
     };
   }
   s.notater = notater;
@@ -841,10 +864,14 @@ function renderTerninger(verdier, ruller = false) {
 
   const sider = state.terning_type;
   flater.className = ruller ? 'ruller' : '';
-  // Færre terninger = større flater. Uten dette blir seks terninger enten
-  // mikroskopiske eller så store at kortet sprenger kolonnen.
+  // Terningene legges i rader som er så kvadratiske som mulig: √n kolonner, rundet
+  // opp (4 → 2×2, 6 → 3+3, 7 → 3+3+1). CSS bruker --terning-kol til å begrense
+  // bredden, og en ufullstendig siste rad sentreres. Færre kolonner gir større
+  // flater; resten tar skaleringen med kortet seg av.
+  const kol = Math.ceil(Math.sqrt(verdier.length));
+  flater.style.setProperty('--terning-kol', kol);
   flater.style.setProperty('--terning-str',
-    verdier.length <= 1 ? '108px' : verdier.length === 2 ? '86px' : verdier.length <= 4 ? '68px' : '56px');
+    kol <= 1 ? '108px' : kol === 2 ? '86px' : kol === 3 ? '68px' : '56px');
   flater.innerHTML = verdier.map(v => terningSVG(v, sider)).join('');
 
   // Summen er bare interessant når det ligger flere terninger på bordet.
@@ -1634,10 +1661,23 @@ function spillPip() {
 
 // ===================== Notat =====================
 // Lar notat-feltet vokse med innholdet: nullstill høyden, les så scrollHeight
-// (full innholdshøyde) og sett den som fast høyde. Unngår indre scrollbar.
+// (full innholdshøyde) og sett den som høyde. Unngår indre scrollbar.
+// På flata fyller feltet i tillegg resten av kortet (flex-grow i CSS), så høyden
+// herfra er en nedre grense. Fyllingen slås av mens vi måler, ellers ville
+// scrollHeight vært hele kortet, og kortet kunne aldri krympet igjen.
 function autoResizeNotat(ta) {
+  målNotatfelt(ta);
+  planleggHøyde(ta.closest('.card'));
+}
+
+// Selve målingen, uten å be om ny høydesjekk. Brukes også av høydesjekken, som
+// måler feltet på nytt før den regner ut kortets høyde: endres bredden på kortet,
+// brytes teksten annerledes, og da må feltet måles igjen.
+function målNotatfelt(ta) {
+  ta.style.flexGrow = '0';
   ta.style.height = 'auto';
   ta.style.height = ta.scrollHeight + 'px';
+  ta.style.flexGrow = '';
 }
 
 // Bygger DOM-en for ett notat-kort (uten å sette den inn i siden). Notat er en
@@ -1652,6 +1692,8 @@ function lagNotatElement(instansId) {
       <span class="drag-handle" title="${t('Dra for å flytte')}">⠿</span>
       <h2>${t('📝 Notat')}</h2>
       <div class="card-controls">
+        <button class="btn btn-ghost btn-sm btn-icon" id="btn-notat-mindre-${instansId}" title="${t('Mindre tekst')}">A−</button>
+        <button class="btn btn-ghost btn-sm btn-icon" id="btn-notat-storre-${instansId}" title="${t('Større tekst')}">A+</button>
         <button class="btn btn-ghost btn-sm btn-icon" id="btn-notat-kursiv-${instansId}" title="${t('Kursiv tekst')}">𝐼</button>
       </div>
     </div>
@@ -1677,6 +1719,29 @@ function setupNotat(instansId) {
     btnKursiv.classList.toggle('aktiv', state.notater[instansId].kursiv);
     saveState();
   };
+
+  // Tekststørrelse: A− og A+ går ett trinn i NOTAT_STØRRELSER. Bare teksten i feltet
+  // endres; kortet vokser med den (se «Høyde som følger innholdet»).
+  const btnMindre = document.getElementById(`btn-notat-mindre-${instansId}`);
+  const btnStørre = document.getElementById(`btn-notat-storre-${instansId}`);
+  const visStørrelse = () => {
+    const f = state.notater[instansId].størrelse ?? 1;
+    ta.style.fontSize = f === 1 ? '' : `calc(0.88rem * ${f})`;
+    const i = NOTAT_STØRRELSER.indexOf(f);
+    btnMindre.disabled = i <= 0;
+    btnStørre.disabled = i >= NOTAT_STØRRELSER.length - 1;
+    autoResizeNotat(ta);
+  };
+  const endreStørrelse = steg => {
+    const i = NOTAT_STØRRELSER.indexOf(state.notater[instansId].størrelse ?? 1);
+    const ny = NOTAT_STØRRELSER[Math.max(0, Math.min(NOTAT_STØRRELSER.length - 1, i + steg))];
+    state.notater[instansId].størrelse = ny;
+    visStørrelse();
+    saveState();
+  };
+  btnMindre.onclick = () => endreStørrelse(-1);
+  btnStørre.onclick = () => endreStørrelse(1);
+  visStørrelse();
   let debounce;
   ta.addEventListener('input', () => {
     autoResizeNotat(ta);
@@ -2101,6 +2166,7 @@ function gyldigPlassering(w) {
     z: Number.isInteger(w.z) && w.z > 0 ? w.z : 1,
     ...(w.fast === true && { fast: true }),
     ...(w.anker === 'bunn' && { anker: 'bunn' }),
+    ...(typeof w.hMin === 'number' && Number.isFinite(w.hMin) && { hMin: klampTall(w.hMin, 5, 100) }),
   };
 }
 
@@ -2136,7 +2202,12 @@ function migrerTilFlate(side) {
       Object.assign(w, { x: rundPst(x), y: 0, b: rundPst(b), h: sh });
     });
   }
-  side.widget_layout.forEach((w, i) => { w.z = i + 1; });
+  side.widget_layout.forEach((w, i) => {
+    w.z = i + 1;
+    // Kort med fast innhold beholder den utregnede høyden og skalerer innholdet i
+    // stedet. Ellers ville de krympet til innholdet ved første lasting og laget hull.
+    if (SKALER_MED_KORT.includes(w.id)) w.fast = true;
+  });
 }
 
 function overlapper(a, b, luft = 0) {
@@ -2262,7 +2333,9 @@ function applyLayout() {
 // bunnen av flata i stedet for å skyves opp. Det brukes når høyden følger innholdet
 // (følgInnhold), så kortet ikke vandrer mens læreren skriver eller legger til elever.
 function tilpassHøyde(w, { flytt = true } = {}) {
-  if (w.fast || smalSkjerm()) return;
+  const følger = FØLGER_INNHOLD.includes(kortType(w.id));
+  const media = MEDIA_KORT.includes(kortType(w.id));
+  if ((w.fast && !følger && !media) || smalSkjerm()) return false;
   const card = document.getElementById(w.id);
   const plass = card?.parentElement;
   if (!plass?.classList.contains('kl-plass') || plass.style.display === 'none') return;
@@ -2278,6 +2351,7 @@ function tilpassHøyde(w, { flytt = true } = {}) {
 
   const [, minH] = MIN_STØRRELSE[kortType(w.id)] ?? [160, 100];
   let h = rundPst(klampTall(Math.max(innhold, minH) / flateH * 100, 5, 100));
+  if (w.hMin && !media) h = Math.max(h, w.hMin); // aldri lavere enn læreren har dratt det til
   let nyY;
   if (!flytt) {
     // Kortet får vokse i den ledige plassen mellom kortet over og kortet under (med
@@ -2312,34 +2386,53 @@ function tilpassHøyde(w, { flytt = true } = {}) {
     const iBunnen = w.y > 1 && w.y + w.h >= 99;
     nyY = iBunnen ? rundPst(Math.max(0, 100 - h)) : Math.min(w.y, rundPst(100 - h));
   }
-  if (Math.abs(h - w.h) < 0.05 && Math.abs(nyY - w.y) < 0.05) return false;
+  // Mediekort som ikke får plass i høyden: gjør kortet smalere i stedet, så mediet
+  // krymper og proporsjonene holder (et høyt bilde skal ikke scrolles).
+  let nyB = w.b;
+  if (media) {
+    const hPx = h / 100 * flateH;
+    const medium = card.querySelector('.youtube-media, img[id^="bilde-img"]');
+    const mediumH = medium?.offsetParent ? medium.getBoundingClientRect().height : 0;
+    if (mediumH && innhold > hPx + 1) {
+      const rest = innhold - mediumH;               // overskrift, knapper, luft
+      const faktor = Math.max(0.1, (hPx - rest) / mediumH);
+      const [minB] = MIN_STØRRELSE[kortType(w.id)] ?? [160, 100];
+      const flateB = document.getElementById('flate').getBoundingClientRect().width;
+      nyB = rundPst(Math.max(w.b * faktor, minB / flateB * 100));
+    }
+  }
+  if (Math.abs(h - w.h) < 0.05 && Math.abs(nyY - w.y) < 0.05 && Math.abs(nyB - w.b) < 0.05) return false;
   w.h = h;
   w.y = nyY;
+  w.b = nyB;
   settPlassStil(plass, w);
   return true;
 }
 
 // ===================== Høyde som følger innholdet =====================
 // Widgets med voksende innhold (elever, dagsplan, grupper, notat) får høyden til å
-// følge innholdet så lenge læreren ikke selv har satt størrelsen (w.fast). En ny elev
-// gjør kortet høyere, en slettet gjør det lavere. Er det stopp under, vokser det
+// følge innholdet. Har læreren dratt i størrelsen, er den høyden en minstehøyde
+// (w.hMin): kortet krymper ikke under den, men vokser når innholdet ikke får plass.
+// En ny elev gjør kortet høyere, en slettet gjør det lavere. Er det stopp under, vokser det
 // oppover (se tilpassHøyde). Når det ikke er mer ledig plass, stopper det, og
 // innholdet scroller.
 //
 // Vi observerer barna i kortet med ResizeObserver: de er så høye som innholdet sitt,
 // også når kortet scroller, så de endrer størrelse når innholdet gjør det. Under et
 // drag (pågårOperasjon) står vi over, ellers ville tilpasningen slåss med læreren.
-const FØLGER_INNHOLD = ['elever', 'dagsplan', 'grupper', 'notat'];
 let pågårOperasjon = false;
 const observerteKort = new WeakSet();
 let følgerVenter = new Set();
 let følgerPlanlagt = false;
 
-const følgerObserver = new ResizeObserver(oppføringer => {
-  oppføringer.forEach(o => {
-    const card = o.target.closest('.card');
-    if (card) følgerVenter.add(card.id);
-  });
+const følgerObserver = new ResizeObserver(oppføringer =>
+  oppføringer.forEach(o => planleggHøyde(o.target.closest('.card'))));
+
+// Ber om at kortets høyde vurderes på nytt i neste bilde. Kalles av observeren, og
+// direkte fra notatfeltet: det fyller kortet, så størrelsen endrer seg ikke når
+// teksten blir kortere, og observeren ville aldri merket det.
+function planleggHøyde(card) {
+  if (card) følgerVenter.add(card.id);
   if (følgerPlanlagt) return;
   følgerPlanlagt = true;
   requestAnimationFrame(() => {
@@ -2349,16 +2442,19 @@ const følgerObserver = new ResizeObserver(oppføringer => {
     if (pågårOperasjon || smalSkjerm()) return;
     let endret = false;
     ider.forEach(id => {
+      const ta = document.querySelector(`#${id} > textarea[id^="notat-textarea"]`);
+      if (ta) målNotatfelt(ta);
       const w = aktivSide().widget_layout.find(x => x.id === id);
-      if (w && !w.fast) endret = tilpassHøyde(w, { flytt: false }) || endret;
+      if (w) endret = tilpassHøyde(w, { flytt: false }) || endret;
     });
     if (endret) saveState();
   });
-});
+}
 
 // Starter observasjonen for et kort med voksende innhold (én gang per kort).
 function følgInnhold(card) {
-  if (observerteKort.has(card) || !FØLGER_INNHOLD.includes(kortType(card.id))) return;
+  const type = kortType(card.id);
+  if (observerteKort.has(card) || !(FØLGER_INNHOLD.includes(type) || MEDIA_KORT.includes(type))) return;
   observerteKort.add(card);
   [...card.children]
     .filter(el => !el.classList.contains('kl-widget-close'))
@@ -2370,14 +2466,18 @@ function følgInnhold(card) {
 // kortet er større enn innholdet trenger, får boksen CSS-zoom slik at innholdet fyller
 // plassen. Overskrifta skaleres ikke.
 //
-// Zoomen finnes med binærsøk: største faktor der innholdet fortsatt får plass i både
-// høyde og bredde. Bredden må sjekkes for seg, fordi zoom gjør plassen innholdet ser
-// smalere, og et navn eller en knapperad kan da bryte over flere linjer. Faktoren
-// går aldri under 1: er kortet for lite, scroller det som før.
+// To regler, samme skille som for voksende kort:
+//  - Har ikke læreren satt størrelsen (w.fast), følger høyden innholdet og zoomen er 1.
+//    Da blir trekket høyere når backlog-linja dukker opp.
+//  - Har læreren satt størrelsen, finnes zoomen med binærsøk: største faktor der
+//    innholdet får plass i både høyde og bredde, mellom MIN_SKALERING og
+//    MAKS_SKALERING. Bredden må sjekkes for seg, fordi zoom gjør plassen innholdet ser
+//    smalere, og et navn eller en knapperad kan da bryte over flere linjer.
 //
 // Kjøres når kortet endrer størrelse (ResizeObserver) og når innholdet endrer seg
 // (MutationObserver, f.eks. et nytt navn i trekket), samlet til én gang per bilde.
 const MAKS_SKALERING = 6;
+const MIN_SKALERING = 0.5; // så langt ned skaleres innholdet i et for lite kort
 
 function settOppSkalering() {
   const venter = new Set();
@@ -2410,7 +2510,10 @@ function settOppSkalering() {
       .forEach(el => boks.appendChild(el));
     card.appendChild(boks);
     størrelse.observe(card);
-    innhold.observe(boks, { childList: true, subtree: true, characterData: true });
+    // class/hidden fanger innhold som vises og skjules med en klasse (f.eks.
+    // backlog-linja i trekket). Ikke style: det er der vi selv setter zoomen.
+    innhold.observe(boks, { childList: true, subtree: true, characterData: true,
+                            attributes: true, attributeFilter: ['class', 'hidden'] });
   }
 }
 
@@ -2418,18 +2521,35 @@ function skalerInnhold(boks) {
   if (!boks) return;
   boks.style.zoom = '';
   if (smalSkjerm() || !boks.offsetParent) return;
+  const card = boks.closest('.card');
+  const w = aktivSide().widget_layout.find(x => x.id === card.id);
   const passer = z => {
     boks.style.zoom = String(z);
     return boks.scrollHeight <= boks.clientHeight + 1 && boks.scrollWidth <= boks.clientWidth + 1;
   };
-  if (!passer(1)) { boks.style.zoom = ''; return; }
-  let lav = 1;
-  let høy = MAKS_SKALERING;
+
+  let lav, høy;
+  if (w && !w.fast) {
+    // Ikke satt av læreren: høyden følger innholdet (tilpassHøyde endrer plassen med
+    // én gang, så vi kan måle rett etterpå). Får kortet ikke vokse nok fordi det
+    // treffer andre kort, skaleres innholdet ned i stedet. Aldri opp.
+    if (!pågårOperasjon && tilpassHøyde(w, { flytt: false })) saveState();
+    if (passer(1)) { boks.style.zoom = ''; return; }
+    lav = MIN_SKALERING; høy = 1;
+  } else if (passer(1)) {
+    // Satt av læreren og plass til overs: skaler opp.
+    lav = 1; høy = MAKS_SKALERING;
+  } else {
+    // Satt av læreren og for lite: skaler ned, så knappene aldri kuttes.
+    lav = MIN_SKALERING; høy = 1;
+  }
   for (let i = 0; i < 8; i++) {
     const midt = (lav + høy) / 2;
     if (passer(midt)) lav = midt; else høy = midt;
   }
-  boks.style.zoom = lav > 1.02 ? String(lav) : '';
+  // Små oppskaleringer (under 2 %) hoppes over, så innholdet ikke hopper av støy.
+  // Nedskalering brukes alltid: der teller hver piksel, ellers kuttes knappene.
+  boks.style.zoom = lav < 1 || lav > 1.02 ? String(lav) : '';
 }
 
 // Gir kortet høyest z, og nummererer de andre 1..n på nytt så tallene ikke vokser
@@ -2515,6 +2635,13 @@ function settOppFlate() {
 function startOperasjon(e, plass, id, kant) {
   const w = aktivSide().widget_layout.find(x => x.id === id);
   if (!w) return;
+  // Mediekort: bare bredden kan endres. Hjørnene blir rene sidekanter, og høyden
+  // følger innholdet underveis (height: auto) og måles ved slipp.
+  const media = MEDIA_KORT.includes(kortType(id));
+  if (media && kant) {
+    kant = kant.replace(/[ns]/g, '');
+    if (!kant) return;
+  }
   if (kant) e.preventDefault(); // flytting venter på terskelen, så klikk virker
 
   const flate = document.getElementById('flate');
@@ -2607,7 +2734,7 @@ function startOperasjon(e, plass, id, kant) {
     plass.style.left   = `${r.x}px`;
     plass.style.top    = `${r.y}px`;
     plass.style.width  = `${r.b}px`;
-    plass.style.height = `${r.h}px`;
+    plass.style.height = media && kant ? 'auto' : `${r.h}px`;
     visHjelpelinjer(linjeX, linjeY);
   }
 
@@ -2627,9 +2754,15 @@ function startOperasjon(e, plass, id, kant) {
     w.b = rundPst(r.b / W * 100);
     w.h = rundPst(r.h / H * 100);
     w.col = Math.min(3, Math.floor(w.x / 33.4) + 1);
-    if (kant) w.fast = true; // læreren har valgt størrelsen selv: ikke tilpass mer
+    if (kant) {
+      // Læreren har valgt størrelsen selv. For voksende kort er høyden en minstehøyde
+      // (de vokser fortsatt når innholdet ikke får plass); for de andre står den fast.
+      w.fast = true;
+      if (FØLGER_INNHOLD.includes(kortType(w.id))) w.hMin = w.h;
+    }
     delete w.anker;          // ny plass: ankeret regnes ut på nytt fra posisjonen
     settPlassStil(plass, w); // tilbake til prosent
+    if (media) tilpassHøyde(w, { flytt: false });
     settStabelRekkefølge();
     saveState();
   }
@@ -2901,10 +3034,14 @@ const OPPDATERINGSLOGG_HTML = `
       <li><strong>Samme oppsett på laptop og tavle:</strong> plasseringen huskes som andeler av skjermen, så oppsettet ser likt ut uansett skjermstørrelse, og alt får plass uten at siden må scrolles</li>
       <li><strong>Oppsettet ditt er tatt vare på:</strong> kortene står omtrent der de sto i kolonnene da du sist brukte Skoledash</li>
       <li><strong>Et kort du skrur av og på igjen, kommer tilbake der det sto,</strong> så sant plassen er ledig. Ellers havner det på første ledige plass</li>
-      <li><strong>Innholdet vokser med kortet:</strong> drar du klokka, timeren, tilfeldig elev, ordenselever, klassebamsen eller terningen større, blir tall, urskive og knapper større også. Disse seks har derfor ikke lenger egen prosent under <strong>📏 Skriftstørrelse → Enkelt widget</strong></li>
+      <li><strong>Bilde- og YouTube-kort holder proporsjonene:</strong> høyden følger bildet eller videoen, og <strong>Kun lyd</strong> krymper kortet til lydlinja. Du endrer størrelsen med sidene eller hjørnene</li>
+      <li><strong>Tekststørrelse i notatet:</strong> <strong>A−</strong> og <strong>A+</strong> øverst i hvert notat gjør teksten mindre eller større, opp til fire ganger standard. Hvert notat husker sin egen størrelse</li>
+      <li><strong>Skrivefeltet i notatet fyller hele kortet,</strong> så du kan klikke hvor som helst i kortet og skrive. Lang tekst gjør kortet høyere</li>
+      <li><strong>Terningene legges i kvadratiske rader</strong> (fire blir 2×2, seks blir 3+3), og du kan kaste opptil 36 om gangen</li>
+      <li><strong>Innholdet følger kortet:</strong> drar du klokka, timeren, tilfeldig elev, ordenselever, klassebamsen eller terningen større, blir tall, urskive og knapper større også, og mindre hvis du gjør kortet mindre enn innholdet trenger. Disse seks har derfor ikke lenger egen prosent under <strong>📏 Skriftstørrelse → Enkelt widget</strong></li>
       <li>Fikset: en elev du fjernet, ble stående i gruppa si. Nå forsvinner eleven fra gruppa også, og en gruppe som blir tom, fjernes</li>
       <li><strong>En ny elev havner rett i en gruppe</strong> når gruppene allerede er laget: i den minste gruppen, uten at de andre stokkes om. Gruppebegrensningene følges</li>
-      <li><strong>Elevlista, dagsplanen, gruppene og notatene vokser med innholdet:</strong> nedover, og oppover når det er stopp under, så langt det er ledig plass. Har du selv satt størrelsen, blir den stående</li>
+      <li><strong>Elevlista, dagsplanen, gruppene og notatene vokser med innholdet:</strong> nedover, og oppover når det er stopp under, så langt det er ledig plass. Høyden du drar et slikt kort til, blir en minstehøyde</li>
       <li><strong>Klokka kan vise analog, digital eller begge:</strong> klikk på overskriften i klokkekortet for å bytte</li>
       <li><strong>Nye brukere møter et tomt bord</strong> med tre små guidekort som forklarer Skoledash-menyen, ⊞ Widgets og hurtigtastene. Klokka står nå nederst til venstre når du henter den fram, og er høy nok til at både urskiva og tallene synes</li>
     </ul>
@@ -3345,7 +3482,7 @@ const BRUKERVEILEDNING_HTML = `
   <h4>🎲 Terning</h4>
   <p>Trykk <strong>🎲 Kast</strong> (eller tasten <kbd>k</kbd>) for å kaste. Terningen triller et lite øyeblikk før den lander, så klassen rekker å bli spent.</p>
   <p><strong>Velg terningtype</strong> i knapperaden: <strong>d4, d6, d8, d10, d12</strong> eller <strong>d20</strong> — tallet forteller hvor mange sider terningen har. Den vanlige sekssidede (d6) vises med prikker, slik elevene kjenner den igjen fra brettspill. De andre har tall på flatene, akkurat som ekte terninger av den typen.</p>
-  <p><strong>Flere terninger:</strong> bruk <strong>−</strong> og <strong>+</strong> ved siden av kast-knappen for å kaste opptil seks om gangen. Da vises <strong>summen</strong> under terningene — nyttig i matte, eller når to terninger skal gi et tall mellom 2 og 12.</p>
+  <p><strong>Flere terninger:</strong> bruk <strong>−</strong> og <strong>+</strong> ved siden av kast-knappen for å kaste opptil 36 om gangen. Terningene legges i rader som er så kvadratiske som mulig, og kortet tilpasser seg. Da vises <strong>summen</strong> under terningene. Det er nyttig i matte, eller når to terninger skal gi et tall mellom 2 og 12.</p>
   <p>Bytter du type eller antall, kastes det automatisk på nytt, slik at det aldri ligger et gammelt resultat igjen som ikke passer terningen. Siste kast huskes til neste gang du åpner siden.</p>
   <p>Terningoppsettet er <strong>felles for alle sider</strong>, på samme måte som timeren.</p>
 
@@ -3387,7 +3524,8 @@ const BRUKERVEILEDNING_HTML = `
   <h4>Tilpasse layouten</h4>
   <p><strong>Flytte et kort:</strong> ta tak i overskriften på kortet og dra det dit du vil. Kortene kan ligge hvor som helst på skjermen, også delvis oppå hverandre. Kortet du tar i, legger seg øverst.</p>
   <p><strong>Endre størrelse:</strong> dra i en kant eller et hjørne av kortet. Er innholdet større enn kortet, kan du scrolle inni det.</p>
-  <p><strong>Kort som vokser selv:</strong> elever, dagsplan, grupper og notat blir høyere når innholdet vokser og lavere når det krymper. De vokser nedover, og er det stopp under (et annet kort eller bunnen av skjermen), vokser de oppover så langt det er plass. Er det ikke mer plass, scroller de. Har du selv dratt i størrelsen på et slikt kort, står det slik du satte det.</p>
+  <p><strong>Bilde og YouTube</strong> har alltid høyden mediet trenger, så proporsjonene holder. Du endrer størrelsen ved å dra i sidene eller hjørnene, og høyden følger med. Bytter du YouTube til <strong>Kun lyd</strong>, krymper kortet til lydlinja.</p>
+  <p><strong>Kort som vokser selv:</strong> elever, dagsplan, grupper og notat blir høyere når innholdet vokser og lavere når det krymper. De vokser nedover, og er det stopp under (et annet kort eller bunnen av skjermen), vokser de oppover så langt det er plass. Er det ikke mer plass, scroller de. Drar du et slikt kort større selv, blir den høyden en minstehøyde: kortet krymper ikke under den, men vokser fortsatt når innholdet ikke får plass.</p>
   <p><strong>Magnetiske kanter:</strong> når en kant kommer nær kanten av skjermen eller et annet kort, smekker den på plass, og en blå linje viser hva den festet seg til. Da blir det lett å få kortene på rad. Hold <kbd>Alt</kbd> mens du drar hvis du vil plassere helt fritt.</p>
   <p><strong>Samme oppsett på tavla:</strong> plassering og størrelse huskes som andeler av skjermen, ikke i piksler. Lager du oppsettet på laptopen, ser det likt ut på tavla, bare større. Oppsettet lagres per side.</p>
   <p><strong>Fjerne et kort:</strong> hold musen over kortet og klikk <strong>✕</strong> øverst i høyre hjørne. Faste widgets (elever, grupper, trekk, timer, dagsplan) blir bare skjult — du henter dem tilbake i <strong>⊞ Widgets</strong>-menyen. Notat- og bildekort slettes helt.</p>
@@ -3407,11 +3545,12 @@ const BRUKERVEILEDNING_HTML = `
 
   <h4>Skriftstørrelse</h4>
   <p>Hold musen over <strong>📏 Skriftstørrelse</strong> i Skoledash-menyen. Under <strong>Alle widgets</strong> skalerer du hele grensesnittet (Liten → Ekstra stor), der Normal er standardstørrelsen. Under <strong>Enkelt widget</strong> står hver widget som er på siden, med et tall i prosent. <strong>0</strong> betyr samme størrelse som alle de andre. Skriv for eksempel <strong>-20</strong> for å gjøre kortet 20 % mindre, eller <strong>30</strong> for å gjøre det 30 % større. Du kan også bruke piltastene. Tallet kan være fra -50 til 100.</p>
-  <p><strong>Klokke, timer, tilfeldig elev, ordenselever, klassebamse og terning</strong> står ikke i lista. De blir større når du drar kortet større: tall, urskive og knapper vokser til de fyller kortet. Gjør du kortet mindre enn innholdet trenger, kan du scrolle inni det.</p>
+  <p><strong>Klokke, timer, tilfeldig elev, ordenselever, klassebamse og terning</strong> står ikke i lista. Så lenge du ikke har endret størrelsen selv, er kortet akkurat så høyt som innholdet trenger, og det vokser hvis det dukker opp mer (for eksempel backlog-telleren i trekket). Drar du kortet større, blir tall, urskive og knapper større. Gjør du det mindre enn innholdet trenger, krymper innholdet så alt fortsatt får plass.</p>
   <p>Størrelsen huskes selv om du tar bort widgeten. Slår du den på igjen senere, har den samme størrelse som før.</p>
 
-  <h4>Kursiv tekst i Notat</h4>
-  <p>Trykk <strong><em>𝐼</em></strong>-knappen øverst i Notat-kortet for å slå kursiv tekst av og på. Innstillingen lagres automatisk.</p>
+  <h4>Tekststørrelse og kursiv i Notat</h4>
+  <p>Trykk <strong>A−</strong> og <strong>A+</strong> øverst i Notat-kortet for å gjøre teksten mindre eller større, fra 75 % opp til fire ganger standardstørrelsen. Hvert notat husker sin egen størrelse, og kortet vokser med teksten.</p>
+  <p>Trykk <strong><em>𝐼</em></strong>-knappen for å slå kursiv tekst av og på. Innstillingene lagres automatisk.</p>
 
   <h4>Tavlemodus</h4>
   <p>Trykk <strong>🖥 Tavle</strong> (eller <kbd>b</kbd>) for en helt svart skjerm — nyttig når du vil fokusere elevoppmerksomheten. Klikk hvor som helst eller trykk <kbd>Esc</kbd> for å avslutte.</p>
@@ -5070,6 +5209,8 @@ function init() {
   settFont(state.font ?? 'system');
   settSkriftstørrelse(state.skrift_størrelse ?? 'normal');
   applyWidgetStørrelser();
+  // Notatfeltene ble målt før kortene sto på flata (og hadde riktig bredde).
+  document.querySelectorAll('textarea[id^="notat-textarea"]').forEach(autoResizeNotat);
   // Guidekortene får høyden innholdet trenger på denne skjermen. Vent på fontene,
   // ellers måles teksten med reservefonten og kortet blir litt for lavt eller høyt.
   document.fonts.ready.then(() => {

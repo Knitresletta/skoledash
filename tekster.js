@@ -293,7 +293,7 @@ const BRUKERVEILEDNING_NN = `
   <h4>🎲 Terning</h4>
   <p>Trykk <strong>🎲 Kast</strong> (eller tasten <kbd>k</kbd>) for å kaste. Terningen trillar eit lite augeblikk før han landar, så klassen rekk å bli spent.</p>
   <p><strong>Vel terningtype</strong> i knappraden: <strong>d4, d6, d8, d10, d12</strong> eller <strong>d20</strong>. Talet seier kor mange sider terningen har. Den vanlege sekssida terningen (d6) har prikkar, slik elevane kjenner han att frå brettspel. Dei andre har tal på flatene, akkurat som ekte terningar av den typen.</p>
-  <p><strong>Fleire terningar:</strong> bruk <strong>−</strong> og <strong>+</strong> ved sida av kast-knappen for å kaste opptil seks om gongen. Då blir <strong>summen</strong> vist under terningane. Nyttig i matte, eller når to terningar skal gi eit tal mellom 2 og 12.</p>
+  <p><strong>Fleire terningar:</strong> bruk <strong>−</strong> og <strong>+</strong> ved sida av kast-knappen for å kaste opptil 36 om gongen. Terningane blir lagde i rader som er så kvadratiske som mogleg, og kortet tilpassar seg. Då blir <strong>summen</strong> vist under terningane. Nyttig i matte, eller når to terningar skal gi eit tal mellom 2 og 12.</p>
   <p>Byter du type eller tal, blir det kasta på nytt automatisk, så det aldri ligg att eit gammalt resultat som ikkje passar terningen. Siste kast blir hugsa til neste gong du opnar sida.</p>
   <p>Terningoppsettet er <strong>felles for alle sider</strong>, på same måte som timeren.</p>
 
@@ -335,7 +335,8 @@ const BRUKERVEILEDNING_NN = `
   <h4>Tilpasse oppsettet</h4>
   <p><strong>Flytte eit kort:</strong> ta tak i overskrifta på kortet og dra det dit du vil. Korta kan liggje kvar som helst på skjermen, også delvis oppå kvarandre. Kortet du tek i, legg seg øvst.</p>
   <p><strong>Endre storleik:</strong> dra i ein kant eller eit hjørne av kortet. Er innhaldet større enn kortet, kan du rulle inne i det.</p>
-  <p><strong>Kort som veks sjølv:</strong> elevar, dagsplan, grupper og notat blir høgare når innhaldet veks og lågare når det krympar. Dei veks nedover, og er det stopp under (eit anna kort eller botnen av skjermen), veks dei oppover så langt det er plass. Er det ikkje meir plass, kan du rulle i dei. Har du sjølv dratt i storleiken på eit slikt kort, står det slik du sette det.</p>
+  <p><strong>Bilete og YouTube</strong> har alltid høgda mediet treng, så proporsjonane held. Du endrar storleiken ved å dra i sidene eller hjørna, og høgda følgjer med. Byter du YouTube til <strong>Berre lyd</strong>, krympar kortet til lydlinja.</p>
+  <p><strong>Kort som veks sjølv:</strong> elevar, dagsplan, grupper og notat blir høgare når innhaldet veks og lågare når det krympar. Dei veks nedover, og er det stopp under (eit anna kort eller botnen av skjermen), veks dei oppover så langt det er plass. Er det ikkje meir plass, kan du rulle i dei. Drar du eit slikt kort større sjølv, blir den høgda ei minstehøgd: kortet krympar ikkje under henne, men veks framleis når innhaldet ikkje får plass.</p>
   <p><strong>Magnetiske kantar:</strong> når ein kant kjem nær kanten av skjermen eller eit anna kort, smell han på plass, og ei blå linje viser kva han festa seg til. Då blir det lett å få korta på rad. Hald <kbd>Alt</kbd> medan du drar om du vil plassere heilt fritt.</p>
   <p><strong>Same oppsett på tavla:</strong> plassering og storleik blir hugsa som delar av skjermen, ikkje i pikslar. Lagar du oppsettet på den berbare maskina, ser det likt ut på tavla, berre større. Oppsettet blir lagra per side.</p>
   <p><strong>Fjerne eit kort:</strong> hald musa over kortet og klikk <strong>✕</strong> øvst i høgre hjørne. Faste widgetar (elevar, grupper, trekk, timer, dagsplan) blir berre skjulte, og du hentar dei att i <strong>⊞ Widgetar</strong>-menyen. Notat- og biletkort blir sletta heilt.</p>
@@ -355,11 +356,12 @@ const BRUKERVEILEDNING_NN = `
 
   <h4>Skriftstorleik</h4>
   <p>Hald musa over <strong>📏 Skriftstorleik</strong> i Skoledash-menyen. Under <strong>Alle widgetar</strong> skalerer du heile skjermbiletet (Liten → Ekstra stor), der Normal er standardstorleiken. Under <strong>Enkelt widget</strong> står kvar widget som er på sida, med eit tal i prosent. <strong>0</strong> betyr same storleik som alle dei andre. Skriv til dømes <strong>-20</strong> for å gjere kortet 20 % mindre, eller <strong>30</strong> for å gjere det 30 % større. Du kan òg bruke piltastane. Talet kan vere frå -50 til 100.</p>
-  <p><strong>Klokke, timer, tilfeldig elev, ordenselevar, klassebamse og terning</strong> står ikkje i lista. Dei blir større når du drar kortet større: tal, urskive og knappar veks til dei fyller kortet. Gjer du kortet mindre enn innhaldet treng, kan du rulle inne i det.</p>
+  <p><strong>Klokke, timer, tilfeldig elev, ordenselevar, klassebamse og terning</strong> står ikkje i lista. Så lenge du ikkje har endra storleiken sjølv, er kortet akkurat så høgt som innhaldet treng, og det veks om det dukkar opp meir (til dømes backlog-teljaren i trekket). Drar du kortet større, blir tal, urskive og knappar større. Gjer du det mindre enn innhaldet treng, krympar innhaldet så alt framleis får plass.</p>
   <p>Storleiken blir hugsa sjølv om du tek bort widgeten. Slår du han på att seinare, har han same storleik som før.</p>
 
-  <h4>Kursiv tekst i notat</h4>
-  <p>Trykk <strong><em>𝐼</em></strong>-knappen øvst i Notat-kortet for å slå kursiv tekst av og på. Innstillinga blir lagra automatisk.</p>
+  <h4>Tekststorleik og kursiv i notat</h4>
+  <p>Trykk <strong>A−</strong> og <strong>A+</strong> øvst i Notat-kortet for å gjere teksten mindre eller større, frå 75 % opp til fire gonger standardstorleiken. Kvart notat hugsar sin eigen storleik, og kortet veks med teksten.</p>
+  <p>Trykk <strong><em>𝐼</em></strong>-knappen for å slå kursiv tekst av og på. Innstillingane blir lagra automatisk.</p>
 
   <h4>Tavlemodus</h4>
   <p>Trykk <strong>🖥 Tavle</strong> (eller <kbd>b</kbd>) for ein heilt svart skjerm. Nyttig når du vil samle merksemda til elevane. Klikk kvar som helst eller trykk <kbd>Esc</kbd> for å avslutte.</p>

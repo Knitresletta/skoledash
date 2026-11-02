@@ -855,6 +855,16 @@ main {
        bort med innholdet. */
     position: static;
 }
+/* Barna i et kort skal være så høye som innholdet sitt, ikke presses sammen når
+   kortet er lavere enn innholdet. Ellers krymper f.eks. dagsplan-lista, punktene
+   flyter ut over knappen under, og kortet ser ikke at innholdet er blitt større
+   (høyden som følger innholdet, måler nettopp barna). .kl-skaler er unntaket: den
+   skal fylle kortet og skaleres. Barna i den krymper heller ikke, ellers ser ikke
+   skaleringen at innholdet er for stort (f.eks. 36 terninger over knappene). */
+.kl-plass > .card > :not(.kl-skaler),
+.kl-skaler > * {
+    flex-shrink: 0;
+}
 .kl-plass.kl-aktiv > .card {
     box-shadow: var(--shadow-md);
 }
@@ -873,6 +883,20 @@ main {
 .kl-kant[data-kant="sw"] { bottom: -6px; left: -6px; width: 16px; height: 16px; cursor: nesw-resize; }
 .kl-kant[data-kant="nw"] { top: -6px; left: -6px; width: 16px; height: 16px; cursor: nwse-resize; }
 .kl-kant[data-kant="se"] { bottom: -6px; right: -6px; width: 16px; height: 16px; cursor: nwse-resize; }
+/* Bilde- og YouTube-kort har høyden fra mediet, så de har ingen kanter oppe og nede.
+   Hjørnene endrer bare bredden (se startOperasjon). */
+.kl-plass[data-kort^="card-bilde-"] .kl-kant[data-kant="n"],
+.kl-plass[data-kort^="card-bilde-"] .kl-kant[data-kant="s"],
+.kl-plass[data-kort^="card-youtube-"] .kl-kant[data-kant="n"],
+.kl-plass[data-kort^="card-youtube-"] .kl-kant[data-kant="s"] {
+    display: none;
+}
+.kl-plass[data-kort^="card-bilde-"] .kl-kant[data-kant$="e"],
+.kl-plass[data-kort^="card-bilde-"] .kl-kant[data-kant$="w"],
+.kl-plass[data-kort^="card-youtube-"] .kl-kant[data-kant$="e"],
+.kl-plass[data-kort^="card-youtube-"] .kl-kant[data-kant$="w"] {
+    cursor: ew-resize;
+}
 /* Et lite grep i nedre høyre hjørne viser at kortet kan strekkes. Vises ved hover. */
 .kl-kant[data-kant="se"]::after {
     content: "";
@@ -1297,6 +1321,12 @@ textarea[id^="notat-textarea"] {
     outline: none;
     transition: border-color 0.15s;
     background: var(--bg);
+}
+/* På flata fyller notatfeltet resten av kortet, så hele kortet er et sted å skrive.
+   Høyden autoResizeNotat() setter, er utgangspunktet (flex-basis), så lang tekst
+   gjør fortsatt feltet, og dermed kortet, høyere. */
+.kl-plass > .card > textarea[id^="notat-textarea"] {
+    flex-grow: 1;
 }
 textarea[id^="notat-textarea"]:focus {
     border-color: var(--primary);
@@ -2082,10 +2112,18 @@ textarea[id^="notat-textarea"]:focus {
     gap: 10px;
     padding: 6px 0;
     min-height: 70px;
+    /* Bredden slipper akkurat --terning-kol terninger inn per rad (settes av
+       renderTerninger), så radene blir så kvadratiske som mulig. Flex med
+       justify-content: center sentrerer en ufullstendig siste rad. */
+    max-width: calc(var(--terning-kol, 6) * var(--terning-str, 84px) + (var(--terning-kol, 6) - 1) * 10px);
+    margin-inline: auto;
 }
 .terning-flate {
     display: block;
-    width: var(--terning-str, 84px);
+    /* Krymp heller enn å bryte raden tidligere: aldri bredere enn at --terning-kol
+       terninger (med mellomrom) får plass i bredden. */
+    width: min(var(--terning-str, 84px),
+               calc((100% - (var(--terning-kol, 1) - 1) * 10px) / var(--terning-kol, 1)));
     max-width: 100%;
 }
 .terning-flate svg {
