@@ -1,0 +1,29 @@
+# Sikkerhetsheadere for skoledash.app. Cloudflare Workers leser denne fila og legger
+# headerne på svarene. Fila publiseres ikke selv, og skal IKKE stå i .assetsignore.
+#
+# Content-Security-Policy bestemmer hvor siden kan hente skript, bilder og data fra,
+# og hvor den kan sende data. connect-src er den viktigste linja: selv om et skript
+# skulle sniket seg inn (f.eks. via en manipulert backupfil), kan det bare snakke med
+# værtjenestene og posisjonsoppslaget, ikke sende elevdata til en fremmed server.
+#
+# Midlertidig, ryddes når koden er strammet inn:
+#  - 'unsafe-inline' i script-src: index.html og app.js bruker onclick="..." i HTML.
+#  - https://www.youtube.com i script-src: YouTube-widgeten laster IFrame API-et.
+#    Faller bort når widgeten styrer iframen med postMessage i stedet.
+# connect-src data: trengs fordi bilder flyttes til IndexedDB med fetch() på en data-URL.
+#
+# Permissions-Policy stenger kamera og mikrofon. Når dokumentkamera eller
+# lydnivåmåler bygges, må camera=(self) eller microphone=(self) åpnes her.
+# Referrer-Policy kan ikke være no-referrer: YouTube-innbygging krever Referer.
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.youtube.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' data: https://api.met.no https://air-quality-api.open-meteo.com https://geocoding-api.open-meteo.com https://api.bigdatacloud.net; frame-src https://www.youtube-nocookie.com https://www.youtube.com; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(self), payment=(), usb=(), serial=(), bluetooth=(), hid=(), midi=()
+  X-Frame-Options: DENY
+  Cross-Origin-Opener-Policy: same-origin
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+
+/fonts/*
+  Cache-Control: public, max-age=2592000

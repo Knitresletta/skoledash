@@ -1,5 +1,8 @@
 # Filer i repoet som ikke er en del av nettsiden (Cloudflare laster dem ikke opp)
 .assetsignore
+# Git-mappa: Workers Builds kloner repoet, og uten denne linja ble .git publisert
+.git
+.DS_Store
 .gitignore
 .nojekyll
 .claude
