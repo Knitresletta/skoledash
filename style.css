@@ -697,6 +697,10 @@ header h1 {
     color: var(--text);
     font-weight: 500;
     transition: background 0.1s;
+    /* Menyen ligger absolutt under en smal knapp og får bare min-width (i px) å gå
+       på. Uten nowrap brekker lange punkter (ikon på én linje, tekst på neste) når
+       skriftstørrelsen er stor. Med nowrap blir menyen så bred som det lengste punktet. */
+    white-space: nowrap;
 }
 .kl-dropdown-item:hover {
     background: var(--bg);
@@ -2242,13 +2246,59 @@ main.drag-active::before {
     flex-direction: column;
     gap: 12px;
 }
+/* Gruppebegrensning-dialogen. Bruker de samme variablene som resten av appen, så den
+   følger temaet. */
+.begrensning-boks {
+    width: min(480px, 92vw);
+}
+.begrensning-boks h3 {
+    margin: 0;
+}
+.begrensning-forklaring {
+    margin: 0;
+    font-size: 0.88rem;
+    color: var(--muted);
+    line-height: 1.5;
+}
+/* Rutenett i stedet for flex-wrap: to like brede nedtrekkslister med «og» imellom og
+   knappen til slutt, alltid på én linje. Med flex-wrap havnet knappen alene på en ny
+   linje ved stor skrift. */
 .begrensning-input {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
     gap: 8px;
-    flex-wrap: wrap;
+    align-items: center;
 }
 .begrensning-input select {
-    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    background: var(--bg);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+.begrensning-input select:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+.begrensning-og {
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+.begrensning-input .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.begrensning-tom {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+.begrensning-tom:empty {
+    display: none;
 }
 #begrensning-liste {
     list-style: none;
@@ -2257,14 +2307,47 @@ main.drag-active::before {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    max-height: 40vh;
+    overflow-y: auto;
 }
 #begrensning-liste li {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 4px 8px;
-    background: var(--bg);
-    border-radius: 6px;
+    gap: 8px;
+    padding: 8px 8px 8px 12px;
+    background: var(--primary-l);
+    border-radius: var(--r-sm);
+    font-size: 0.92rem;
+}
+.begrensning-par strong {
+    font-weight: 600;
+}
+.begrensning-slett {
+    flex: none;
+    width: 1.8rem;
+    height: 1.8rem;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+.begrensning-slett:hover,
+.begrensning-slett:focus-visible {
+    background: var(--red-l);
+    color: var(--red);
+    outline: none;
+}
+/* Skjult for øyet, men lest opp av skjermlesere (etiketter til nedtrekkslistene). */
+.visuelt-skjult {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
 }
 .modal-knapper {
     display: flex;

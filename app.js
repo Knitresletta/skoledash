@@ -2476,6 +2476,14 @@ const OPPDATERINGSLOGG_HTML = `
     </ul>
   </details>
   <div class="logg-entry">
+    <div class="logg-versjon">v2.32</div>
+    <div class="logg-dato">2. november 2026</div>
+    <ul>
+      <li><strong>Gruppebegrensning har fått nytt utseende</strong> som passer med resten av appen og temaet ditt, og en kort forklaring øverst. Velger du samme elev to ganger, får du nå beskjed i stedet for at ingenting skjer. Dialogen lukkes også med <kbd>Esc</kbd> eller klikk utenfor</li>
+      <li>Fikset: med stor skrift brøt noen valg i 🏫-menyen over to linjer, med ikonet alene på første linje</li>
+    </ul>
+  </div>
+  <div class="logg-entry">
     <div class="logg-versjon">v2.31</div>
     <div class="logg-dato">2. november 2026</div>
     <ul>
@@ -4146,7 +4154,8 @@ function fjernYoutubeWidget(instansId) {
 // Legger til et «hold fra hverandre»-par på aktiv side, som lagGrupper respekterer.
 // Hopper over tomt/likt par og duplikater (par er retningsløse: A+B == B+A).
 function leggTilBegrensning(navn1, navn2) {
-  if (!navn1 || !navn2 || navn1 === navn2) return;
+  if (!navn1 || !navn2) return;
+  if (navn1 === navn2) { notify('Velg to forskjellige elever', 'warning'); return; }
   const s = aktivSide();
   const allerede = (s.gruppe_begrensninger ?? []).some(
     ([a, b]) => (a === navn1 && b === navn2) || (a === navn2 && b === navn1)
@@ -4164,19 +4173,51 @@ function fjernBegrensning(idx) {
   renderBegrensninger();
 }
 
-// Tegner lista over begrensnings-par («A + B») med en slett-knapp per par.
+// Tegner lista over begrensnings-par med en slett-knapp per par. Navnene settes med
+// textContent, aldri som HTML. Viser en forklaring når lista er tom, og slår av
+// «Legg til» hvis siden har færre enn to elever.
 function renderBegrensninger() {
   const liste = document.getElementById('begrensning-liste');
   if (!liste) return;
-  liste.innerHTML = '';
-  (aktivSide().gruppe_begrensninger ?? []).forEach(([a, b], i) => {
+  const s = aktivSide();
+  const par = s.gruppe_begrensninger ?? [];
+  liste.replaceChildren(...par.map(([a, b], i) => {
     const li = document.createElement('li');
-    li.textContent = `${a} + ${b}`;
+    const navn = document.createElement('span');
+    navn.className = 'begrensning-par';
+    const forste = document.createElement('strong');
+    forste.textContent = a;
+    const andre = document.createElement('strong');
+    andre.textContent = b;
+    navn.append(forste, ' og ', andre);
     const slett = document.createElement('button');
+    slett.type = 'button';
+    slett.className = 'begrensning-slett';
     slett.textContent = '✕';
+    slett.title = `Fjern ${a} og ${b}`;
+    slett.setAttribute('aria-label', `Fjern ${a} og ${b}`);
     slett.onclick = () => fjernBegrensning(i);
-    li.appendChild(slett);
-    liste.appendChild(li);
+    li.append(navn, slett);
+    return li;
+  }));
+
+  const forFå = s.elever.length < 2;
+  document.getElementById('btn-begr-legg-til').disabled = forFå;
+  document.getElementById('begrensning-tom').textContent =
+    forFå ? 'Legg til minst to elever i elevlista først.' :
+    par.length ? '' : 'Ingen par ennå.';
+}
+
+// Kobler opp knappene i begrensnings-dialogen. Klikk utenfor boksen eller Esc lukker.
+function settOppBegrensning() {
+  const modal = document.getElementById('begrensning-modal');
+  const lukk  = () => { modal.style.display = 'none'; };
+  document.getElementById('btn-begr-legg-til').onclick = () =>
+    leggTilBegrensning(document.getElementById('begr-navn1').value, document.getElementById('begr-navn2').value);
+  document.getElementById('btn-begr-lukk').onclick = lukk;
+  modal.addEventListener('click', e => { if (e.target === modal) lukk(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && modal.style.display !== 'none') lukk();
   });
 }
 
@@ -4489,6 +4530,7 @@ function init() {
   applyWidgetStørrelser();
   settOppHendelser();
   settOppRename();
+  settOppBegrensning();
   settOppDragOgDrop();
   setupDagsplanDrag();
   renderSiderNav();
