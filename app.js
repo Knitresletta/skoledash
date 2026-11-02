@@ -2291,6 +2291,14 @@ const OPPDATERINGSLOGG_HTML = `
     </ul>
   </details>
   <div class="logg-entry">
+    <div class="logg-versjon">v2.26</div>
+    <div class="logg-dato">2. november 2026</div>
+    <ul>
+      <li><strong>Jonatan spesial har fått nye navn:</strong> 🦋 Fluttershy, ✨ Twilight og 💎 Rarity. Twilight er det som het Cosmic v2, og Rarity er det som het Cute. Hadde du valgt ett av dem, beholder du det</li>
+      <li><strong>Fluttershy</strong> erstatter Equestria: blek gul bakgrunn, rosa toppfelt og knapper, turkise detaljer og små sommerfugler i bakgrunnen</li>
+    </ul>
+  </div>
+  <div class="logg-entry">
     <div class="logg-versjon">v2.25</div>
     <div class="logg-dato">2. november 2026</div>
     <ul>
@@ -2707,7 +2715,7 @@ const BRUKERVEILEDNING_HTML = `
   <p><strong>Endre antall:</strong> bruk <strong>⊞ Kolonner</strong> med <strong>−</strong> og <strong>+</strong> nederst til venstre for å gå mellom 1 og 4 kolonner. Når du fjerner en kolonne, flyttes kortene som lå der over til den siste kolonnen — ingenting forsvinner. Antall kolonner lagres per side, så side 1 kan ha tre kolonner mens side 2 har én.</p>
 
   <h4>Tema</h4>
-  <p>Åpne <strong>Skoledash-menyen</strong> (🏫 Skoledash øverst til venstre) og hold musen over <strong>🎨 Tema</strong>. Velg blant tre standardtemaer (Lyst, Mørkt, Høy kontrast) eller sju kreative temaer: Under vann, På fjellet, I skogen og I en vulkan under <strong>Eventyr</strong>, og Equestria, Cosmic v2 og Cute under <strong>Jonatan spesial</strong>. Høy kontrast er hvit tekst på svart bakgrunn, laget for å leses på avstand. Flere temaer har et svakt mønster i bakgrunnen. Temaet lagres automatisk.</p>
+  <p>Åpne <strong>Skoledash-menyen</strong> (🏫 Skoledash øverst til venstre) og hold musen over <strong>🎨 Tema</strong>. Velg blant tre standardtemaer (Lyst, Mørkt, Høy kontrast) eller sju kreative temaer: Under vann, På fjellet, I skogen og I en vulkan under <strong>Eventyr</strong>, og Fluttershy, Twilight og Rarity under <strong>Jonatan spesial</strong>. Høy kontrast er hvit tekst på svart bakgrunn, laget for å leses på avstand. Flere temaer har et svakt mønster i bakgrunnen. Temaet lagres automatisk.</p>
 
   <h4>Font</h4>
   <p>Hold musen over <strong>🔤 Font</strong> i Skoledash-menyen. Velg blant systemstandard og fem andre: <em>Lexend</em> (laget for å gjøre lesing lettere), <em>Outfit</em> (ren og moderne), <em>Sniglet</em> (rund og leken), <em>Kalam</em> (håndskrift) og <em>JetBrains Mono</em> (alle tegn like brede). Valget lagres til neste gang.</p>
@@ -2841,9 +2849,14 @@ function inputEnter(inputId, bekreftFn) {
 // Temaer som finnes. Et lagret tema som er tatt ut (eventyrland, matrix og cyberspace
 // forsvant i v2.25), eller et ukjent navn fra en importfil, faller tilbake til «lyst».
 const TEMAER = ['lyst', 'mørkt', 'kontrast', 'under-vann', 'fjellet', 'skogen', 'vulkan',
-  'equestria', 'cosmic', 'cute'];
+  'fluttershy', 'twilight', 'rarity'];
+
+// Temaer som har byttet navn (v2.26). Gamle nøkler fra lagring eller importfiler
+// gjøres om, så brukeren beholder temaet sitt.
+const GAMLE_TEMANAVN = { 'equestria': 'fluttershy', 'cosmic': 'twilight', 'cute': 'rarity' };
 
 function settTema(tema) {
+  tema = GAMLE_TEMANAVN[tema] ?? tema;
   if (!TEMAER.includes(tema)) tema = 'lyst';
   state.tema = tema;
   document.documentElement.setAttribute('data-theme', tema);
