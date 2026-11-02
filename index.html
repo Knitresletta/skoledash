@@ -41,8 +41,8 @@
     <div id="klasserom-dropdown" class="hidden">
       <div class="kl-dropdown-item" id="btn-åpne-logg">📋 Oppdateringslogg</div>
       <div class="kl-dropdown-item" id="btn-åpne-guide">❓ Brukerveiledning</div>
-      <div class="kl-dropdown-item" onclick="åpneTilbakemeldingModal()">💬 Tilbakemelding</div>
-      <div class="kl-dropdown-item" onclick="åpneBegrensningModal()">⛔ Gruppebegrensning</div>
+      <div class="kl-dropdown-item" data-klikk="tilbakemelding">💬 Tilbakemelding</div>
+      <div class="kl-dropdown-item" data-klikk="begrensning">⛔ Gruppebegrensning</div>
       <div class="kl-dropdown-sep"></div>
       <div class="kl-dropdown-item" id="btn-eksporter">📤 Eksporter data</div>
       <div class="kl-dropdown-item" id="btn-importer">📥 Importer data</div>
@@ -119,7 +119,7 @@
        og en stabil id (card-*) som layout og widget-meny refererer til. -->
   <!-- Card: Elever -->
   <div class="card" id="card-elever">
-    <button class="kl-widget-close" onclick="toggleWidgetSynlighet('card-elever', false)" title="Fjern fra siden">✕</button>
+    <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-elever" title="Fjern fra siden">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
       <h2>Elever</h2>
@@ -137,7 +137,7 @@
 
   <!-- Card: Grupper -->
   <div class="card" id="card-grupper">
-    <button class="kl-widget-close" onclick="toggleWidgetSynlighet('card-grupper', false)" title="Fjern fra siden">✕</button>
+    <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-grupper" title="Fjern fra siden">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
       <h2>Grupper</h2>
@@ -153,7 +153,7 @@
 
   <!-- Card: Tilfeldig -->
   <div class="card" id="card-tilfeldig">
-    <button class="kl-widget-close" onclick="toggleWidgetSynlighet('card-tilfeldig', false)" title="Fjern fra siden">✕</button>
+    <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-tilfeldig" title="Fjern fra siden">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
       <h2>🎲 Tilfeldig elev</h2>
@@ -168,7 +168,7 @@
 
   <!-- Card: Ordenselever -->
   <div class="card" id="card-ordenselev">
-    <button class="kl-widget-close" onclick="toggleWidgetSynlighet('card-ordenselev', false)" title="Fjern fra siden">✕</button>
+    <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-ordenselev" title="Fjern fra siden">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
       <h2>⭐ Ordenselever</h2>
@@ -183,7 +183,7 @@
 
   <!-- Card: Klassebamse -->
   <div class="card" id="card-ulv">
-    <button class="kl-widget-close" onclick="toggleWidgetSynlighet('card-ulv', false)" title="Fjern fra siden">✕</button>
+    <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-ulv" title="Fjern fra siden">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
       <h2>Klassebamse</h2>
@@ -199,7 +199,7 @@
 
   <!-- Card: Timer -->
   <div class="card" id="card-timer">
-    <button class="kl-widget-close" onclick="toggleWidgetSynlighet('card-timer', false)" title="Fjern fra siden">✕</button>
+    <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-timer" title="Fjern fra siden">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
       <h2>⏱ Timer</h2>
@@ -218,7 +218,7 @@
        og bygges i sin helhet av JS (lagNotatElement/lagBildeElement), én per instans. -->
   <!-- Card: Dagsplan -->
   <div class="card" id="card-dagsplan">
-    <button class="kl-widget-close" onclick="toggleWidgetSynlighet('card-dagsplan', false)" title="Fjern fra siden">✕</button>
+    <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-dagsplan" title="Fjern fra siden">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
       <h2>📋 Dagsplan</h2>
@@ -232,7 +232,7 @@
        Urskiven er statisk SVG; strekene og tallene tegnes én gang av setupKlokke(),
        og de tre viserne roteres av oppdaterKlokke() hvert sekund. -->
   <div class="card" id="card-klokke">
-    <button class="kl-widget-close" onclick="toggleWidgetSynlighet('card-klokke', false)" title="Fjern fra siden">✕</button>
+    <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-klokke" title="Fjern fra siden">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
       <h2>🕐 Klokke</h2>
@@ -257,7 +257,7 @@
        renderTerninger(); d6 får ekte prikkeflater, de øvrige sin egen silhuett med
        tallet i midten. Kast-knappen kjører en kort «trilling» før verdiene lander. -->
   <div class="card" id="card-terning">
-    <button class="kl-widget-close" onclick="toggleWidgetSynlighet('card-terning', false)" title="Fjern fra siden">✕</button>
+    <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-terning" title="Fjern fra siden">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
       <h2>🎲 Terning</h2>
@@ -511,7 +511,7 @@
       </a>
     </div>
     <div class="modal-knapper">
-      <button onclick="document.getElementById('feedback-modal').style.display='none'">Lukk</button>
+      <button class="btn btn-ghost" data-klikk="lukk-tilbakemelding">Lukk</button>
     </div>
   </div>
 </div>

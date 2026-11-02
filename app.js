@@ -1108,15 +1108,14 @@ function renderElever() {
     // fokus» lagrer, Esc avbryter. Ellers: et klikkbart navn som åpner redigeringen.
     const navnHtml = i === redigerElevIdx
       ? `<input class="elev-rediger-input" type="text" maxlength="60" value="${esc(navn)}"
-            onkeydown="if(event.key==='Enter')lagreRedigerElev(${i},this.value);else if(event.key==='Escape')avbrytRedigerElev()"
-            onblur="lagreRedigerElev(${i},this.value)">`
-      : `<span class="elev-navn${harGruppe ? ' gruppe-farget' : ''}"${harGruppe ? ` style="--gf:${farge}"` : ''} onclick="startRedigerElev(${i})" title="Klikk for å redigere">${esc(navn)}</span>`;
+            data-rediger="elev" data-idx="${i}">`
+      : `<span class="elev-navn${harGruppe ? ' gruppe-farget' : ''}"${harGruppe ? ` style="--gf:${farge}"` : ''} data-klikk="rediger-elev" data-idx="${i}" title="Klikk for å redigere">${esc(navn)}</span>`;
     return `
       <div class="elev-item">
         <span class="elev-nr">${i + 1}.</span>
         ${harGruppe ? `<span class="elev-dot gruppe-farget" style="--gf:${farge}"></span>` : ''}
         ${navnHtml}
-        <button class="elev-slett" onclick="fjernElev(${i})" title="Fjern ${esc(navn)}">✕</button>
+        <button class="elev-slett" data-klikk="fjern-elev" data-idx="${i}" title="Fjern ${esc(navn)}">✕</button>
       </div>`;
   }).join('');
   // Etter at lista er tegnet: fokuser redigeringsfeltet og marker teksten, så læreren
@@ -1499,7 +1498,7 @@ function lagNotatElement(instansId) {
   div.className = 'card';
   div.id = `card-${instansId}`;
   div.innerHTML = `
-    <button class="kl-widget-close" onclick="fjernNotat('${instansId}')" title="Slett dette notatet">✕</button>
+    <button class="kl-widget-close" data-klikk="fjern-notat" data-id="${instansId}" title="Slett dette notatet">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
       <h2>📝 Notat</h2>
@@ -1641,14 +1640,13 @@ function renderDagsplan() {
   liste.innerHTML = dagsplan.map((p, i) => {
     const innhold = i === redigerDagsplanIdx
       ? `<input class="dagsplan-rediger-input" type="text" maxlength="80" value="${esc(p.tekst)}"
-            onkeydown="if(event.key==='Enter')lagreRedigerDagsplan(${i},this.value);else if(event.key==='Escape')avbrytRedigerDagsplan()"
-            onblur="lagreRedigerDagsplan(${i},this.value)">`
-      : `<span class="dagsplan-tekst" onclick="startRedigerDagsplan(${i})" title="Klikk for å redigere">${esc(p.tekst)}</span>`;
+            data-rediger="dagsplan" data-idx="${i}">`
+      : `<span class="dagsplan-tekst" data-klikk="rediger-dagsplan" data-idx="${i}" title="Klikk for å redigere">${esc(p.tekst)}</span>`;
     return `
     <div class="dagsplan-item${p.ferdig ? ' ferdig' : ''}" data-idx="${i}">
-      <span class="dagsplan-prikk" onclick="toggleDagsplanFerdig(${i})" title="Marker ferdig">●</span>
+      <span class="dagsplan-prikk" data-klikk="dagsplan-ferdig" data-idx="${i}" title="Marker ferdig">●</span>
       ${innhold}
-      <button class="dagsplan-slett" onclick="fjernDagsplan(${i})" title="Fjern">✕</button>
+      <button class="dagsplan-slett" data-klikk="fjern-dagsplan" data-idx="${i}" title="Fjern">✕</button>
       <span class="dagsplan-handle" title="Dra for å endre rekkefølge">⠿</span>
     </div>`;
   }).join('');
@@ -1993,7 +1991,7 @@ function renderWidgetMeny() {
   const statiske = Object.entries(WIDGET_NAVN).map(([id, navn]) => `
     <label class="widget-meny-rad">
       <input type="checkbox" ${skjult.includes(id) ? '' : 'checked'}
-             onchange="toggleWidgetSynlighet('${id}', this.checked)">
+             data-endring="widget-synlig" data-widget="${id}">
       ${navn}
     </label>`).join('');
 
@@ -2006,9 +2004,9 @@ function renderWidgetMeny() {
     <div class="widget-meny-sep"></div>
     <div class="widget-meny-tittel">Legg til flere</div>
     <div class="widget-meny-rad" style="gap:6px;flex-wrap:wrap">
-      <button class="btn btn-ghost btn-sm" onclick="leggTilNotat()">+ 📝 Notat${antNotat ? ` (${antNotat})` : ''}</button>
-      <button class="btn btn-ghost btn-sm" onclick="leggTilBilde()">+ 🖼 Bilde${antBilde ? ` (${antBilde})` : ''}</button>
-      <button class="btn btn-ghost btn-sm" onclick="leggTilYoutube()">+ ▶️ YouTube${antYoutube ? ` (${antYoutube})` : ''}</button>
+      <button class="btn btn-ghost btn-sm" data-klikk="ny-notat">+ 📝 Notat${antNotat ? ` (${antNotat})` : ''}</button>
+      <button class="btn btn-ghost btn-sm" data-klikk="ny-bilde">+ 🖼 Bilde${antBilde ? ` (${antBilde})` : ''}</button>
+      <button class="btn btn-ghost btn-sm" data-klikk="ny-youtube">+ ▶️ YouTube${antYoutube ? ` (${antYoutube})` : ''}</button>
     </div>`;
 
   dropdown.innerHTML = statiske + leggTil;
@@ -3747,7 +3745,7 @@ function lagBildeElement(instansId) {
   div.className = 'card';
   div.id = `card-${instansId}`;
   div.innerHTML = `
-    <button class="kl-widget-close" onclick="fjernBildeWidget('${instansId}')" title="Slett dette bildekortet">✕</button>
+    <button class="kl-widget-close" data-klikk="fjern-bilde-widget" data-id="${instansId}" title="Slett dette bildekortet">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
       <h2>🖼 Bilde</h2>
@@ -3756,10 +3754,10 @@ function lagBildeElement(instansId) {
       <div id="bilde-vis-${instansId}" class="bilde-vis">
         <label id="bilde-label-${instansId}" class="bilde-slipp">
           <span>Klikk for å laste opp, eller lim inn (Ctrl+V)</span>
-          <input type="file" id="bilde-fil-${instansId}" accept="image/*" style="display:none" onchange="lastOppBilde(this, '${instansId}')">
+          <input type="file" id="bilde-fil-${instansId}" accept="image/*" style="display:none" data-endring="last-opp-bilde" data-id="${instansId}">
         </label>
         <img id="bilde-img-${instansId}" style="display:none; max-width:100%; border-radius:6px" alt="">
-        <button id="bilde-fjern-${instansId}" style="display:none" onclick="fjernBildeData('${instansId}')">Fjern bilde</button>
+        <button id="bilde-fjern-${instansId}" style="display:none" data-klikk="fjern-bilde-data" data-id="${instansId}">Fjern bilde</button>
       </div>
     </div>
   `;
@@ -3922,7 +3920,7 @@ function lagYoutubeElement(instansId) {
   div.className = 'card';
   div.id = `card-${instansId}`;
   div.innerHTML = `
-    <button class="kl-widget-close" onclick="fjernYoutubeWidget('${instansId}')" title="Slett dette YouTube-kortet">✕</button>
+    <button class="kl-widget-close" data-klikk="fjern-youtube-widget" data-id="${instansId}" title="Slett dette YouTube-kortet">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
       <h2>▶️ YouTube</h2>
@@ -3952,7 +3950,7 @@ function renderYoutube(instansId) {
     body.innerHTML = `
       <div class="youtube-input">
         <input type="text" id="youtube-url-${instansId}" placeholder="Lim inn YouTube-lenke…" autocomplete="off">
-        <button class="btn btn-success btn-sm" onclick="settYoutubeUrlFraFelt('${instansId}')">Vis</button>
+        <button class="btn btn-success btn-sm" data-klikk="youtube-vis" data-id="${instansId}">Vis</button>
       </div>`;
     const inp = document.getElementById(`youtube-url-${instansId}`);
     inp?.addEventListener('keydown', e => { if (e.key === 'Enter') settYoutubeUrlFraFelt(instansId); });
@@ -3962,19 +3960,19 @@ function renderYoutube(instansId) {
   const erLyd = data.modus === 'lyd';
   body.innerHTML = `
     <div class="youtube-modus">
-      <button class="yt-modus-knapp video ${erLyd ? '' : 'aktiv'}" onclick="settYoutubeModus('${instansId}','video')">▶ Video</button>
-      <button class="yt-modus-knapp lyd ${erLyd ? 'aktiv' : ''}" onclick="settYoutubeModus('${instansId}','lyd')">🎵 Kun lyd</button>
-      <button class="yt-bytt-lenke" onclick="byttYoutubeLenke('${instansId}')" title="Bytt lenke">↻</button>
+      <button class="yt-modus-knapp video ${erLyd ? '' : 'aktiv'}" data-klikk="youtube-modus" data-modus="video" data-id="${instansId}">▶ Video</button>
+      <button class="yt-modus-knapp lyd ${erLyd ? 'aktiv' : ''}" data-klikk="youtube-modus" data-modus="lyd" data-id="${instansId}">🎵 Kun lyd</button>
+      <button class="yt-bytt-lenke" data-klikk="youtube-bytt" data-id="${instansId}" title="Bytt lenke">↻</button>
     </div>
     <div class="youtube-media ${erLyd ? 'youtube-lyd' : ''}" id="youtube-media-${instansId}">
       <div id="youtube-player-${instansId}" class="youtube-player"></div>
       <div class="youtube-lyd-panel">
-        <button class="yt-spill" id="yt-spill-${instansId}" onclick="ytSpillPause('${instansId}')" title="Spill / pause">▶</button>
+        <button class="yt-spill" id="yt-spill-${instansId}" data-klikk="youtube-spill" data-id="${instansId}" title="Spill / pause">▶</button>
         <span class="yt-lyd-tittel" id="yt-tittel-${instansId}">🎵 Laster…</span>
         <span class="yt-volum-ikon" aria-hidden="true">🔊</span>
         <input type="range" class="yt-volum" id="yt-volum-${instansId}" min="0" max="100"
                value="${data.volum ?? 100}" title="Volum" aria-label="Volum"
-               oninput="settYoutubeVolum('${instansId}', this.value)">
+               data-input="youtube-volum" data-id="${instansId}">
       </div>
     </div>`;
   opprettYoutubePlayer(instansId, data.videoId, data.start || 0);
@@ -4578,6 +4576,78 @@ async function slettAlleData() {
   try { indexedDB.deleteDatabase('klasserom'); } catch (_) {}
   location.reload();
 }
+
+// ===================== Hendelser fra HTML (uten inline-kode) =====================
+// HTML-en inneholder ingen onclick="..." eller lignende. Elementene sier i stedet hva de
+// gjør med data-attributter, f.eks. <button data-klikk="fjern-elev" data-idx="3">, og
+// lytterne under slår opp i lister over TILLATTE handlinger. Det gir to ting:
+//  - CSP-en kan forby inline-skript ('unsafe-inline'), så nettleseren nekter å kjøre
+//    kode som skulle snike seg inn i HTML-en, f.eks. <img onerror="...">.
+//  - Et data-attributt kan bare utløse en handling som står i lista, aldri en vilkårlig
+//    funksjon.
+// Lytterne ligger i capture-fasen (true), fordi enkelte menyer stopper klikk fra å boble
+// videre (stopPropagation). Da ville en vanlig lytter på document aldri sett dem.
+
+const KLIKK_HANDLINGER = {
+  'tilbakemelding':       () => åpneTilbakemeldingModal(),
+  'lukk-tilbakemelding':  () => { document.getElementById('feedback-modal').style.display = 'none'; },
+  'begrensning':          () => åpneBegrensningModal(),
+  'skjul-widget':         el => toggleWidgetSynlighet(el.dataset.widget, false),
+  'rediger-elev':         el => startRedigerElev(Number(el.dataset.idx)),
+  'fjern-elev':           el => fjernElev(Number(el.dataset.idx)),
+  'rediger-dagsplan':     el => startRedigerDagsplan(Number(el.dataset.idx)),
+  'dagsplan-ferdig':      el => toggleDagsplanFerdig(Number(el.dataset.idx)),
+  'fjern-dagsplan':       el => fjernDagsplan(Number(el.dataset.idx)),
+  'ny-notat':             () => leggTilNotat(),
+  'ny-bilde':             () => leggTilBilde(),
+  'ny-youtube':           () => leggTilYoutube(),
+  'fjern-notat':          el => fjernNotat(el.dataset.id),
+  'fjern-bilde-widget':   el => fjernBildeWidget(el.dataset.id),
+  'fjern-bilde-data':     el => fjernBildeData(el.dataset.id),
+  'fjern-youtube-widget': el => fjernYoutubeWidget(el.dataset.id),
+  'youtube-vis':          el => settYoutubeUrlFraFelt(el.dataset.id),
+  'youtube-modus':        el => settYoutubeModus(el.dataset.id, el.dataset.modus === 'lyd' ? 'lyd' : 'video'),
+  'youtube-bytt':         el => byttYoutubeLenke(el.dataset.id),
+  'youtube-spill':        el => ytSpillPause(el.dataset.id),
+};
+const ENDRING_HANDLINGER = {
+  'widget-synlig':  el => toggleWidgetSynlighet(el.dataset.widget, el.checked),
+  'last-opp-bilde': el => lastOppBilde(el, el.dataset.id),
+};
+const INPUT_HANDLINGER = {
+  'youtube-volum': el => settYoutubeVolum(el.dataset.id, el.value),
+};
+// Skrivefelt for inline-redigering: Enter og «mistet fokus» lagrer, Esc avbryter.
+const REDIGERING = {
+  elev:     { lagre: (i, v) => lagreRedigerElev(i, v),     avbryt: () => avbrytRedigerElev() },
+  dagsplan: { lagre: (i, v) => lagreRedigerDagsplan(i, v), avbryt: () => avbrytRedigerDagsplan() },
+};
+
+function kobleHendelse(type, attributt, handlinger) {
+  document.addEventListener(type, e => {
+    const el = e.target.closest?.(`[${attributt}]`);
+    if (!el) return;
+    const handling = handlinger[el.getAttribute(attributt)];
+    if (handling) handling(el, e);
+  }, true);
+}
+kobleHendelse('click',  'data-klikk',   KLIKK_HANDLINGER);
+kobleHendelse('change', 'data-endring', ENDRING_HANDLINGER);
+kobleHendelse('input',  'data-input',   INPUT_HANDLINGER);
+
+document.addEventListener('keydown', e => {
+  const el = e.target.closest?.('[data-rediger]');
+  const r = el && REDIGERING[el.dataset.rediger];
+  if (!r) return;
+  if (e.key === 'Enter') r.lagre(Number(el.dataset.idx), el.value);
+  else if (e.key === 'Escape') r.avbryt();
+}, true);
+// blur bobler ikke, men focusout gjør det.
+document.addEventListener('focusout', e => {
+  const el = e.target.closest?.('[data-rediger]');
+  const r = el && REDIGERING[el.dataset.rediger];
+  if (r) r.lagre(Number(el.dataset.idx), el.value);
+}, true);
 
 // Starter appen, og fanger det hvis oppstarten krasjer. Uten dette ville en feil i
 // lagret data gitt en død side der verken menyer, eksport eller nullstilling virker.

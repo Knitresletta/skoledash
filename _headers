@@ -6,8 +6,13 @@
 # skulle sniket seg inn (f.eks. via en manipulert backupfil), kan det bare snakke med
 # værtjenestene og posisjonsoppslaget, ikke sende elevdata til en fremmed server.
 #
-# Midlertidig, ryddes når koden er strammet inn:
-#  - 'unsafe-inline' i script-src: index.html og app.js bruker onclick="..." i HTML.
+# script-src 'self': bare app.js fra skoledash.app kjører. Inline-skript (onclick="...",
+# <script> uten src, <img onerror=...>) nektes av nettleseren. Appen kobler derfor alle
+# hendelser med data-klikk / data-endring / data-input og lytterne i app.js. Ikke legg
+# onclick="..." inn i HTML igjen, da slutter knappen å virke.
+#
+# style-src har fortsatt 'unsafe-inline' (style="..." i HTML og <style> i vilkar.html).
+# Det er langt mindre risikabelt enn inline-skript.
 #
 # YouTube: appen laster ikke YouTube sitt skript. Videoen vises i en iframe fra
 # youtube-nocookie.com (frame-src) og styres med postMessage. Ikke legg
@@ -20,7 +25,7 @@
 # Referrer-Policy kan ikke være no-referrer: YouTube-innbygging krever Referer.
 
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' data: https://api.met.no https://air-quality-api.open-meteo.com https://geocoding-api.open-meteo.com https://api.bigdatacloud.net; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' data: https://api.met.no https://air-quality-api.open-meteo.com https://geocoding-api.open-meteo.com https://api.bigdatacloud.net; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=(self), payment=(), usb=(), serial=(), bluetooth=(), hid=(), midi=()
