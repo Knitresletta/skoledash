@@ -74,11 +74,13 @@ const STANDARD_STØRRELSE = {
   terning: [26, 34], timer: [26, 32], dagsplan: [34, 50], elever: [26, 70],
   grupper: [34, 45], notat: [30, 35], bilde: [28, 38], youtube: [34, 45],
 };
-// Hvor stor andel av en gammel kolonne hvert kort fikk ved migreringen. Grovt sett
-// hvor høyt kortet pleide å være i kolonneoppsettet.
+// Hvor stor andel av en gammel kolonne hvert kort fikk ved migreringen: omtrent hvor
+// høyt kortet er naturlig, i hundre piksler (klokka med urskive og tall er ca. 320).
+// Voksende kort (elever, dagsplan, grupper, notat) tilpasser seg innholdet etterpå
+// uansett, så for dem er dette bare et utgangspunkt.
 const HØYDEVEKT = {
-  klokke: 1, tilfeldig: 1.3, ordenselev: 1.3, ulv: 1.2, terning: 1.3, timer: 1.3,
-  dagsplan: 2.2, elever: 2.6, grupper: 1.8, notat: 1.6, bilde: 1.6, youtube: 1.8,
+  klokke: 3.2, tilfeldig: 1.6, ordenselev: 1.6, ulv: 1.6, terning: 2.6, timer: 2.1,
+  dagsplan: 2.5, elever: 3.5, grupper: 1.8, notat: 1.8, bilde: 2, youtube: 2.5,
 };
 
 // Guidekortene nye brukere møter på et tomt bord, ett ved hver meny. De er vanlige
@@ -2053,6 +2055,7 @@ function gyldigPlassering(w) {
     b, h,
     z: Number.isInteger(w.z) && w.z > 0 ? w.z : 1,
     ...(w.fast === true && { fast: true }),
+    ...(w.anker === 'bunn' && { anker: 'bunn' }),
   };
 }
 
@@ -2196,6 +2199,7 @@ function applyLayout() {
     if (!w || skjult.includes(card.id)) { plass.style.display = 'none'; return; }
     plass.style.display = '';
     settPlassStil(plass, w);
+    følgInnhold(card);
   });
   settStabelRekkefølge();
 
@@ -2208,8 +2212,11 @@ function applyLayout() {
 // endret størrelsen (w.fast). Da blir klokka akkurat så høy som urskive og tall
 // krever, både på en liten laptop og på en stor tavle, i stedet for en fast prosent
 // som er for lite på den ene og for mye på den andre.
-// Kort som står helt nede, beholder bunnkanten; ellers står toppkanten fast.
-function tilpassHøyde(w) {
+// Kort som står helt nede (og ikke fra toppen), beholder bunnkanten; ellers står
+// toppkanten fast. Med { flytt: false } står toppen alltid fast, og kortet stopper ved
+// bunnen av flata i stedet for å skyves opp. Det brukes når høyden følger innholdet
+// (følgInnhold), så kortet ikke vandrer mens læreren skriver eller legger til elever.
+function tilpassHøyde(w, { flytt = true } = {}) {
   if (w.fast || smalSkjerm()) return;
   const card = document.getElementById(w.id);
   const plass = card?.parentElement;
@@ -2225,11 +2232,92 @@ function tilpassHøyde(w) {
   plass.style.height = før;
 
   const [, minH] = MIN_STØRRELSE[kortType(w.id)] ?? [160, 100];
-  const h = rundPst(klampTall(Math.max(innhold, minH) / flateH * 100, 5, 100));
-  const iBunnen = w.y + w.h >= 99;
-  w.y = iBunnen ? rundPst(Math.max(0, 100 - h)) : Math.min(w.y, rundPst(100 - h));
+  let h = rundPst(klampTall(Math.max(innhold, minH) / flateH * 100, 5, 100));
+  let nyY;
+  if (!flytt) {
+    // Kortet får vokse i den ledige plassen mellom kortet over og kortet under (med
+    // vanlig luft), eller flatekantene. Ellers ville en lang elevliste lagt seg over
+    // nabokortene.
+    //  - Er det plass under, vokser det nedover (toppen står fast).
+    //  - Er det stopp under, vokser det oppover så langt det er plass.
+    //  - Står kortet mot det under, holder det bunnkanten også når det krymper, så
+    //    det ikke slipper taket og etterlater et tomrom.
+    const side = aktivSide();
+    const luft = AVSTAND_PX / flateH * 100;
+    const naboer = side.widget_layout.filter(o => o !== w && !side.widget_hidden.includes(o.id) &&
+      o.x < w.x + w.b && w.x < o.x + o.b);                       // overlapper i bredden
+    const bunnGrense = naboer
+      .filter(o => o.y >= w.y + w.h - 0.5)                        // står under
+      .reduce((min, o) => Math.min(min, o.y - luft), 100);
+    const toppGrense = naboer
+      .filter(o => o.y + o.h <= w.y + 0.5)                        // står over
+      .reduce((maks, o) => Math.max(maks, o.y + o.h + luft), 0);
+    const ledig = bunnGrense - toppGrense;
+    h = rundPst(Math.min(h, Math.max(ledig, 5)));
+    // Ankeret sier hvilken kant som står fast når kortet krymper. Rører kortet bare
+    // det under, er det «bunn»; ellers «topp». Rører det begge (det har fylt hele
+    // plassen), vet vi ikke ut fra posisjonen, så da gjelder ankeret det hadde før.
+    const motBunnen = w.y + w.h >= bunnGrense - 0.5;
+    const motToppen = w.y <= toppGrense + 0.5;
+    const anker = motBunnen && motToppen ? (w.anker ?? 'topp') : (motBunnen ? 'bunn' : 'topp');
+    nyY = anker === 'bunn' || w.y + h > bunnGrense ? bunnGrense - h : w.y;
+    nyY = rundPst(klampTall(nyY, toppGrense, Math.max(toppGrense, bunnGrense - h)));
+    if (anker === 'bunn') w.anker = 'bunn'; else delete w.anker;
+  } else {
+    const iBunnen = w.y > 1 && w.y + w.h >= 99;
+    nyY = iBunnen ? rundPst(Math.max(0, 100 - h)) : Math.min(w.y, rundPst(100 - h));
+  }
+  if (Math.abs(h - w.h) < 0.05 && Math.abs(nyY - w.y) < 0.05) return false;
   w.h = h;
+  w.y = nyY;
   settPlassStil(plass, w);
+  return true;
+}
+
+// ===================== Høyde som følger innholdet =====================
+// Widgets med voksende innhold (elever, dagsplan, grupper, notat) får høyden til å
+// følge innholdet så lenge læreren ikke selv har satt størrelsen (w.fast). En ny elev
+// gjør kortet høyere, en slettet gjør det lavere. Er det stopp under, vokser det
+// oppover (se tilpassHøyde). Når det ikke er mer ledig plass, stopper det, og
+// innholdet scroller.
+//
+// Vi observerer barna i kortet med ResizeObserver: de er så høye som innholdet sitt,
+// også når kortet scroller, så de endrer størrelse når innholdet gjør det. Under et
+// drag (pågårOperasjon) står vi over, ellers ville tilpasningen slåss med læreren.
+const FØLGER_INNHOLD = ['elever', 'dagsplan', 'grupper', 'notat'];
+let pågårOperasjon = false;
+const observerteKort = new WeakSet();
+let følgerVenter = new Set();
+let følgerPlanlagt = false;
+
+const følgerObserver = new ResizeObserver(oppføringer => {
+  oppføringer.forEach(o => {
+    const card = o.target.closest('.card');
+    if (card) følgerVenter.add(card.id);
+  });
+  if (følgerPlanlagt) return;
+  følgerPlanlagt = true;
+  requestAnimationFrame(() => {
+    følgerPlanlagt = false;
+    const ider = følgerVenter;
+    følgerVenter = new Set();
+    if (pågårOperasjon || smalSkjerm()) return;
+    let endret = false;
+    ider.forEach(id => {
+      const w = aktivSide().widget_layout.find(x => x.id === id);
+      if (w && !w.fast) endret = tilpassHøyde(w, { flytt: false }) || endret;
+    });
+    if (endret) saveState();
+  });
+});
+
+// Starter observasjonen for et kort med voksende innhold (én gang per kort).
+function følgInnhold(card) {
+  if (observerteKort.has(card) || !FØLGER_INNHOLD.includes(kortType(card.id))) return;
+  observerteKort.add(card);
+  [...card.children]
+    .filter(el => !el.classList.contains('kl-widget-close'))
+    .forEach(el => følgerObserver.observe(el));
 }
 
 // ===================== Skalering med kortet =====================
@@ -2407,6 +2495,7 @@ function startOperasjon(e, plass, id, kant) {
 
   const begynn = () => {
     i_gang = true;
+    pågårOperasjon = true;
     try { flate.setPointerCapture(pekerId); } catch { /* pekeren kan være borte */ }
     plass.classList.add('kl-aktiv');
     document.body.classList.add(kant ? 'kl-endrer-storrelse' : 'kl-flytter');
@@ -2483,6 +2572,7 @@ function startOperasjon(e, plass, id, kant) {
     document.removeEventListener('pointerup', vedSlipp);
     document.removeEventListener('pointercancel', vedSlipp);
     if (!i_gang) return; // bare et klikk i overskrifta
+    pågårOperasjon = false;
     plass.classList.remove('kl-aktiv');
     document.body.classList.remove('kl-flytter', 'kl-endrer-storrelse');
     visHjelpelinjer(null, null);
@@ -2493,6 +2583,7 @@ function startOperasjon(e, plass, id, kant) {
     w.h = rundPst(r.h / H * 100);
     w.col = Math.min(3, Math.floor(w.x / 33.4) + 1);
     if (kant) w.fast = true; // læreren har valgt størrelsen selv: ikke tilpass mer
+    delete w.anker;          // ny plass: ankeret regnes ut på nytt fra posisjonen
     settPlassStil(plass, w); // tilbake til prosent
     settStabelRekkefølge();
     saveState();
@@ -2766,6 +2857,7 @@ const OPPDATERINGSLOGG_HTML = `
       <li><strong>Oppsettet ditt er tatt vare på:</strong> kortene står omtrent der de sto i kolonnene da du sist brukte Skoledash</li>
       <li><strong>Et kort du skrur av og på igjen, kommer tilbake der det sto,</strong> så sant plassen er ledig. Ellers havner det på første ledige plass</li>
       <li><strong>Innholdet vokser med kortet:</strong> drar du klokka, timeren, tilfeldig elev, ordenselever, klassebamsen eller terningen større, blir tall, urskive og knapper større også. Disse seks har derfor ikke lenger egen prosent under <strong>📏 Skriftstørrelse → Enkelt widget</strong></li>
+      <li><strong>Elevlista, dagsplanen, gruppene og notatene vokser med innholdet:</strong> nedover, og oppover når det er stopp under, så langt det er ledig plass. Har du selv satt størrelsen, blir den stående</li>
       <li><strong>Klokka kan vise analog, digital eller begge:</strong> klikk på overskriften i klokkekortet for å bytte</li>
       <li><strong>Nye brukere møter et tomt bord</strong> med tre små guidekort som forklarer Skoledash-menyen, ⊞ Widgets og hurtigtastene. Klokka står nå nederst til venstre når du henter den fram, og er høy nok til at både urskiva og tallene synes</li>
     </ul>
@@ -3247,6 +3339,7 @@ const BRUKERVEILEDNING_HTML = `
   <h4>Tilpasse layouten</h4>
   <p><strong>Flytte et kort:</strong> ta tak i overskriften på kortet og dra det dit du vil. Kortene kan ligge hvor som helst på skjermen, også delvis oppå hverandre. Kortet du tar i, legger seg øverst.</p>
   <p><strong>Endre størrelse:</strong> dra i en kant eller et hjørne av kortet. Er innholdet større enn kortet, kan du scrolle inni det.</p>
+  <p><strong>Kort som vokser selv:</strong> elever, dagsplan, grupper og notat blir høyere når innholdet vokser og lavere når det krymper. De vokser nedover, og er det stopp under (et annet kort eller bunnen av skjermen), vokser de oppover så langt det er plass. Er det ikke mer plass, scroller de. Har du selv dratt i størrelsen på et slikt kort, står det slik du satte det.</p>
   <p><strong>Magnetiske kanter:</strong> når en kant kommer nær kanten av skjermen eller et annet kort, smekker den på plass, og en blå linje viser hva den festet seg til. Da blir det lett å få kortene på rad. Hold <kbd>Alt</kbd> mens du drar hvis du vil plassere helt fritt.</p>
   <p><strong>Samme oppsett på tavla:</strong> plassering og størrelse huskes som andeler av skjermen, ikke i piksler. Lager du oppsettet på laptopen, ser det likt ut på tavla, bare større. Oppsettet lagres per side.</p>
   <p><strong>Fjerne et kort:</strong> hold musen over kortet og klikk <strong>✕</strong> øverst i høyre hjørne. Faste widgets (elever, grupper, trekk, timer, dagsplan) blir bare skjult — du henter dem tilbake i <strong>⊞ Widgets</strong>-menyen. Notat- og bildekort slettes helt.</p>

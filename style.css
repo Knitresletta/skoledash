@@ -2207,7 +2207,9 @@ textarea[id^="notat-textarea"]:focus {
     min-height: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    /* safe: er innholdet større enn kortet, legges det i toppen i stedet for å flyte
+       over i begge retninger (da kan ikke toppen scrolles fram). */
+    justify-content: safe center;
     gap: 10px;
 }
 @media (max-width: 960px) {
