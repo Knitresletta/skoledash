@@ -140,6 +140,7 @@ function defaultState() {
     timer_varighet:      300,
     tema: 'lyst',
     font: 'system',
+    språk: 'nb',          // 'nb' (bokmål) eller 'nn' (nynorsk). Nynorsk-tekstene ligger i tekster.js
     skrift_størrelse: 'normal',
     widget_størrelser: {},
     vær_sted:            { ...STANDARD_VÆR_STED }, // sted for vær + pollen (delt av alle sider)
@@ -372,6 +373,7 @@ function normaliserState(s) {
   if (typeof s.tema !== 'string') s.tema = 'lyst';  // settTema() sjekker mot gyldige temaer
   if (typeof s.font !== 'string') s.font = 'system'; // settFont() sjekker mot FONTER
   if (typeof s.eksport_signatur !== 'string') s.eksport_signatur = null;
+  if (s.språk !== 'nn') s.språk = 'nb';
   return s;
 }
 
@@ -546,7 +548,10 @@ function saveState() {
 // Formaterer dagens dato på norsk, f.eks. «mandag 12. mai 2025».
 function norskDato() {
   const d = new Date();
-  return `${UKEDAGER[d.getDay()]} ${d.getDate()}. ${MÅNEDER[d.getMonth()]} ${d.getFullYear()}`;
+  const nn = state.språk === 'nn';
+  const dager = nn ? UKEDAGER_NN : UKEDAGER;
+  const mnd   = nn ? MÅNEDER_NN  : MÅNEDER;
+  return `${dager[d.getDay()]} ${d.getDate()}. ${mnd[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 // Skriver dagens dato inn i toppteksten. Kalles ved oppstart og hvert minutt.
@@ -617,7 +622,11 @@ function pollenSammendrag() {
     if (!verst || nivå > verst.nivå) verst = { navn: art.navn, nivå };
   }
   if (!verst) return null;
-  return verst.nivå === 0 ? 'Lavt' : `${verst.navn} – ${POLLEN_NIVÅER[verst.nivå]}`;
+  // Returnerer både tekst og om nivået er høyt, så fargen ikke avhenger av ordet
+  // («høyt» på bokmål, «høgt» på nynorsk).
+  return verst.nivå === 0
+    ? { tekst: t('Lavt'), høyt: false }
+    : { tekst: `${t(verst.navn)} – ${t(POLLEN_NIVÅER[verst.nivå])}`, høyt: verst.nivå === 3 };
 }
 
 // Tegner været i toppteksten: symbol, temperatur og stedsnavn. Detaljene ligger i
@@ -632,7 +641,7 @@ function renderVær() {
   if (header) {
     header.textContent = d
       ? `${yrEmoji(d.next_1_hours?.summary.symbol_code ?? 'cloudy')} ${Math.round(d.instant.details.air_temperature)}°C  ${sted.navn}`
-      : '⏳ Henter vær…';
+      : t('⏳ Henter vær…');
   }
 
   const popup = document.getElementById('vær-popup');
@@ -676,25 +685,25 @@ function tegnVærPopup() {
 
   // Uten værdata viser vi likevel stedskontrollene — ellers ville popupen vært tom, og
   // brukeren sittet fast på feil sted uten mulighet til å bytte.
-  const detaljer = !nå ? '<div class="vær-tom">Fikk ikke tak i værvarselet</div>' : `
+  const detaljer = !nå ? `<div class="vær-tom">${t('Fikk ikke tak i værvarselet')}</div>` : `
     <div class="vær-hoved">
       <span class="vær-hoved-emoji">${yrEmoji(nå.next_1_hours?.summary.symbol_code ?? 'cloudy')}</span>
       <span class="vær-hoved-temp">${Math.round(nå.instant.details.air_temperature)}°C</span>
     </div>
     <div class="vær-nå">
-      <div class="vær-rad"><span>💨 Vind</span><strong>${Math.round(nå.instant.details.wind_speed)} m/s</strong></div>
-      <div class="vær-rad"><span>🌧 Nedbør (6 t)</span><strong>${nedbørTekst(nå)}</strong></div>
-      <div class="vær-rad"><span>🌿 Pollen</span><strong class="${pollen?.endsWith('høyt') ? 'pollen-hoyt' : ''}">${pollen ?? '–'}</strong></div>
-      <div class="vær-rad"><span>💧 Luftfuktighet</span><strong>${Math.round(nå.instant.details.relative_humidity)}%</strong></div>
-      <div class="vær-rad"><span>🌡 Lufttrykk</span><strong>${Math.round(nå.instant.details.air_pressure_at_sea_level)} hPa</strong></div>
+      <div class="vær-rad"><span>${t('💨 Vind')}</span><strong>${Math.round(nå.instant.details.wind_speed)} m/s</strong></div>
+      <div class="vær-rad"><span>${t('🌧 Nedbør (6 t)')}</span><strong>${nedbørTekst(nå)}</strong></div>
+      <div class="vær-rad"><span>${t('🌿 Pollen')}</span><strong class="${pollen?.høyt ? 'pollen-hoyt' : ''}">${pollen?.tekst ?? '–'}</strong></div>
+      <div class="vær-rad"><span>${t('💧 Luftfuktighet')}</span><strong>${Math.round(nå.instant.details.relative_humidity)}%</strong></div>
+      <div class="vær-rad"><span>${t('🌡 Lufttrykk')}</span><strong>${Math.round(nå.instant.details.air_pressure_at_sea_level)} hPa</strong></div>
     </div>
     <div class="vær-timer">
-      ${ts.slice(0, 8).map(t => {
-        const nedbør = t.data.next_1_hours?.details.precipitation_amount ?? 0;
+      ${ts.slice(0, 8).map(punkt => {
+        const nedbør = punkt.data.next_1_hours?.details.precipitation_amount ?? 0;
         return `<div class="vær-time-kort">
-          <span class="vær-time-tid">${new Date(t.time).toLocaleTimeString('no', { hour: '2-digit', minute: '2-digit' })}</span>
-          <span class="vær-time-emoji">${yrEmoji(t.data.next_1_hours?.summary.symbol_code ?? 'cloudy')}</span>
-          <span class="vær-time-temp">${Math.round(t.data.instant.details.air_temperature)}°</span>
+          <span class="vær-time-tid">${new Date(punkt.time).toLocaleTimeString('no', { hour: '2-digit', minute: '2-digit' })}</span>
+          <span class="vær-time-emoji">${yrEmoji(punkt.data.next_1_hours?.summary.symbol_code ?? 'cloudy')}</span>
+          <span class="vær-time-temp">${Math.round(punkt.data.instant.details.air_temperature)}°</span>
           ${nedbør > 0 ? `<span class="vær-time-nedbør">${nedbør}mm</span>` : '<span></span>'}
         </div>`;
       }).join('')}
@@ -703,12 +712,12 @@ function tegnVærPopup() {
   popup.innerHTML = `
     <div class="vær-sted-topp">
       <span class="vær-sted-navn">📍 ${esc(sted.navn)}</span>
-      <span class="vær-sted-kilde">${STEDSKILDE_TEKST[sted.kilde] ?? ''}</span>
+      <span class="vær-sted-kilde">${t(STEDSKILDE_TEKST[sted.kilde] ?? '')}</span>
     </div>
     ${detaljer}
     <div class="vær-sted-verktøy">
-      <button class="btn btn-ghost btn-sm w-full" id="btn-vær-posisjon">📍 Bruk min posisjon</button>
-      <input type="text" id="input-vær-sted" placeholder="…eller søk etter et sted" autocomplete="off">
+      <button class="btn btn-ghost btn-sm w-full" id="btn-vær-posisjon">${t('📍 Bruk min posisjon')}</button>
+      <input type="text" id="input-vær-sted" placeholder="${t('…eller søk etter et sted')}" autocomplete="off">
       <div id="vær-sted-treff" class="vær-sted-treff"></div>
     </div>`;
 
@@ -747,7 +756,7 @@ function terningSVG(verdi, sider) {
     : `<text class="terning-tall" x="50" y="${sider === 4 ? 64 : 52}">${verdi}</text>`;
 
   return `<span class="terning-flate"><svg viewBox="0 0 100 100" role="img"
-            aria-label="Terning viser ${verdi}">${flate}${innhold}</svg></span>`;
+            aria-label="${t('Terning viser {verdi}', { verdi })}">${flate}${innhold}</svg></span>`;
 }
 
 // Tegner terningene, summen og antallet. `ruller` skrur på vrikke-klassen som brukes
@@ -780,7 +789,7 @@ function renderTerningType() {
   if (!rad) return;
   rad.innerHTML = TERNING_TYPER.map(n =>
     `<button class="terning-type-knapp${n === state.terning_type ? ' aktiv' : ''}"
-             data-sider="${n}" title="Bytt til d${n}">d${n}</button>`).join('');
+             data-sider="${n}" title="${t('Bytt til d{n}', { n })}">d${n}</button>`).join('');
   rad.querySelectorAll('.terning-type-knapp').forEach(btn => {
     btn.onclick = () => settTerningType(Number(btn.dataset.sider));
   });
@@ -893,13 +902,14 @@ function setupKlokke() {
 // som står bom på 9 når klokka er 09:55 er nettopp det elevene lærer å lese feil.
 function oppdaterKlokke() {
   const d = new Date();
-  const t = d.getHours(), m = d.getMinutes(), s = d.getSeconds();
+  // Ikke kall variabelen t: det er navnet på oversettelsesfunksjonen t().
+  const tim = d.getHours(), m = d.getMinutes(), s = d.getSeconds();
 
   const digital = document.getElementById('klokke-digital');
   if (!digital) return; // kortet er slått av for denne siden
-  digital.textContent = `${String(t).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  digital.textContent = `${String(tim).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 
-  settViser('klokke-viser-time',   (t % 12) * 30 + m * 0.5);
+  settViser('klokke-viser-time',   (tim % 12) * 30 + m * 0.5);
   settViser('klokke-viser-minutt', m * 6 + s * 0.1);
   settViser('klokke-viser-sekund', s * 6);
 }
@@ -926,7 +936,7 @@ async function hentPosisjon(påBegjæring = false) {
 
   if (!navigator.geolocation || !window.isSecureContext) {
     if (påBegjæring) {
-      notify('Posisjon krever at siden åpnes over https (eller localhost)', 'warning');
+      notify(t('Posisjon krever at siden åpnes over https (eller localhost)'), 'warning');
     }
     return;
   }
@@ -938,11 +948,11 @@ async function hentPosisjon(påBegjæring = false) {
     const lon = rundPosisjon(pos.coords.longitude);
     state.vær_sted = { navn: await stedsnavnFor(lat, lon), lat, lon, kilde: 'posisjon' };
     saveState();
-    if (påBegjæring) notify(`Værvarsel hentes nå for ${state.vær_sted.navn}`);
+    if (påBegjæring) notify(t('Værvarsel hentes nå for {sted}', { sted: state.vær_sted.navn }));
     await hentVær();
   } catch (_) {
     // Avslag, tidsavbrudd eller ingen posisjonstjeneste — vi blir der vi er.
-    if (påBegjæring) notify('Fikk ikke tak i posisjonen din', 'warning');
+    if (påBegjæring) notify(t('Fikk ikke tak i posisjonen din'), 'warning');
   }
 }
 
@@ -954,9 +964,9 @@ async function stedsnavnFor(lat, lon) {
   try {
     const d = await hentJson(
       `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=no`);
-    return d.city || d.locality || d.principalSubdivision || 'Min posisjon';
+    return d.city || d.locality || d.principalSubdivision || t('Min posisjon');
   } catch (_) {
-    return 'Min posisjon';
+    return t('Min posisjon');
   }
 }
 
@@ -969,14 +979,14 @@ async function søkSted() {
   const treff = document.getElementById('vær-sted-treff');
   if (!navn) return;
 
-  treff.innerHTML = '<div class="vær-sted-tom">Søker…</div>';
+  treff.innerHTML = `<div class="vær-sted-tom">${t('Søker…')}</div>`;
   try {
     const data = await hentJson(
       `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(navn)}&count=6&language=no&format=json`
     );
     stedsTreff = data.results ?? [];
     if (!stedsTreff.length) {
-      treff.innerHTML = '<div class="vær-sted-tom">Fant ingen steder med det navnet</div>';
+      treff.innerHTML = `<div class="vær-sted-tom">${t('Fant ingen steder med det navnet')}</div>`;
       return;
     }
     treff.innerHTML = stedsTreff.map((r, i) => {
@@ -991,7 +1001,7 @@ async function søkSted() {
       btn.onclick = () => velgSted(stedsTreff[Number(btn.dataset.i)]);
     });
   } catch (_) {
-    treff.innerHTML = '<div class="vær-sted-tom">Søket feilet — sjekk nettforbindelsen</div>';
+    treff.innerHTML = `<div class="vær-sted-tom">${t('Søket feilet — sjekk nettforbindelsen')}</div>`;
   }
 }
 
@@ -1006,7 +1016,7 @@ function velgSted(r) {
     kilde: 'valgt',
   };
   saveState();
-  notify(`Værvarsel hentes nå for ${state.vær_sted.navn}`);
+  notify(t('Værvarsel hentes nå for {sted}', { sted: state.vær_sted.navn }));
   hentVær();
 }
 
@@ -1028,18 +1038,18 @@ function leggTilElev(navn) {
   if (!navn) return;
   const s = aktivSide();
   if (s.elever.length >= 35) {
-    notify('Klasselisten er full (maks 35 elever)', 'warning');
+    notify(t('Klasselisten er full (maks 35 elever)'), 'warning');
     return false;
   }
   if (s.elever.some(e => e.toLowerCase() === navn.toLowerCase())) {
-    notify(`${navn} er allerede inne`, 'warning');
+    notify(t('{navn} er allerede inne', { navn }), 'warning');
     return false;
   }
   s.elever = [...s.elever, navn];
   saveState();
   renderElever();
   renderAlleTrekk();
-  notify(`✓ ${navn} lagt til`);
+  notify(t('✓ {navn} lagt til', { navn }));
   return true;
 }
 
@@ -1087,10 +1097,10 @@ function renderElever() {
   const antall  = s.elever.length;
 
   document.getElementById('elev-antall').textContent = antall;
-  document.getElementById('elev-tekst').textContent  = antall === 1 ? 'elev inne' : 'elever inne';
+  document.getElementById('elev-tekst').textContent  = antall === 1 ? t('elev inne') : t('elever inne');
 
   if (!antall) {
-    liste.innerHTML = '<p class="tom-tekst">Ingen elever inne ennå.<br>Trykk "+ Legg til elev" for å starte.</p>';
+    liste.innerHTML = `<p class="tom-tekst">${t('Ingen elever inne ennå.')}<br>${t('Trykk "+ Legg til elev" for å starte.')}</p>`;
     return;
   }
 
@@ -1109,13 +1119,13 @@ function renderElever() {
     const navnHtml = i === redigerElevIdx
       ? `<input class="elev-rediger-input" type="text" maxlength="60" value="${esc(navn)}"
             data-rediger="elev" data-idx="${i}">`
-      : `<span class="elev-navn${harGruppe ? ' gruppe-farget' : ''}"${harGruppe ? ` style="--gf:${farge}"` : ''} data-klikk="rediger-elev" data-idx="${i}" title="Klikk for å redigere">${esc(navn)}</span>`;
+      : `<span class="elev-navn${harGruppe ? ' gruppe-farget' : ''}"${harGruppe ? ` style="--gf:${farge}"` : ''} data-klikk="rediger-elev" data-idx="${i}" title="${t('Klikk for å redigere')}">${esc(navn)}</span>`;
     return `
       <div class="elev-item">
         <span class="elev-nr">${i + 1}.</span>
         ${harGruppe ? `<span class="elev-dot gruppe-farget" style="--gf:${farge}"></span>` : ''}
         ${navnHtml}
-        <button class="elev-slett" data-klikk="fjern-elev" data-idx="${i}" title="Fjern ${esc(navn)}">✕</button>
+        <button class="elev-slett" data-klikk="fjern-elev" data-idx="${i}" title="${t('Fjern {navn}', { navn: esc(navn) })}">✕</button>
       </div>`;
   }).join('');
   // Etter at lista er tegnet: fokuser redigeringsfeltet og marker teksten, så læreren
@@ -1165,7 +1175,7 @@ function endreElevNavn(idx, nyttNavn) {
   nyttNavn = storForbokstav(nyttNavn);
   if (!nyttNavn || nyttNavn === gammelt) { renderElever(); return; }
   if (s.elever.some((e, i) => i !== idx && e.toLowerCase() === nyttNavn.toLowerCase())) {
-    notify(`${nyttNavn} er allerede inne`, 'warning');
+    notify(t('{navn} er allerede inne', { navn: nyttNavn }), 'warning');
     renderElever();
     return;
   }
@@ -1176,7 +1186,7 @@ function endreElevNavn(idx, nyttNavn) {
   renderAlleTrekk();
   renderGrupper();
   renderBegrensninger();
-  notify(`✓ Endret til ${nyttNavn}`);
+  notify(t('✓ Endret til {navn}', { navn: nyttNavn }));
 }
 
 // Bytter alle forekomster av et elevnavn på siden: grupper, hver trekk-backlog og
@@ -1210,7 +1220,7 @@ function shuffle(arr) {
 // samme elev to ganger på rad (med mindre det bare er én elev inne).
 function trekkTilfeldig() {
   const s = aktivSide();
-  if (!s.elever.length) { notify('Ingen elever inne', 'error'); return; }
+  if (!s.elever.length) { notify(t('Ingen elever inne'), 'error'); return; }
   // Utelat forrige trukne fra utvalget, så vi ikke får samme navn igjen umiddelbart.
   const pool = s.elever.length > 1
     ? s.elever.filter(e => e !== s.tilfeldig_valgt)
@@ -1225,11 +1235,11 @@ function trekkTilfeldig() {
 // læreren nullstille. Forskjellen fra trekkTilfeldig er nettopp denne sporingen.
 function trekkTilfeldigBacklog() {
   const s = aktivSide();
-  if (!s.elever.length) { notify('Ingen elever inne', 'error'); return; }
+  if (!s.elever.length) { notify(t('Ingen elever inne'), 'error'); return; }
   // Trekk kun blant elever som ikke alt står i backlogen.
   const pool = s.elever.filter(e => !s.tilfeldig_backlog.includes(e));
   if (!pool.length) {
-    notify('Alle elever er trukket — nullstill for å starte på nytt', 'warning');
+    notify(t('Alle elever er trukket — nullstill for å starte på nytt'), 'warning');
     return;
   }
   s.tilfeldig_valgt = pool[Math.floor(Math.random() * pool.length)];
@@ -1245,12 +1255,12 @@ function trekkTilfeldigBacklog() {
 function trekkOrdenselev() {
   const s = aktivSide();
   if (s.elever.length < 2) {
-    notify(`Trenger minst 2 elever (${s.elever.length} inne)`, 'error');
+    notify(t('Trenger minst 2 elever ({antall} inne)', { antall: s.elever.length }), 'error');
     return;
   }
   let pool = s.elever.filter(e => !s.ordenselev_backlog.includes(e));
   if (!pool.length) {
-    notify('Alle elever har vært ordenselev — nullstill for å starte på nytt', 'warning');
+    notify(t('Alle elever har vært ordenselev — nullstill for å starte på nytt'), 'warning');
     return;
   }
   if (pool.length === 1) {
@@ -1278,15 +1288,15 @@ function trekkUlv() {
   const s = aktivSide();
   const pool = s.elever.filter(e => !s.ulv_backlog.includes(e));
   if (!pool.length) {
-    if (s.elever.length) notify('Alle elever har hatt bamsen — nullstill for å starte på nytt', 'warning');
-    else notify('Ingen elever inne', 'error');
+    if (s.elever.length) notify(t('Alle elever har hatt bamsen — nullstill for å starte på nytt'), 'warning');
+    else notify(t('Ingen elever inne'), 'error');
     return;
   }
   s.ulv_valgt = pool[Math.floor(Math.random() * pool.length)];
   if (!s.ulv_backlog.includes(s.ulv_valgt)) s.ulv_backlog.push(s.ulv_valgt);
   saveState();
   renderUlv();
-  notify(`${s.ulv_valgt} tar med ${s.ulv_navn.toLowerCase()} hjem!`);
+  notify(t('{elev} tar med {bamse} hjem!', { elev: s.ulv_valgt, bamse: s.ulv_navn.toLowerCase() }));
 }
 
 // Viser resultatet av tilfeldig-trekket (eller en oppfordring hvis ingen er trukket),
@@ -1300,11 +1310,11 @@ function renderTilfeldig() {
     vis.innerHTML   = `<div class="drawn-name">🙋 ${esc(s.tilfeldig_valgt)}</div>`;
   } else {
     vis.className   = 'draw-placeholder';
-    vis.textContent = 'Trykk Trekk for å velge en tilfeldig elev';
+    vis.textContent = t('Trykk Trekk for å velge en tilfeldig elev');
   }
   if (s.tilfeldig_backlog.length) {
     bl.className    = 'backlog-count';
-    bl.textContent  = `${s.tilfeldig_backlog.length} trukket (backlog)`;
+    bl.textContent  = t('{antall} trukket (backlog)', { antall: s.tilfeldig_backlog.length });
   } else {
     bl.className    = 'backlog-count hidden';
   }
@@ -1322,11 +1332,11 @@ function renderOrdenselev() {
     </div>`;
   } else {
     vis.className   = 'draw-placeholder';
-    vis.textContent = 'Trykk Trekk for å velge to ordenselever';
+    vis.textContent = t('Trykk Trekk for å velge to ordenselever');
   }
   if (s.ordenselev_backlog.length) {
     bl.className   = 'backlog-count';
-    bl.textContent = `${s.ordenselev_backlog.length} i backlog`;
+    bl.textContent = t('{antall} i backlog', { antall: s.ordenselev_backlog.length });
   } else {
     bl.className   = 'backlog-count hidden';
   }
@@ -1340,17 +1350,17 @@ function renderUlv() {
   const bl   = document.getElementById('ulv-backlog-count');
   const navn = s.ulv_navn || 'Klassebamse';
   document.querySelector('#card-ulv h2').textContent = navn;
-  document.getElementById('btn-ulv').textContent = `Trekk ${navn.toLowerCase()}`;
+  document.getElementById('btn-ulv').textContent = t('Trekk {bamse}', { bamse: navn.toLowerCase() });
   if (s.ulv_valgt) {
     vis.className = 'draw-result ulv-result';
     vis.innerHTML = `<div class="drawn-name">${esc(s.ulv_valgt)}</div>`;
   } else {
     vis.className   = 'draw-placeholder';
-    vis.textContent = `Trykk Trekk for å velge hvem som tar med ${navn.toLowerCase()} hjem`;
+    vis.textContent = t('Trykk Trekk for å velge hvem som tar med {bamse} hjem', { bamse: navn.toLowerCase() });
   }
   if (s.ulv_backlog.length) {
     bl.className   = 'backlog-count';
-    bl.textContent = `${s.ulv_backlog.length} i backlog`;
+    bl.textContent = t('{antall} i backlog', { antall: s.ulv_backlog.length });
   } else {
     bl.className   = 'backlog-count hidden';
   }
@@ -1397,7 +1407,7 @@ function timerTick() {
     timerInterval  = null;
     timerRemaining = 0;
     renderTimer();
-    notify('⏰ Tiden er ute!', 'warning');
+    notify(t('⏰ Tiden er ute!'), 'warning');
     spillPip();
     return;
   }
@@ -1424,7 +1434,7 @@ function timerSett(minutter) {
   timerRemaining = state.timer_varighet;
   saveState();
   renderTimer();
-  notify(`⏱️ Timer satt til ${minutter} min`);
+  notify(t('⏱️ Timer satt til {min} min', { min: minutter }));
 }
 
 // Oppdaterer hele timer-visningen: tallene (MM:SS), framdriftsbjelken, statustekst
@@ -1447,19 +1457,19 @@ function renderTimer() {
   bar.style.background = timerRunning ? 'var(--green)' : (timerRemaining === 0 ? 'var(--red)' : 'var(--primary)');
 
   if (timerRunning) {
-    status.textContent = '▶ Kjører';
+    status.textContent = t('▶ Kjører');
     status.style.color = 'var(--green)';
-    btnToggle.textContent = '⏸ Stopp';
+    btnToggle.textContent = t('⏸ Stopp');
     btnToggle.style.background = 'var(--amber)';
   } else if (timerRemaining === 0) {
-    status.textContent = '⏹ Ferdig!';
+    status.textContent = t('⏹ Ferdig!');
     status.style.color = 'var(--red)';
-    btnToggle.textContent = '↺ Start på nytt';
+    btnToggle.textContent = t('↺ Start på nytt');
     btnToggle.style.background = '';
   } else {
-    status.textContent = '⏸ Pauset';
+    status.textContent = t('⏸ Pauset');
     status.style.color = 'var(--muted)';
-    btnToggle.textContent = '▶ Start';
+    btnToggle.textContent = t('▶ Start');
     btnToggle.style.background = '';
   }
 }
@@ -1498,15 +1508,15 @@ function lagNotatElement(instansId) {
   div.className = 'card';
   div.id = `card-${instansId}`;
   div.innerHTML = `
-    <button class="kl-widget-close" data-klikk="fjern-notat" data-id="${instansId}" title="Slett dette notatet">✕</button>
+    <button class="kl-widget-close" data-klikk="fjern-notat" data-id="${instansId}" title="${t('Slett dette notatet')}">✕</button>
     <div class="card-header">
-      <span class="drag-handle" title="Dra for å flytte">⠿</span>
-      <h2>📝 Notat</h2>
+      <span class="drag-handle" title="${t('Dra for å flytte')}">⠿</span>
+      <h2>${t('📝 Notat')}</h2>
       <div class="card-controls">
-        <button class="btn btn-ghost btn-sm btn-icon" id="btn-notat-kursiv-${instansId}" title="Kursiv tekst">𝐼</button>
+        <button class="btn btn-ghost btn-sm btn-icon" id="btn-notat-kursiv-${instansId}" title="${t('Kursiv tekst')}">𝐼</button>
       </div>
     </div>
-    <textarea id="notat-textarea-${instansId}" placeholder="Skriv notat her…"></textarea>
+    <textarea id="notat-textarea-${instansId}" placeholder="${t('Skriv notat her…')}"></textarea>
   `;
   return div;
 }
@@ -1634,20 +1644,20 @@ function renderDagsplan() {
   const dagsplan = aktivSide().dagsplan;
   const liste = document.getElementById('dagsplan-liste');
   if (!dagsplan.length) {
-    liste.innerHTML = '<p class="tom-tekst" style="padding:4px">Tom — trykk "+ Legg til punkt"</p>';
+    liste.innerHTML = `<p class="tom-tekst" style="padding:4px">${t('Tom — trykk "+ Legg til punkt"')}</p>`;
     return;
   }
   liste.innerHTML = dagsplan.map((p, i) => {
     const innhold = i === redigerDagsplanIdx
       ? `<input class="dagsplan-rediger-input" type="text" maxlength="80" value="${esc(p.tekst)}"
             data-rediger="dagsplan" data-idx="${i}">`
-      : `<span class="dagsplan-tekst" data-klikk="rediger-dagsplan" data-idx="${i}" title="Klikk for å redigere">${esc(p.tekst)}</span>`;
+      : `<span class="dagsplan-tekst" data-klikk="rediger-dagsplan" data-idx="${i}" title="${t('Klikk for å redigere')}">${esc(p.tekst)}</span>`;
     return `
     <div class="dagsplan-item${p.ferdig ? ' ferdig' : ''}" data-idx="${i}">
-      <span class="dagsplan-prikk" data-klikk="dagsplan-ferdig" data-idx="${i}" title="Marker ferdig">●</span>
+      <span class="dagsplan-prikk" data-klikk="dagsplan-ferdig" data-idx="${i}" title="${t('Marker ferdig')}">●</span>
       ${innhold}
-      <button class="dagsplan-slett" data-klikk="fjern-dagsplan" data-idx="${i}" title="Fjern">✕</button>
-      <span class="dagsplan-handle" title="Dra for å endre rekkefølge">⠿</span>
+      <button class="dagsplan-slett" data-klikk="fjern-dagsplan" data-idx="${i}" title="${t('Fjern')}">✕</button>
+      <span class="dagsplan-handle" title="${t('Dra for å endre rekkefølge')}">⠿</span>
     </div>`;
   }).join('');
   // Fokuser og marker skrivefeltet når et punkt redigeres.
@@ -1793,9 +1803,9 @@ function setupDagsplanDrag() {
 // bryter noen begrensning. Klarer vi ikke det, sier vi fra i stedet for å bryte reglene.
 function lagGrupper(antall) {
   const s = aktivSide();
-  if (s.elever.length < 2) { notify('Trenger minst 2 elever', 'warning'); return; }
+  if (s.elever.length < 2) { notify(t('Trenger minst 2 elever'), 'warning'); return; }
   if (antall > s.elever.length) {
-    notify(`For mange grupper — bare ${s.elever.length} elever inne`, 'warning');
+    notify(t('For mange grupper — bare {antall} elever inne', { antall: s.elever.length }), 'warning');
     return;
   }
   const begrensninger = s.gruppe_begrensninger ?? [];
@@ -1812,7 +1822,7 @@ function lagGrupper(antall) {
     if (ok) { grupper = kandidat; break; }
   }
   if (!grupper) {
-    notify('Klarte ikke lage grupper uten å bryte begrensningene — prøv færre par eller flere grupper', 'warning');
+    notify(t('Klarte ikke lage grupper uten å bryte begrensningene — prøv færre par eller flere grupper'), 'warning');
     return;
   }
   s.grupper = grupper;
@@ -1820,7 +1830,7 @@ function lagGrupper(antall) {
   renderGrupper();
   renderElever();
   const størrelser = grupper.map(g => g.length);
-  notify(`🎲 ${antall} grupper (${Math.min(...størrelser)}–${Math.max(...størrelser)} elever)`);
+  notify(t('🎲 {antall} grupper ({min}–{maks} elever)', { antall, min: Math.min(...størrelser), maks: Math.max(...størrelser) }));
 }
 
 // Sletter den aktive gruppeinndelingen og oppdaterer både gruppe- og elevvisning
@@ -1838,13 +1848,13 @@ function fjernGrupper() {
 function renderGrupper() {
   const vis = document.getElementById('grupper-vis');
   if (!aktivSide().grupper) {
-    vis.innerHTML = '<p class="tom-tekst">Ingen grupper aktive — trykk <kbd>🎲 Del inn</kbd></p>';
+    vis.innerHTML = `<p class="tom-tekst">${t('Ingen grupper aktive — trykk')} <kbd>${t('🎲 Del inn')}</kbd></p>`;
     return;
   }
   vis.innerHTML = aktivSide().grupper.map((gruppe, gi) => {
     const f = GRUPPE_FARGER[gi % GRUPPE_FARGER.length];
     return `<div class="gruppe-kort gruppe-farget" style="--gf:${f}">
-      <div class="gruppe-tittel">Gruppe ${gi + 1}</div>
+      <div class="gruppe-tittel">${t('Gruppe {n}', { n: gi + 1 })}</div>
       <div class="gruppe-elever">${gruppe.map(esc).join(', ')}</div>
     </div>`;
   }).join('');
@@ -1855,11 +1865,12 @@ function renderGrupper() {
 // sider), mens selve rosteren er per side — derfor kopierer vi navnene ut hit.
 function lagreListe(navn) {
   const s = aktivSide();
-  if (!s.elever.length) { notify('Ingen elever inne å lagre', 'warning'); return false; }
+  if (!s.elever.length) { notify(t('Ingen elever inne å lagre'), 'warning'); return false; }
   const erNy = !state.lister[navn];
   state.lister[navn] = [...s.elever]; // lagrede lister er globale; rosteren er per side
   saveState();
-  notify(`📋 '${navn}' ${erNy ? 'lagret' : 'oppdatert'} (${s.elever.length} elever)`);
+  notify((erNy ? t("📋 '{navn}' lagret ({antall} elever)", { navn, antall: s.elever.length })
+        : t("📋 '{navn}' oppdatert ({antall} elever)", { navn, antall: s.elever.length })));
   return true;
 }
 
@@ -1875,14 +1886,14 @@ function lastListe(navn) {
   renderElever();
   renderAlleTrekk();
   renderGrupper();
-  notify(`📋 '${navn}' lastet (${elever.length} elever)`);
+  notify(t("📋 '{navn}' lastet ({antall} elever)", { navn, antall: elever.length }));
 }
 
 // Sletter en lagret liste (påvirker ikke rosteren som allerede er lastet inn).
 function slettListe(navn) {
   delete state.lister[navn];
   saveState();
-  notify(`🗑️ '${navn}' slettet`);
+  notify(t("🗑️ '{navn}' slettet", { navn }));
   renderListerModal();
 }
 
@@ -1892,7 +1903,7 @@ function renderListerModal() {
   const innhold = document.getElementById('lister-innhold');
   const poster  = Object.entries(state.lister);
   if (!poster.length) {
-    innhold.innerHTML = '<p class="tom-tekst" style="padding:12px">Ingen lagrede lister ennå.</p>';
+    innhold.innerHTML = `<p class="tom-tekst" style="padding:12px">${t('Ingen lagrede lister ennå.')}</p>`;
     return;
   }
   // Listenavnet ligger i data-navn (escapet) og leses av en lytter. Det settes aldri
@@ -1902,9 +1913,9 @@ function renderListerModal() {
       <div class="modal-list-item" data-navn="${esc(navn)}">
         <span>📋 ${esc(navn)}</span>
         <div class="flex gap-2" style="align-items:center">
-          <span class="item-meta">${elever.length} elever</span>
+          <span class="item-meta">${t('{antall} elever', { antall: elever.length })}</span>
           <button class="btn btn-sm liste-slett" style="background:var(--red-l);color:var(--red);padding:3px 8px"
-            title="Slett lista">✕</button>
+            title="${t('Slett lista')}">✕</button>
         </div>
       </div>`).join('')}
   </div>`;
@@ -1992,7 +2003,7 @@ function renderWidgetMeny() {
     <label class="widget-meny-rad">
       <input type="checkbox" ${skjult.includes(id) ? '' : 'checked'}
              data-endring="widget-synlig" data-widget="${id}">
-      ${navn}
+      ${t(navn)}
     </label>`).join('');
 
   // Fler-instans widgets: ingen checkbox, bare "+". Tell hvor mange siden har.
@@ -2002,10 +2013,10 @@ function renderWidgetMeny() {
   const antYoutube = aktivIds.filter(id => id.startsWith('card-youtube-')).length;
   const leggTil = `
     <div class="widget-meny-sep"></div>
-    <div class="widget-meny-tittel">Legg til flere</div>
+    <div class="widget-meny-tittel">${t('Legg til flere')}</div>
     <div class="widget-meny-rad" style="gap:6px;flex-wrap:wrap">
-      <button class="btn btn-ghost btn-sm" data-klikk="ny-notat">+ 📝 Notat${antNotat ? ` (${antNotat})` : ''}</button>
-      <button class="btn btn-ghost btn-sm" data-klikk="ny-bilde">+ 🖼 Bilde${antBilde ? ` (${antBilde})` : ''}</button>
+      <button class="btn btn-ghost btn-sm" data-klikk="ny-notat">${t('+ 📝 Notat')}${antNotat ? ` (${antNotat})` : ''}</button>
+      <button class="btn btn-ghost btn-sm" data-klikk="ny-bilde">${t('+ 🖼 Bilde')}${antBilde ? ` (${antBilde})` : ''}</button>
       <button class="btn btn-ghost btn-sm" data-klikk="ny-youtube">+ ▶️ YouTube${antYoutube ? ` (${antYoutube})` : ''}</button>
     </div>`;
 
@@ -2085,7 +2096,7 @@ function byggKolonner() {
       const r = document.createElement('div');
       r.className = 'kl-col-resizer';
       r.dataset.venstre = i + 1; // resizer mellom kolonne (i+1) og (i+2)
-      r.title = 'Dra for å justere kolonnebredde';
+      r.title = t('Dra for å justere kolonnebredde');
       w.after(r);
     }
   });
@@ -2324,7 +2335,7 @@ function renderSiderNav() {
     btn.className = 'side-tab' + (idx === state.aktiv_side ? ' aktiv' : '');
     btn.textContent = side.navn;
     btn.onclick = () => håndterSideKlikk(idx);
-    btn.title = 'Dobbeltklikk for å gi nytt navn';
+    btn.title = t('Dobbeltklikk for å gi nytt navn');
     if (state.sider.length > 1) {
       const x = document.createElement('span');
       x.className = 'side-slett';
@@ -2337,7 +2348,7 @@ function renderSiderNav() {
   const leggTil = document.createElement('button');
   leggTil.className = 'side-legg-til';
   leggTil.textContent = '+';
-  leggTil.title = 'Legg til side';
+  leggTil.title = t('Legg til side');
   leggTil.onclick = leggTilSide;
   nav.appendChild(leggTil);
 }
@@ -2431,9 +2442,9 @@ function fjernSide(idx) {
 // ===================== Reset =====================
 // Hver nullstill*-funksjon tømmer ett enkelt trekk/widget på aktiv side: tøm
 // valgt + backlog, lagre, tegn på nytt og varsle. Brukes fra Nullstill-modalen.
-function nullstillTilfeldig()   { const s = aktivSide(); s.tilfeldig_valgt = null; s.tilfeldig_backlog = []; saveState(); renderTilfeldig(); notify('🎲 Tilfeldig-trekk nullstilt'); }
-function nullstillOrdenselev()  { const s = aktivSide(); s.ordenselev_valgte = []; s.ordenselev_backlog = []; saveState(); renderOrdenselev(); notify('⭐ Ordenselever-trekk nullstilt'); }
-function nullstillUlv()         { const s = aktivSide(); s.ulv_valgt = null; s.ulv_backlog = []; saveState(); renderUlv(); notify('🐺 Ulv-trekk nullstilt'); }
+function nullstillTilfeldig()   { const s = aktivSide(); s.tilfeldig_valgt = null; s.tilfeldig_backlog = []; saveState(); renderTilfeldig(); notify(t('🎲 Tilfeldig-trekk nullstilt')); }
+function nullstillOrdenselev()  { const s = aktivSide(); s.ordenselev_valgte = []; s.ordenselev_backlog = []; saveState(); renderOrdenselev(); notify(t('⭐ Ordenselever-trekk nullstilt')); }
+function nullstillUlv()         { const s = aktivSide(); s.ulv_valgt = null; s.ulv_backlog = []; saveState(); renderUlv(); notify(t('🐺 Ulv-trekk nullstilt')); }
 // Tømmer teksten i ALLE notat-kort (ikke bare aktiv side, siden notater er globale).
 // Må også nullstille de synlige tekstfeltene + krympe dem, ikke bare state.
 function nullstillNotat() {
@@ -2443,9 +2454,9 @@ function nullstillNotat() {
     if (ta) { ta.value = ''; autoResizeNotat(ta); }
   }
   saveState();
-  notify('📝 Notat nullstilt');
+  notify(t('📝 Notat nullstilt'));
 }
-function nullstillDagsplan()    { aktivSide().dagsplan = []; saveState(); renderDagsplan(); notify('📋 Dagsplan nullstilt'); }
+function nullstillDagsplan()    { aktivSide().dagsplan = []; saveState(); renderDagsplan(); notify(t('📋 Dagsplan nullstilt')); }
 
 // ===================== Info modal =====================
 // Ferdig HTML som vises i info-modalen via åpneInfoModal(). Disse to strengene er
@@ -2478,6 +2489,13 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.34</div>
+    <div class="logg-dato">2. november 2026</div>
+    <ul>
+      <li><strong>Skoledash finnes nå på nynorsk:</strong> velg <strong>🗣 Målform</strong> i Skoledash-menyen. Menyer, knapper, meldinger, værvarselet og brukerveiledningen følger målformen. Denne loggen står på bokmål. Ser du en nynorsk formulering som skurrer, si gjerne fra via <strong>💬 Tilbakemelding</strong></li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.33</div>
     <div class="logg-dato">2. november 2026</div>
@@ -2961,6 +2979,9 @@ const BRUKERVEILEDNING_HTML = `
   <p>Hold musen over <strong>🔤 Font</strong> i Skoledash-menyen. Velg blant systemstandard og fem andre: <em>Lexend</em> (laget for å gjøre lesing lettere), <em>Outfit</em> (ren og moderne), <em>Sniglet</em> (rund og leken), <em>Kalam</em> (håndskrift) og <em>JetBrains Mono</em> (alle tegn like brede). Valget lagres til neste gang.</p>
   <p>Fontene ligger på skoledash.app, så appen henter ingenting fra Google eller andre fonttjenester.</p>
 
+  <h4>Målform (bokmål eller nynorsk)</h4>
+  <p>Hold musen over <strong>🗣 Målform</strong> i Skoledash-menyen og velg <strong>Bokmål</strong> eller <strong>Nynorsk</strong>. Siden lastes på nytt med den nye målformen, og valget huskes. Alt du har lagt inn, som elevnavn og notater, blir stående som du skrev det.</p>
+
   <h4>Skriftstørrelse</h4>
   <p>Hold musen over <strong>📏 Skriftstørrelse</strong> i Skoledash-menyen. Under <strong>Alle widgets</strong> skalerer du hele grensesnittet (Liten → Ekstra stor), der Normal er standardstørrelsen. Under <strong>Enkelt widget</strong> står hver widget som er på siden, med et tall i prosent. <strong>0</strong> betyr samme størrelse som alle de andre. Skriv for eksempel <strong>-20</strong> for å gjøre kortet 20 % mindre, eller <strong>30</strong> for å gjøre det 30 % større. Du kan også bruke piltastene. Tallet kan være fra -50 til 100.</p>
   <p>Størrelsen huskes selv om du tar bort widgeten. Slår du den på igjen senere, har den samme størrelse som før.</p>
@@ -2977,7 +2998,7 @@ const BRUKERVEILEDNING_HTML = `
     <li><kbd>r</kbd> — Trekk tilfeldig elev</li>
     <li><kbd>R</kbd> — Trekk tilfeldig (backlog)</li>
     <li><kbd>o</kbd> — Trekk ordenselever</li>
-    <li><kbd>u</kbd> — Trekk ulv</li>
+    <li><kbd>u</kbd> — Trekk klassebamse</li>
     <li><kbd>t</kbd> — Start/stopp timer</li>
     <li><kbd>s</kbd> — Sett timer-tid</li>
     <li><kbd>g</kbd> — Del inn i grupper</li>
@@ -3003,7 +3024,7 @@ const BRUKERVEILEDNING_HTML = `
     <li><strong>YouTube-widgeten</strong> viser videoer fra youtube-nocookie.com i en egen ramme. Rammen er adskilt fra resten av appen, så YouTube kan ikke lese elevdataene dine. Spilleren lastes når appen åpnes, så lenge et YouTube-kort har en video, også om kortet ligger på en annen side. YouTube ser at videoen vises på skoledash.app, og kan sette egne informasjonskapsler inne i spilleren.</li>
   </ul>
   <p><strong>Delte maskiner:</strong> elevdataene blir liggende i nettleseren til du sletter dem. Bruker andre den samme maskinen og nettleseren, kan de se klasselistene dine. Når du er ferdig på en slik maskin, velg <strong>Nullstill… → 🗑 Slett alle data på denne maskinen</strong>. Ta gjerne en backup først.</p>
-  <p>Backupfila du eksporterer, inneholder alt, også notater og bilder. Ta vare på den like trygt som en klasseliste.
+  <p>Backupfila du eksporterer, inneholder alt, også notater og bilder. Ta vare på den like trygt som en klasseliste.</p>
 
   <h4>📤 Eksportere og 📥 importere data</h4>
   <p>Siden data kun bor i nettleseren din, er det lurt å ta en <strong>backup</strong>. Åpne <strong>Skoledash-menyen</strong> og velg <strong>📤 Eksporter data</strong> — da lastes det ned én fil som inneholder alt: klasselister, alle sider (med elever, grupper, trekk-backlogs og begrensninger), innstillinger, notater og bilder.</p>
@@ -3011,6 +3032,20 @@ const BRUKERVEILEDNING_HTML = `
   <p>Når du har laget nye lister eller endret en backlog siden forrige eksport, dukker det opp et lite <strong>«● Ueksporterte endringer»</strong>-merke nederst, rett over hurtigtast-baren. Klikk på det for å ta en ny backup. Tips: eksporter med jevne mellomrom, så er du trygg om nettleserdata skulle bli tømt.</p>`;
 
 // Åpner info-overlayet med gitt tittel og ferdig HTML-innhold (logg eller guide).
+// Oppdateringsloggen står på bokmål. På nynorsk får den en merknad øverst, og den
+// korte planen («Hva kommer?») byttes med nynorskutgaven fra tekster.js.
+function oppdateringsloggHtml() {
+  if (state.språk !== 'nn') return OPPDATERINGSLOGG_HTML;
+  return LOGG_MERKNAD_NN +
+    OPPDATERINGSLOGG_HTML.replace(/<details class="logg-roadmap">[\s\S]*?<\/details>/, ROADMAP_KORT_NN);
+}
+
+// Brukerveiledningen på nynorsk når den finnes; ellers bokmål med en merknad øverst.
+function brukerveiledningHtml() {
+  if (state.språk !== 'nn') return BRUKERVEILEDNING_HTML;
+  return BRUKERVEILEDNING_NN ?? (BRUKERVEILEDNING_MERKNAD_NN + BRUKERVEILEDNING_HTML);
+}
+
 function åpneInfoModal(tittel, innholdHtml) {
   document.getElementById('info-modal-tittel').textContent = tittel;
   document.getElementById('info-modal-innhold').innerHTML = innholdHtml;
@@ -3050,7 +3085,7 @@ function åpneFjernElevModal() {
   liste.innerHTML = `
     <div class="checkbox-item checkbox-divider">
       <input type="checkbox" id="cb-toem-alle">
-      <label for="cb-toem-alle" style="font-weight:700">Tøm alle</label>
+      <label for="cb-toem-alle" style="font-weight:700">${t('Tøm alle')}</label>
     </div>
     ${aktivSide().elever.map((navn, i) => `
       <div class="checkbox-item">
@@ -3083,6 +3118,62 @@ function esc(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// ===================== Språk (bokmål / nynorsk) =====================
+// Bokmål står i koden. t() slår opp bokmålsteksten i NYNORSK (tekster.js) når nynorsk
+// er valgt, og fyller inn plassholdere: t('{navn} er allerede inne', { navn }).
+// Finnes ikke teksten i ordboka, brukes bokmål, så ingenting blir tomt.
+// Verdier som settes inn i HTML, må være escapet av den som kaller (esc()).
+function t(tekst, verdier) {
+  let ut = state.språk === 'nn' && Object.hasOwn(NYNORSK, tekst) ? NYNORSK[tekst] : tekst;
+  if (verdier) ut = ut.replace(/\{(\w+)\}/g, (hel, nøkkel) => (nøkkel in verdier ? String(verdier[nøkkel]) : hel));
+  return ut;
+}
+
+// Normaliserer tekst til oppslag: mellomrom og linjeskift slås sammen.
+const normaliserTekst = s => s.replace(/\s+/g, ' ').trim();
+
+// Oversetter den faste teksten i index.html. Kjøres én gang, først i init(), før noe
+// annet tegnes, så bare tekst som står i HTML-fila berøres, aldri elevnavn eller annet
+// lærerne har skrevet. Bytte av språk laster siden på nytt (settSpråk).
+//  - Elementer med data-t-html: hele innholdet oversettes som ett avsnitt (for tekst
+//    med <strong>, <kbd> o.l. inni). Teksten kommer fra tekster.js, ikke fra brukere.
+//  - Ellers: hver tekstnode og attributtene title, placeholder og aria-label.
+function oversettStatisk() {
+  document.documentElement.lang = state.språk === 'nn' ? 'nn' : 'nb';
+  if (state.språk !== 'nn') return;
+  for (const el of document.querySelectorAll('[data-t-html]')) {
+    const nøkkel = normaliserTekst(el.innerHTML);
+    if (Object.hasOwn(NYNORSK, nøkkel)) el.innerHTML = NYNORSK[nøkkel];
+  }
+  const gå = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode: n => (n.parentElement.closest('script, style, [data-t-html]')
+      ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+  });
+  for (let node = gå.nextNode(); node; node = gå.nextNode()) {
+    const nøkkel = normaliserTekst(node.nodeValue);
+    if (!nøkkel || !Object.hasOwn(NYNORSK, nøkkel)) continue;
+    // Behold mellomrommet rundt, så tekst ved siden av ikoner og tagger ikke klistres sammen.
+    const [, før, , etter] = node.nodeValue.match(/^(\s*)([\s\S]*?)(\s*)$/);
+    node.nodeValue = før + NYNORSK[nøkkel] + etter;
+  }
+  for (const attr of ['title', 'placeholder', 'aria-label']) {
+    for (const el of document.querySelectorAll(`[${attr}]`)) {
+      const nøkkel = normaliserTekst(el.getAttribute(attr));
+      if (Object.hasOwn(NYNORSK, nøkkel)) el.setAttribute(attr, NYNORSK[nøkkel]);
+    }
+  }
+}
+
+// Bytter målform. Lagrer valget og laster siden på nytt, så alt tegnes på nytt med
+// riktig tekst. Enklere og tryggere enn å oppdatere alt som allerede står på skjermen.
+function settSpråk(språk) {
+  if (språk !== 'nb' && språk !== 'nn') return;
+  if (state.språk === språk) return;
+  state.språk = språk;
+  saveState();
+  location.reload();
 }
 
 // Snarvei for modal-input: Enter kjører bekreft-funksjonen, Esc lukker modalen.
@@ -3199,14 +3290,14 @@ function renderWidgetStørrelseMeny() {
   const skjult = aktivSide().widget_hidden ?? [];
   const synlige = Object.keys(WIDGET_NAVN).filter(id => !skjult.includes(id));
   if (!synlige.length) {
-    liste.innerHTML = '<div class="widget-str-tom">Ingen widgets på denne siden</div>';
+    liste.innerHTML = `<div class="widget-str-tom">${t('Ingen widgets på denne siden')}</div>`;
     return;
   }
   liste.innerHTML = synlige.map(id => {
     // Klassebamse kan ha fått eget navn på siden. Ellers navnet uten ledende emoji.
     const navn = id === 'card-ulv'
       ? (aktivSide().ulv_navn || WIDGET_NAVN[id])
-      : WIDGET_NAVN[id].replace(/^[^\p{L}]+/u, '');
+      : t(WIDGET_NAVN[id]).replace(/^[^\p{L}]+/u, '');
     const pst = state.widget_størrelser?.[id] ?? 0;
     return `
       <label class="widget-str-rad" for="str-${id}">
@@ -3214,7 +3305,7 @@ function renderWidgetStørrelseMeny() {
         <span class="widget-str-felt">
           <input type="number" id="str-${id}" data-widget="${id}" value="${pst}"
                  min="${WIDGET_PROSENT_MIN}" max="${WIDGET_PROSENT_MAKS}" step="5"
-                 title="0 = samme som alle widgets. Negativt tall krymper, positivt forstørrer">
+                 title="${t('0 = samme som alle widgets. Negativt tall krymper, positivt forstørrer')}">
           %
         </span>
       </label>`;
@@ -3249,7 +3340,7 @@ function settOppHendelser() {
   const bekreftTimerSett = () => {
     const m = parseInt(document.getElementById('input-timer-minutter').value);
     if (m >= 1 && m <= 60) { timerSett(m); lukkModal(); }
-    else notify('Skriv inn 1–60 minutter', 'warning');
+    else notify(t('Skriv inn 1–60 minutter'), 'warning');
   };
   document.getElementById('btn-timer-sett-bekreft').onclick = bekreftTimerSett;
   document.getElementById('btn-timer-sett-avbryt').onclick  = lukkModal;
@@ -3288,7 +3379,7 @@ function settOppHendelser() {
   const bekreftGrupper = () => {
     const n = parseInt(document.getElementById('input-grupper-antall').value);
     if (n >= 2) { lagGrupper(n); lukkModal(); }
-    else notify('Skriv inn minst 2', 'warning');
+    else notify(t('Skriv inn minst 2'), 'warning');
   };
   document.getElementById('btn-grupper-bekreft').onclick = bekreftGrupper;
   document.getElementById('btn-grupper-avbryt').onclick  = lukkModal;
@@ -3301,7 +3392,7 @@ function settOppHendelser() {
   };
   document.getElementById('btn-lister-lukk').onclick = lukkModal;
   document.getElementById('btn-lister-lagre').onclick = () => {
-    if (!aktivSide().elever.length) { notify('Ingen elever inne å lagre', 'warning'); return; }
+    if (!aktivSide().elever.length) { notify(t('Ingen elever inne å lagre'), 'warning'); return; }
     lukkModal();
     document.getElementById('input-liste-navn').value = '';
     åpneModal('modal-lagre-liste');
@@ -3309,7 +3400,7 @@ function settOppHendelser() {
   const bekreftLagreListe = () => {
     const navn = document.getElementById('input-liste-navn').value.trim();
     if (navn) { lagreListe(navn); lukkModal(); }
-    else notify('Skriv inn et navn', 'warning');
+    else notify(t('Skriv inn et navn'), 'warning');
   };
   document.getElementById('btn-lagre-liste-bekreft').onclick = bekreftLagreListe;
   document.getElementById('btn-lagre-liste-avbryt').onclick  = lukkModal;
@@ -3325,8 +3416,8 @@ function settOppHendelser() {
       case 'tilfeldig':    nullstillTilfeldig();                          lukkModal(); break;
       case 'ordenselev':   nullstillOrdenselev();                         lukkModal(); break;
       case 'ulv':          nullstillUlv();                                lukkModal(); break;
-      case 'grupper':      fjernGrupper(); notify('Grupper nullstilt');   lukkModal(); break;
-      case 'timer':        timerReset(); notify('⏱️ Timer nullstilt');    lukkModal(); break;
+      case 'grupper':      fjernGrupper(); notify(t('Grupper nullstilt'));   lukkModal(); break;
+      case 'timer':        timerReset(); notify(t('⏱️ Timer nullstilt'));    lukkModal(); break;
       case 'notat':        nullstillNotat();                              lukkModal(); break;
       case 'dagsplan':     nullstillDagsplan();                           lukkModal(); break;
       case 'fjern_elever': lukkModal(); åpneFjernElevModal();                         break;
@@ -3341,7 +3432,7 @@ function settOppHendelser() {
     const knapp = e.currentTarget;
     if (knapp.dataset.bekreft !== '1') {
       knapp.dataset.bekreft = '1';
-      knapp.textContent = 'Trykk igjen for å slette alt';
+      knapp.textContent = t('Trykk igjen for å slette alt');
       return;
     }
     slettAlleData();
@@ -3360,7 +3451,7 @@ function settOppHendelser() {
     }
     if (fjernes.length) {
       fjernEleverBatch(new Set(fjernes));
-      notify(`${fjernes.length} elev${fjernes.length > 1 ? 'er' : ''} fjernet`, 'warning');
+      notify((fjernes.length > 1 ? t('{antall} elever fjernet', { antall: fjernes.length }) : t('{antall} elev fjernet', { antall: fjernes.length })), 'warning');
     }
     lukkModal();
   };
@@ -3396,11 +3487,11 @@ function settOppHendelser() {
   klasseromDrop.addEventListener('click', e => e.stopPropagation());
   document.getElementById('btn-åpne-logg').onclick  = () => {
     klasseromDrop.classList.add('hidden');
-    åpneInfoModal('📋 Oppdateringslogg', OPPDATERINGSLOGG_HTML);
+    åpneInfoModal(t('📋 Oppdateringslogg'), oppdateringsloggHtml());
   };
   document.getElementById('btn-åpne-guide').onclick = () => {
     klasseromDrop.classList.add('hidden');
-    åpneInfoModal('❓ Brukerveiledning', BRUKERVEILEDNING_HTML);
+    åpneInfoModal(t('❓ Brukerveiledning'), brukerveiledningHtml());
   };
   document.getElementById('btn-eksporter').onclick = () => {
     klasseromDrop.classList.add('hidden');
@@ -3428,6 +3519,14 @@ function settOppHendelser() {
     el.onclick = () => {
       settFont(el.dataset.font);
       klasseromDrop.classList.add('hidden');
+    };
+  });
+  // Målform: markér det valgte, og bytt (siden lastes på nytt i settSpråk).
+  document.querySelectorAll('.språk-valg').forEach(el => {
+    el.classList.toggle('aktiv', el.dataset.språk === state.språk);
+    el.onclick = () => {
+      klasseromDrop.classList.add('hidden');
+      settSpråk(el.dataset.språk);
     };
   });
   document.querySelectorAll('.størrelse-valg').forEach(el => {
@@ -3556,7 +3655,7 @@ function åpneRedigerBacklog(type) {
   const s = aktivSide();
   const erOrden   = type === 'ordenselev';
   const backlogKey = erOrden ? 'ordenselev_backlog' : 'ulv_backlog';
-  const tittel     = erOrden ? 'Rediger ordenselev-backlog' : `Rediger ${s.ulv_navn || 'Klassebamse'}-backlog`;
+  const tittel     = erOrden ? t('Rediger ordenselev-backlog') : t('Rediger {bamse}-backlog', { bamse: s.ulv_navn || 'Klassebamse' });
 
   document.getElementById('rediger-backlog-tittel').textContent = tittel;
 
@@ -3745,19 +3844,19 @@ function lagBildeElement(instansId) {
   div.className = 'card';
   div.id = `card-${instansId}`;
   div.innerHTML = `
-    <button class="kl-widget-close" data-klikk="fjern-bilde-widget" data-id="${instansId}" title="Slett dette bildekortet">✕</button>
+    <button class="kl-widget-close" data-klikk="fjern-bilde-widget" data-id="${instansId}" title="${t('Slett dette bildekortet')}">✕</button>
     <div class="card-header">
-      <span class="drag-handle" title="Dra for å flytte">⠿</span>
-      <h2>🖼 Bilde</h2>
+      <span class="drag-handle" title="${t('Dra for å flytte')}">⠿</span>
+      <h2>${t('🖼 Bilde')}</h2>
     </div>
     <div class="card-body">
       <div id="bilde-vis-${instansId}" class="bilde-vis">
         <label id="bilde-label-${instansId}" class="bilde-slipp">
-          <span>Klikk for å laste opp, eller lim inn (Ctrl+V)</span>
+          <span>${t('Klikk for å laste opp, eller lim inn (Ctrl+V)')}</span>
           <input type="file" id="bilde-fil-${instansId}" accept="image/*" style="display:none" data-endring="last-opp-bilde" data-id="${instansId}">
         </label>
         <img id="bilde-img-${instansId}" style="display:none; max-width:100%; border-radius:6px" alt="">
-        <button id="bilde-fjern-${instansId}" style="display:none" data-klikk="fjern-bilde-data" data-id="${instansId}">Fjern bilde</button>
+        <button id="bilde-fjern-${instansId}" style="display:none" data-klikk="fjern-bilde-data" data-id="${instansId}">${t('Fjern bilde')}</button>
       </div>
     </div>
   `;
@@ -3806,12 +3905,12 @@ function lastOppBilde(input, instansId) {
 // Leser en bildefil og lagrer den i bilde-lageret (Blob i IndexedDB, eller data-URL i
 // fallback). Grensa er 50 MB med IDB, 2 MB i fallback (det delte ~5 MB-taket).
 async function lesBildefil(fil, instansId) {
-  if (!fil.type.startsWith('image/')) { notify('Det ser ikke ut som en bildefil', 'warning'); return; }
+  if (!fil.type.startsWith('image/')) { notify(t('Det ser ikke ut som en bildefil'), 'warning'); return; }
   await BildeLager.klar();
   const maks = BildeLager.idbAktiv ? BILDE_MAKS_IDB : BILDE_MAKS_FALLBACK;
   if (fil.size > maks) {
     notify(BildeLager.idbAktiv
-      ? 'Bildet er for stort — maks 50 MB'
+      ? t('Bildet er for stort — maks 50 MB')
       : 'Lokalt uten IndexedDB er grensa 2 MB. På den utrullede siden gjelder 50 MB.', 'warning');
     return;
   }
@@ -3920,9 +4019,9 @@ function lagYoutubeElement(instansId) {
   div.className = 'card';
   div.id = `card-${instansId}`;
   div.innerHTML = `
-    <button class="kl-widget-close" data-klikk="fjern-youtube-widget" data-id="${instansId}" title="Slett dette YouTube-kortet">✕</button>
+    <button class="kl-widget-close" data-klikk="fjern-youtube-widget" data-id="${instansId}" title="${t('Slett dette YouTube-kortet')}">✕</button>
     <div class="card-header">
-      <span class="drag-handle" title="Dra for å flytte">⠿</span>
+      <span class="drag-handle" title="${t('Dra for å flytte')}">⠿</span>
       <h2>▶️ YouTube</h2>
     </div>
     <div id="youtube-body-${instansId}" class="youtube-body"></div>
@@ -3949,8 +4048,8 @@ function renderYoutube(instansId) {
   if (!data.videoId) {
     body.innerHTML = `
       <div class="youtube-input">
-        <input type="text" id="youtube-url-${instansId}" placeholder="Lim inn YouTube-lenke…" autocomplete="off">
-        <button class="btn btn-success btn-sm" data-klikk="youtube-vis" data-id="${instansId}">Vis</button>
+        <input type="text" id="youtube-url-${instansId}" placeholder="${t('Lim inn YouTube-lenke…')}" autocomplete="off">
+        <button class="btn btn-success btn-sm" data-klikk="youtube-vis" data-id="${instansId}">${t('Vis')}</button>
       </div>`;
     const inp = document.getElementById(`youtube-url-${instansId}`);
     inp?.addEventListener('keydown', e => { if (e.key === 'Enter') settYoutubeUrlFraFelt(instansId); });
@@ -3961,17 +4060,17 @@ function renderYoutube(instansId) {
   body.innerHTML = `
     <div class="youtube-modus">
       <button class="yt-modus-knapp video ${erLyd ? '' : 'aktiv'}" data-klikk="youtube-modus" data-modus="video" data-id="${instansId}">▶ Video</button>
-      <button class="yt-modus-knapp lyd ${erLyd ? 'aktiv' : ''}" data-klikk="youtube-modus" data-modus="lyd" data-id="${instansId}">🎵 Kun lyd</button>
-      <button class="yt-bytt-lenke" data-klikk="youtube-bytt" data-id="${instansId}" title="Bytt lenke">↻</button>
+      <button class="yt-modus-knapp lyd ${erLyd ? 'aktiv' : ''}" data-klikk="youtube-modus" data-modus="lyd" data-id="${instansId}">${t('🎵 Kun lyd')}</button>
+      <button class="yt-bytt-lenke" data-klikk="youtube-bytt" data-id="${instansId}" title="${t('Bytt lenke')}">↻</button>
     </div>
     <div class="youtube-media ${erLyd ? 'youtube-lyd' : ''}" id="youtube-media-${instansId}">
       <div id="youtube-player-${instansId}" class="youtube-player"></div>
       <div class="youtube-lyd-panel">
-        <button class="yt-spill" id="yt-spill-${instansId}" data-klikk="youtube-spill" data-id="${instansId}" title="Spill / pause">▶</button>
-        <span class="yt-lyd-tittel" id="yt-tittel-${instansId}">🎵 Laster…</span>
+        <button class="yt-spill" id="yt-spill-${instansId}" data-klikk="youtube-spill" data-id="${instansId}" title="${t('Spill / pause')}">▶</button>
+        <span class="yt-lyd-tittel" id="yt-tittel-${instansId}">${t('🎵 Laster…')}</span>
         <span class="yt-volum-ikon" aria-hidden="true">🔊</span>
         <input type="range" class="yt-volum" id="yt-volum-${instansId}" min="0" max="100"
-               value="${data.volum ?? 100}" title="Volum" aria-label="Volum"
+               value="${data.volum ?? 100}" title="${t('Volum')}" aria-label="${t('Volum')}"
                data-input="youtube-volum" data-id="${instansId}">
       </div>
     </div>`;
@@ -4105,7 +4204,7 @@ function settYoutubeUrlFraFelt(instansId) {
 }
 function settYoutubeUrl(instansId, url) {
   const videoId = parseYoutubeId(url);
-  if (!videoId) { notify('Fant ingen gyldig YouTube-lenke', 'warning'); return; }
+  if (!videoId) { notify(t('Fant ingen gyldig YouTube-lenke'), 'warning'); return; }
   state.youtube[instansId] = {
     url: url.trim(),
     videoId,
@@ -4165,12 +4264,12 @@ function fjernYoutubeWidget(instansId) {
 // Hopper over tomt/likt par og duplikater (par er retningsløse: A+B == B+A).
 function leggTilBegrensning(navn1, navn2) {
   if (!navn1 || !navn2) return;
-  if (navn1 === navn2) { notify('Velg to forskjellige elever', 'warning'); return; }
+  if (navn1 === navn2) { notify(t('Velg to forskjellige elever'), 'warning'); return; }
   const s = aktivSide();
   const allerede = (s.gruppe_begrensninger ?? []).some(
     ([a, b]) => (a === navn1 && b === navn2) || (a === navn2 && b === navn1)
   );
-  if (allerede) { notify('Dette paret er allerede lagt til', 'warning'); return; }
+  if (allerede) { notify(t('Dette paret er allerede lagt til'), 'warning'); return; }
   s.gruppe_begrensninger = [...(s.gruppe_begrensninger ?? []), [navn1, navn2]];
   saveState();
   renderBegrensninger();
@@ -4199,13 +4298,13 @@ function renderBegrensninger() {
     forste.textContent = a;
     const andre = document.createElement('strong');
     andre.textContent = b;
-    navn.append(forste, ' og ', andre);
+    navn.append(forste, ` ${t('og')} `, andre);
     const slett = document.createElement('button');
     slett.type = 'button';
     slett.className = 'begrensning-slett';
     slett.textContent = '✕';
-    slett.title = `Fjern ${a} og ${b}`;
-    slett.setAttribute('aria-label', `Fjern ${a} og ${b}`);
+    slett.title = t('Fjern {a} og {b}', { a, b });
+    slett.setAttribute('aria-label', t('Fjern {a} og {b}', { a, b }));
     slett.onclick = () => fjernBegrensning(i);
     li.append(navn, slett);
     return li;
@@ -4214,8 +4313,8 @@ function renderBegrensninger() {
   const forFå = s.elever.length < 2;
   document.getElementById('btn-begr-legg-til').disabled = forFå;
   document.getElementById('begrensning-tom').textContent =
-    forFå ? 'Legg til minst to elever i elevlista først.' :
-    par.length ? '' : 'Ingen par ennå.';
+    forFå ? t('Legg til minst to elever i elevlista først.') :
+    par.length ? '' : t('Ingen par ennå.');
 }
 
 // Kobler opp knappene i begrensnings-dialogen. Klikk utenfor boksen eller Esc lukker.
@@ -4308,6 +4407,7 @@ async function eksporterData() {
         tema:              state.tema,
         font:              state.font,
         skrift_størrelse:  state.skrift_størrelse,
+        språk:             state.språk,
         widget_størrelser: state.widget_størrelser,
         timer_varighet:    state.timer_varighet,
       },
@@ -4339,7 +4439,7 @@ async function eksporterData() {
   // Marker som eksportert → endrings-varselet forsvinner til neste endring
   state.eksport_signatur = beregnEksportSignatur();
   saveState();
-  notify('📤 Data eksportert');
+  notify(t('📤 Data eksportert'));
 }
 
 let ventendeImport = null; // parsed fil mellom valg av fil og bekreftelse av modus
@@ -4357,21 +4457,21 @@ function håndterImportFil(input) {
     try {
       data = trygtJsonParse(e.target.result); // fjerner __proto__ o.l. allerede her
     } catch (_) {
-      notify('Kunne ikke lese fila — er det en gyldig JSON-fil?', 'error');
+      notify(t('Kunne ikke lese fila — er det en gyldig JSON-fil?'), 'error');
       return;
     }
     if (!data || data.app !== 'klasserom-dashboard' || !data.innhold) {
-      notify('Dette ser ikke ut som en Skoledash-backup', 'error');
+      notify(t('Dette ser ikke ut som en Skoledash-backup'), 'error');
       return;
     }
     if (data.format_versjon > EKSPORT_FORMAT_VERSJON) {
-      notify('Fila er laget i en nyere versjon — importerer det jeg kjenner igjen', 'warning');
+      notify(t('Fila er laget i en nyere versjon — importerer det jeg kjenner igjen'), 'warning');
     }
     ventendeImport = data;
     const antL = Object.keys(data.innhold.klasselister ?? {}).length;
     const antS = (data.innhold.sider ?? []).length;
     document.getElementById('import-info').textContent =
-      `Fil fra ${(data.eksportert || '').slice(0, 10) || 'ukjent dato'} — ${antS} side(r), ${antL} lagret liste(r).`;
+      t('Fil fra {dato} — {sider} side(r), {lister} lagret liste(r).', { dato: (data.eksportert || '').slice(0, 10) || t('ukjent dato'), sider: antS, lister: antL });
     document.querySelector('input[name="import-modus"][value="erstatt"]').checked = true;
     åpneModal('modal-import');
   };
@@ -4402,7 +4502,7 @@ async function bekreftImport() {
     saveState();
     lukkModal();
     ventendeImport = null;
-    notify(`📥 ${n} liste(r) flettet inn`);
+    notify(t('📥 {antall} liste(r) flettet inn', { antall: n }));
     return;
   }
 
@@ -4412,6 +4512,7 @@ async function bekreftImport() {
   if (pref.tema              !== undefined) ny.tema = pref.tema;
   if (pref.font              !== undefined) ny.font = pref.font;
   if (pref.skrift_størrelse  !== undefined) ny.skrift_størrelse = pref.skrift_størrelse;
+  if (pref.språk             !== undefined) ny.språk = pref.språk;
   if (pref.widget_størrelser !== undefined) ny.widget_størrelser = pref.widget_størrelser;
   if (pref.timer_varighet    !== undefined) ny.timer_varighet = pref.timer_varighet;
   if (innhold.klasselister   !== undefined) ny.lister = innhold.klasselister;
@@ -4451,7 +4552,7 @@ async function bekreftImport() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(ny));
   } catch (e) {
     console.warn('Import-lagring feilet:', e);
-    notify('Klarte ikke lagre importen — for mye data for nettleseren', 'error');
+    notify(t('Klarte ikke lagre importen — for mye data for nettleseren'), 'error');
     return;
   }
   ventendeImport = null;
@@ -4482,6 +4583,7 @@ function setupVelkommen() {
 }
 
 function init() {
+  oversettStatisk(); // først, før noe tegnes (se kommentaren ved funksjonen)
   oppdaterDato();
   setupKlokke();
   oppdaterKlokke();
@@ -4558,7 +4660,7 @@ function init() {
 function åpneSlettAltModal() {
   const knapp = document.getElementById('btn-slett-alt-bekreft');
   delete knapp.dataset.bekreft;
-  knapp.textContent = 'Slett alt';
+  knapp.textContent = t('Slett alt');
   åpneModal('modal-slett-alt');
 }
 
@@ -4672,12 +4774,11 @@ function visNødmelding() {
   kort.style.cssText = 'background:#fff;color:#1e293b;max-width:520px;border-radius:12px;padding:24px;' +
     'display:grid;gap:12px;line-height:1.5';
   const tittel = document.createElement('h2');
-  tittel.textContent = 'Skoledash klarte ikke å starte';
+  tittel.textContent = t('Skoledash klarte ikke å starte');
   tittel.style.margin = '0';
   const tekst = document.createElement('p');
   tekst.style.margin = '0';
-  tekst.textContent = 'De lagrede dataene i denne nettleseren kunne ikke leses. Last dem ned først, ' +
-    'så går ingenting tapt. Deretter kan du starte med en tom app og importere en tidligere backup.';
+  tekst.textContent = t('De lagrede dataene i denne nettleseren kunne ikke leses. Last dem ned først, så går ingenting tapt. Deretter kan du starte med en tom app og importere en tidligere backup.');
   const knapp = (etikett, farge) => {
     const b = document.createElement('button');
     b.type = 'button';
@@ -4685,7 +4786,7 @@ function visNødmelding() {
     b.style.cssText = `font:inherit;font-weight:600;padding:10px 14px;border:0;border-radius:8px;cursor:pointer;color:#fff;background:${farge}`;
     return b;
   };
-  const lastNed = knapp('📤 Last ned lagrede data', '#4f46e5');
+  const lastNed = knapp(t('📤 Last ned lagrede data'), '#4f46e5');
   lastNed.onclick = () => {
     const data = {};
     for (const nøkkel of [STORAGE_KEY, RESERVE_KEY]) {
@@ -4699,11 +4800,11 @@ function visNødmelding() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   let bekreft = false;
-  const nullstill = knapp('Start med tom app', '#b91c1c');
+  const nullstill = knapp(t('Start med tom app'), '#b91c1c');
   nullstill.onclick = () => {
     if (!bekreft) {
       bekreft = true;
-      nullstill.textContent = 'Trykk igjen for å bekrefte';
+      nullstill.textContent = t('Trykk igjen for å bekrefte');
       return;
     }
     // Det gamle flyttes til reservenøkkelen, så det fortsatt kan reddes.
