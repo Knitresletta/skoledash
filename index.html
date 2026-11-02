@@ -381,9 +381,21 @@
       <div class="modal-list-item" data-action="notat"><span>📝 Notat</span></div>
       <div class="modal-list-item" data-action="dagsplan"><span>📋 Dagsplan</span></div>
       <div class="modal-list-item danger" data-action="fjern_elever"><span>👤 Fjern elever…</span></div>
+      <div class="modal-list-item danger" data-action="slett_alt"><span>🗑 Slett alle data på denne maskinen…</span></div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btn-nullstill-lukk">Lukk</button>
+    </div>
+  </div>
+
+  <div id="modal-slett-alt" class="modal hidden">
+    <h3>🗑 Slett alle data på denne maskinen</h3>
+    <p>Dette sletter alt Skoledash har lagret i denne nettleseren: klasselister, sider, notater, bilder og innstillinger. Det kan ikke angres.</p>
+    <p>Bruk det når du er ferdig på en maskin andre også bruker, eller når du vil begynne helt på nytt. Ta gjerne en backup først.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btn-slett-alt-avbryt">Avbryt</button>
+      <button class="btn btn-ghost" id="btn-slett-alt-eksporter">📤 Eksporter først</button>
+      <button class="btn btn-danger" id="btn-slett-alt-bekreft">Slett alt</button>
     </div>
   </div>
 
@@ -503,9 +515,11 @@
     <h3>👋 Velkommen til Skoledash!</h3>
     <p>Skoledash er et gratis verktøy for klasserommet, uten innlogging og uten abonnement. Alt du legger inn lagres bare i nettleseren din.</p>
     <p>Vil du støtte utviklingen, finner du alltid <span class="velkommen-ikon">☕</span> øverst til høyre på siden.</p>
+    <p>Vil du se været der du er, kan appen bruke posisjonen din. Den brukes bare til værvarselet, rundes av til omtrent en kilometer og lagres i nettleseren din. Du kan også velge et sted selv ved å klikke på været øverst til høyre.</p>
     <p class="velkommen-flytt">Har du brukt Skoledash på den gamle adressen? Hent dataene dine med <strong>📥 Importer data</strong> i 🏫-menyen.</p>
     <div class="modal-knapper">
       <a class="btn btn-ghost" data-donasjon target="_blank" rel="noopener noreferrer">☕ Støtt utviklingen</a>
+      <button class="btn btn-ghost" id="btn-velkommen-posisjon">📍 Vis været der du er</button>
       <button class="btn btn-primary" id="btn-velkommen-lukk">Kom i gang</button>
     </div>
   </div>

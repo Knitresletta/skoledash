@@ -2268,6 +2268,7 @@ main.drag-active::before {
 }
 .modal-knapper {
     display: flex;
+    flex-wrap: wrap; /* tre knapper får ikke plass på én linje i smale bokser */
     gap: 8px;
     justify-content: flex-end;
 }

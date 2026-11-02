@@ -9,6 +9,8 @@ const STORAGE_KEY = 'klasserom_state_v1';
 // Reservekopi av lagret tilstand som ikke kunne leses, så den ikke går tapt når appen
 // starter blank og lagrer på nytt.
 const RESERVE_KEY = 'klasserom_state_v1_reserve';
+// Settes av slettAlleData(), så ingen lagring skriver dataene tilbake før siden lastes på nytt.
+let sletterAlt = false;
 
 // Hvor ☕-knappen og velkomstmeldingen sender folk som vil donere. Når Vipps er
 // godkjent, blir ☕ en liten meny med Vipps, Ko-fi og lenke til vilkar.html.
@@ -480,6 +482,13 @@ function loadState() {
         // overstyre. Har de søkt opp et sted, regnes det som deres eget valg.
         vs.kilde = (vs.navn === STANDARD_VÆR_STED.navn) ? 'standard' : 'valgt';
       }
+      // Posisjon lagret før v2.31 hadde 4 desimaler (~11 m). Rund ned til ~1 km.
+      if (state.vær_sted.kilde === 'posisjon') {
+        state.vær_sted.lat = Math.round(state.vær_sted.lat * 100) / 100;
+        state.vær_sted.lon = Math.round(state.vær_sted.lon * 100) / 100;
+      }
+      if (typeof state.vær_sted.navn !== 'string') state.vær_sted.navn = STANDARD_VÆR_STED.navn;
+      state.vær_sted.navn = state.vær_sted.navn.slice(0, 100);
       // Terning (v2.20). Klem verdiene innenfor det widgeten faktisk støtter, så en
       // redigert eller importert fil ikke gir en «d7» eller 40 terninger på skjermen.
       if (!TERNING_TYPER.includes(state.terning_type)) state.terning_type = 6;
@@ -520,6 +529,7 @@ function aktivSide() {
 // ellers går endringen tapt ved neste sideoppfriskning. Oppdaterer også eksport-
 // varselet, siden lagret data nå kan avvike fra forrige eksporterte backup.
 function saveState() {
+  if (sletterAlt) return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {
@@ -544,6 +554,13 @@ function oppdaterDato() {
 // (de vil unngå unødvendig cache-spredning), og geokodingen gir gjerne 5.
 function rundKoordinat(n) {
   return Math.round(n * 10000) / 10000;
+}
+
+// Runder av lærerens egen posisjon til 2 desimaler, omtrent 1 km. Det holder godt for
+// værvarselet, men peker ikke ut en adresse. Steder som søkes opp, er stedsnavn og
+// beholder rundKoordinat().
+function rundPosisjon(n) {
+  return Math.round(n * 100) / 100;
 }
 
 // Stedet vær og pollen hentes for. Faller tilbake til standardstedet hvis det lagrede
@@ -891,8 +908,9 @@ function settViser(id, grader) {
 
 // ===================== Sted for vær og pollen =====================
 // Ber nettleseren om brukerens posisjon og gjør koordinatene om til et stedsnavn.
-// `påBegjæring` skiller de to bruksmåtene: ved oppstart skjer dette stille i bakgrunnen,
-// mens et klikk på «Bruk min posisjon» skal gi tydelig beskjed om hva som skjedde.
+// Kalles bare når læreren ber om det: 📍 Bruk min posisjon i vær-vinduet, eller knappen
+// i velkomstmeldingen. Appen spør aldri ved oppstart, og posisjonen lagres i stedet for
+// å slås opp på nytt hver gang. `påBegjæring` styrer om det gis beskjed underveis.
 //
 // Viktige forbehold, i den rekkefølgen de slår til:
 //  - Posisjon krever «secure context». Åpner du index.html rett fra maskinen (file://)
@@ -912,8 +930,8 @@ async function hentPosisjon(påBegjæring = false) {
   try {
     const pos = await new Promise((ok, nei) =>
       navigator.geolocation.getCurrentPosition(ok, nei, { timeout: 8000, maximumAge: 600_000 }));
-    const lat = rundKoordinat(pos.coords.latitude);
-    const lon = rundKoordinat(pos.coords.longitude);
+    const lat = rundPosisjon(pos.coords.latitude);
+    const lon = rundPosisjon(pos.coords.longitude);
     state.vær_sted = { navn: await stedsnavnFor(lat, lon), lat, lon, kilde: 'posisjon' };
     saveState();
     if (påBegjæring) notify(`Værvarsel hentes nå for ${state.vær_sted.navn}`);
@@ -2458,6 +2476,14 @@ const OPPDATERINGSLOGG_HTML = `
     </ul>
   </details>
   <div class="logg-entry">
+    <div class="logg-versjon">v2.31</div>
+    <div class="logg-dato">2. november 2026</div>
+    <ul>
+      <li><strong>Posisjon bare når du ber om det:</strong> appen spør ikke lenger om posisjonen din når du åpner den. Vil du ha været der du er, trykk <strong>📍 Vis været der du er</strong> i velkomstmeldingen eller <strong>📍 Bruk min posisjon</strong> i vær-vinduet. Posisjonen rundes av til omtrent en kilometer og huskes til du bytter</li>
+      <li><strong>Slett alle data på denne maskinen:</strong> nytt valg under <strong>Nullstill…</strong>. Nyttig når du har brukt Skoledash på en maskin andre også bruker</li>
+    </ul>
+  </div>
+  <div class="logg-entry">
     <div class="logg-versjon">v2.30</div>
     <div class="logg-dato">2. november 2026</div>
     <ul>
@@ -2874,9 +2900,9 @@ const BRUKERVEILEDNING_HTML = `
   <h4>🌦 Været</h4>
   <p>Oppe til høyre står dagens vær med symbol, temperatur og stedsnavn. <strong>Klikk på det</strong> for å åpne detaljene: vind, <strong>nedbør de neste 6 timene</strong>, <strong>pollenvarsel</strong>, luftfuktighet og lufttrykk — pluss varselet time for time de neste åtte timene.</p>
   <p><strong>Pollenvarselet</strong> viser hvilken pollentype som er høyest akkurat nå (or, bjørk, gress eller burot) og hvor kraftig det er. Er nivået høyt, blir teksten rød — nyttig å oppdage før friminuttet hvis du har allergikere i klassen.</p>
-  <p><strong>Stedet finner appen selv.</strong> Første gang spør nettleseren om å få bruke posisjonen din, og været settes til stedet du er. Under stedsnavnet står det hvor stedet kom fra, så du aldri er i tvil.</p>
-  <p><strong>Vil du bytte sted?</strong> Nederst i vær-vinduet ligger <strong>📍 Bruk min posisjon</strong>, og et søkefelt der du kan skrive inn et hvilket som helst sted og trykke <kbd>Enter</kbd>. Fylke og land står under hvert treff, så du ikke havner i feil land. Et sted du har valgt selv blir stående — det overskrives ikke av posisjonen neste gang du åpner appen.</p>
-  <p>Sier du nei til posisjon, eller åpner appen som en fil rett fra maskinen (der nettleseren ikke tillater posisjon), brukes <strong>Eidsvoll</strong> som nødløsning til du velger noe annet.</p>
+  <p><strong>Velg sted for været.</strong> Første gang kan du trykke <strong>📍 Vis været der du er</strong> i velkomstmeldingen. Da spør nettleseren om å få bruke posisjonen din, og været settes til stedet du er. Under stedsnavnet står det hvor stedet kom fra, så du aldri er i tvil.</p>
+  <p><strong>Vil du bytte sted?</strong> Nederst i vær-vinduet ligger <strong>📍 Bruk min posisjon</strong>, og et søkefelt der du kan skrive inn et hvilket som helst sted og trykke <kbd>Enter</kbd>. Fylke og land står under hvert treff, så du ikke havner i feil land. Stedet blir stående til du bytter det selv. Appen spør ikke om posisjonen din hver gang du åpner den.</p>
+  <p>Har du ikke valgt noe sted, eller sier nei til posisjon, brukes <strong>Eidsvoll</strong> til du velger noe annet. Har du valgt et sted tidligere, brukes det.</p>
 
   <h4>Timer</h4>
   <p>Standard er 5 minutter. Trykk <strong>Sett tid</strong> (eller <kbd>s</kbd>) for å velge en annen varighet (1–60 min). Start og stopp med <strong>▶ Start</strong> (eller <kbd>t</kbd>). En lyd spilles av når tiden er ute.</p>
@@ -2955,9 +2981,11 @@ const BRUKERVEILEDNING_HTML = `
   <ul>
     <li><strong>Selve appen</strong> lastes fra skoledash.app. Fontene ligger også der, og hentes ikke fra Google eller andre fonttjenester.</li>
     <li><strong>Vær og pollen</strong> hentes når appen starter og hvert tiende minutt. Koordinatene til stedet sendes til Meteorologisk institutt (api.met.no) og open-meteo.com. Søker du opp et sted, sendes stedsnavnet til open-meteo.com.</li>
-    <li><strong>Posisjon:</strong> første gang du åpner appen, spør nettleseren om posisjonen din. Sier du ja, eller trykker <strong>📍 Bruk min posisjon</strong>, sendes koordinatene til bigdatacloud.net for å finne stedsnavnet. Sier du nei, brukes Eidsvoll.</li>
+    <li><strong>Posisjon</strong> brukes bare når du ber om det, med <strong>📍 Vis været der du er</strong> eller <strong>📍 Bruk min posisjon</strong>. Koordinatene rundes av til omtrent en kilometer, sendes én gang til bigdatacloud.net for å finne stedsnavnet, og lagres. Deretter er det disse avrundede koordinatene som brukes til været.</li>
     <li><strong>YouTube-widgeten</strong> viser videoer fra youtube-nocookie.com i en egen ramme. Rammen er adskilt fra resten av appen, så YouTube kan ikke lese elevdataene dine. Spilleren lastes når appen åpnes, så lenge et YouTube-kort har en video, også om kortet ligger på en annen side. YouTube ser at videoen vises på skoledash.app, og kan sette egne informasjonskapsler inne i spilleren.</li>
   </ul>
+  <p><strong>Delte maskiner:</strong> elevdataene blir liggende i nettleseren til du sletter dem. Bruker andre den samme maskinen og nettleseren, kan de se klasselistene dine. Når du er ferdig på en slik maskin, velg <strong>Nullstill… → 🗑 Slett alle data på denne maskinen</strong>. Ta gjerne en backup først.</p>
+  <p>Backupfila du eksporterer, inneholder alt, også notater og bilder. Ta vare på den like trygt som en klasseliste.
 
   <h4>📤 Eksportere og 📥 importere data</h4>
   <p>Siden data kun bor i nettleseren din, er det lurt å ta en <strong>backup</strong>. Åpne <strong>Skoledash-menyen</strong> og velg <strong>📤 Eksporter data</strong> — da lastes det ned én fil som inneholder alt: klasselister, alle sider (med elever, grupper, trekk-backlogs og begrensninger), innstillinger, notater og bilder.</p>
@@ -3284,8 +3312,22 @@ function settOppHendelser() {
       case 'notat':        nullstillNotat();                              lukkModal(); break;
       case 'dagsplan':     nullstillDagsplan();                           lukkModal(); break;
       case 'fjern_elever': lukkModal(); åpneFjernElevModal();                         break;
+      case 'slett_alt':    lukkModal(); åpneSlettAltModal();                          break;
     }
   });
+
+  // Slett alle data på denne maskinen (to klikk på «Slett alt»)
+  document.getElementById('btn-slett-alt-avbryt').onclick    = lukkModal;
+  document.getElementById('btn-slett-alt-eksporter').onclick = () => eksporterData();
+  document.getElementById('btn-slett-alt-bekreft').onclick   = e => {
+    const knapp = e.currentTarget;
+    if (knapp.dataset.bekreft !== '1') {
+      knapp.dataset.bekreft = '1';
+      knapp.textContent = 'Trykk igjen for å slette alt';
+      return;
+    }
+    slettAlleData();
+  };
 
   // Fjern elever
   document.getElementById('btn-fjern-bekreft').onclick = () => {
@@ -4381,6 +4423,7 @@ function setupVelkommen() {
     localStorage.setItem(VELKOMMEN_KEY, '1');
   };
   document.getElementById('btn-velkommen-lukk').onclick = lukk;
+  document.getElementById('btn-velkommen-posisjon').onclick = () => { lukk(); hentPosisjon(true); };
   // Klikk på donasjonslenka teller også som «sett», ellers dukker meldingen opp igjen.
   modal.querySelector('[data-donasjon]').addEventListener('click', lukk);
 
@@ -4391,11 +4434,9 @@ function init() {
   oppdaterDato();
   setupKlokke();
   oppdaterKlokke();
-  // Hent været med det stedet vi allerede har, og be samtidig om posisjon i bakgrunnen.
-  // Går posisjonen gjennom, hentes været på nytt for riktig sted — men vi venter ikke
-  // på svaret, så et tregt eller avslått oppslag aldri forsinker oppstarten.
+  // Hent været for stedet vi har lagret. Posisjonen spørres det ikke om her: det skjer
+  // bare når læreren selv ber om det (velkomstmeldingen eller 📍 i vær-vinduet).
   hentVær();
-  hentPosisjon();
   setInterval(oppdaterDato,   60_000);
   setInterval(oppdaterKlokke,  1_000);
   setInterval(hentVær,       600_000);
@@ -4458,6 +4499,30 @@ function init() {
   // Async bilde-oppstart: åpne IndexedDB, migrer gammelt localStorage-format, rydd
   // foreldreløse blober og tegn bildekortene. Blokkerer ikke resten av oppstarten.
   initBilder();
+}
+
+// Åpner bekreftelsen for «Slett alle data». Knappen nullstilles hver gang, så to
+// klikk alltid trengs.
+function åpneSlettAltModal() {
+  const knapp = document.getElementById('btn-slett-alt-bekreft');
+  delete knapp.dataset.bekreft;
+  knapp.textContent = 'Slett alt';
+  åpneModal('modal-slett-alt');
+}
+
+// Sletter alt Skoledash har lagret i denne nettleseren: tilstanden, reservekopien,
+// velkomstmerket og bildedatabasen. Laster deretter siden på nytt, som for en ny bruker.
+// Tenkt for delte skolemaskiner. sletterAlt hindrer at noe lagres tilbake underveis.
+async function slettAlleData() {
+  sletterAlt = true;
+  for (const nøkkel of [STORAGE_KEY, RESERVE_KEY, VELKOMMEN_KEY]) {
+    try { localStorage.removeItem(nøkkel); } catch (_) {}
+  }
+  try { await BildeLager.tøm(); } catch (_) {}
+  // Selve databasen slettes også. Den er åpen akkurat nå, så slettingen fullføres når
+  // siden lastes på nytt og forbindelsen lukkes. Vi venter ikke på den.
+  try { indexedDB.deleteDatabase('klasserom'); } catch (_) {}
+  location.reload();
 }
 
 // Starter appen, og fanger det hvis oppstarten krasjer. Uten dette ville en feil i
