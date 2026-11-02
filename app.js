@@ -22,17 +22,21 @@ const VELKOMMEN_KEY = 'skoledash_velkommen_sett';
 
 // Fargepaletten gruppene tildeles (bakgrunn + tekst), brukt både på gruppe-kort og
 // som prikk/farge i elevlista. Det er flere grupper enn farger? Da gjentas paletten.
+// Fargetonene til gruppene (ca. Tailwind 500). Selve fargene som vises, regnes ut i CSS
+// (.gruppe-farget i style.css): tonen blandes med temaets kortfarge til bakgrunn og med
+// temaets tekstfarge til tekst. Da passer gruppene til både lyse og mørke temaer, og
+// teksten har alltid kontrast. Rekkefølgen er valgt så nabogrupper ikke ligner.
 const GRUPPE_FARGER = [
-  { bg: '#fce7f3', text: '#9d174d' },
-  { bg: '#ede9fe', text: '#5b21b6' },
-  { bg: '#d1fae5', text: '#065f46' },
-  { bg: '#fef3c7', text: '#92400e' },
-  { bg: '#dbeafe', text: '#1e40af' },
-  { bg: '#f3e8ff', text: '#6b21a8' },
-  { bg: '#ffe4e6', text: '#9f1239' },
-  { bg: '#ccfbf1', text: '#134e4a' },
-  { bg: '#fef9c3', text: '#713f12' },
-  { bg: '#e0f2fe', text: '#075985' },
+  '#ec4899', // rosa
+  '#8b5cf6', // fiolett
+  '#10b981', // grønn
+  '#f59e0b', // rav
+  '#3b82f6', // blå
+  '#f43f5e', // rød-rosa
+  '#14b8a6', // turkis
+  '#a855f7', // lilla
+  '#eab308', // gul
+  '#0ea5e9', // himmelblå
 ];
 
 // Visningsnavn for enkeltinstans-widgetene (de som har av/på-avkrysning i ⊞ Widgets).
@@ -1106,11 +1110,11 @@ function renderElever() {
       ? `<input class="elev-rediger-input" type="text" maxlength="60" value="${esc(navn)}"
             onkeydown="if(event.key==='Enter')lagreRedigerElev(${i},this.value);else if(event.key==='Escape')avbrytRedigerElev()"
             onblur="lagreRedigerElev(${i},this.value)">`
-      : `<span class="elev-navn"${harGruppe ? ` style="color:${farge.text}"` : ''} onclick="startRedigerElev(${i})" title="Klikk for å redigere">${esc(navn)}</span>`;
+      : `<span class="elev-navn${harGruppe ? ' gruppe-farget' : ''}"${harGruppe ? ` style="--gf:${farge}"` : ''} onclick="startRedigerElev(${i})" title="Klikk for å redigere">${esc(navn)}</span>`;
     return `
       <div class="elev-item">
         <span class="elev-nr">${i + 1}.</span>
-        ${harGruppe ? `<span class="elev-dot" style="background:${farge.text}"></span>` : ''}
+        ${harGruppe ? `<span class="elev-dot gruppe-farget" style="--gf:${farge}"></span>` : ''}
         ${navnHtml}
         <button class="elev-slett" onclick="fjernElev(${i})" title="Fjern ${esc(navn)}">✕</button>
       </div>`;
@@ -1830,8 +1834,9 @@ function fjernGrupper() {
   renderElever();
 }
 
-// Tegner gruppe-kortene, ett per gruppe, med en fast farge fra GRUPPE_FARGER
-// (modulo, så det går rundt hvis det er flere grupper enn farger).
+// Tegner gruppe-kortene, ett per gruppe, med en fargetone fra GRUPPE_FARGER (modulo, så
+// det går rundt hvis det er flere grupper enn farger). Tonen settes som --gf, og CSS-en
+// blander den med temaets farger.
 function renderGrupper() {
   const vis = document.getElementById('grupper-vis');
   if (!aktivSide().grupper) {
@@ -1840,9 +1845,9 @@ function renderGrupper() {
   }
   vis.innerHTML = aktivSide().grupper.map((gruppe, gi) => {
     const f = GRUPPE_FARGER[gi % GRUPPE_FARGER.length];
-    return `<div class="gruppe-kort" style="background:${f.bg}">
-      <div class="gruppe-tittel" style="color:${f.text}">Gruppe ${gi + 1}</div>
-      <div class="gruppe-elever" style="color:${f.text}">${gruppe.map(esc).join(', ')}</div>
+    return `<div class="gruppe-kort gruppe-farget" style="--gf:${f}">
+      <div class="gruppe-tittel">Gruppe ${gi + 1}</div>
+      <div class="gruppe-elever">${gruppe.map(esc).join(', ')}</div>
     </div>`;
   }).join('');
 }
@@ -2475,6 +2480,13 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.33</div>
+    <div class="logg-dato">2. november 2026</div>
+    <ul>
+      <li><strong>Gruppefargene følger temaet:</strong> gruppekortene og fargene i elevlista tilpasser seg nå temaet du har valgt, i stedet for å lyse opp med faste pastellfarger i mørke temaer. Teksten er lett å lese i alle temaer</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.32</div>
     <div class="logg-dato">2. november 2026</div>

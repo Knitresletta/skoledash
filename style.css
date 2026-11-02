@@ -1383,6 +1383,21 @@ textarea[id^="notat-textarea"]:focus {
     border-radius: var(--r-sm);
     padding: 8px 10px;
 }
+/* Gruppefarger som følger temaet. --gf er gruppens fargetone (settes inline fra
+   GRUPPE_FARGER i app.js). Bakgrunnen er litt av tonen blandet inn i kortfargen, og
+   teksten er tonen blandet med temaets tekstfarge: mørk på lyse temaer, lys på mørke.
+   --gruppe-tone styrer hvor tydelig bakgrunnen er, og kan overstyres per tema. */
+.gruppe-kort.gruppe-farget {
+    background: color-mix(in srgb, var(--gf) var(--gruppe-tone, 16%), var(--card));
+    color: color-mix(in srgb, var(--gf) 40%, var(--text));
+    border: 1px solid color-mix(in srgb, var(--gf) 30%, var(--card));
+}
+.elev-navn.gruppe-farget {
+    color: color-mix(in srgb, var(--gf) 45%, var(--text));
+}
+.elev-dot.gruppe-farget {
+    background: color-mix(in srgb, var(--gf) 75%, var(--text));
+}
 .gruppe-tittel {
     font-size: 0.7rem;
     font-weight: 700;
