@@ -1,6 +1,6 @@
 # 🏫 Skoledash
 
-Et digitalt klasseromsdashboard for lærere — navnetrekning, gruppeinndeling, timer, dagsplan og mer, rett i nettleseren. Ingen innlogging, ingen installasjon, ingenting sendes til en server.
+Et digitalt klasseromsdashboard for lærere: navnetrekning, gruppeinndeling, timer, dagsplan og mer, rett i nettleseren. Ingen innlogging, ingen installasjon, og elevdata blir på din maskin.
 
 **👉 Prøv den her: [skoledash.app](https://skoledash.app)**
 
@@ -33,6 +33,13 @@ Et digitalt klasseromsdashboard for lærere — navnetrekning, gruppeinndeling, 
 ## Lagring og personvern
 
 Alt lagres lokalt i nettleseren din (localStorage + IndexedDB). Ingen elevdata forlater maskinen.
+
+Noen funksjoner henter data fra andre tjenester. Det som sendes, er aldri elevdata, men tjenesten ser IP-adressen din, slik alle nettsider gjør:
+
+- **Selve siden** lastes fra GitHub Pages.
+- **Vær og pollen** hentes når appen starter og hvert tiende minutt. Stedets koordinater sendes til api.met.no (Meteorologisk institutt) og open-meteo.com. Søker du opp et sted, sendes stedsnavnet til open-meteo.com.
+- **Posisjon:** første gang du åpner appen, spør nettleseren om posisjonen din. Sier du ja, eller trykker 📍 Bruk min posisjon, sendes koordinatene til bigdatacloud.net for å finne stedsnavnet. Sier du nei, brukes Eidsvoll.
+- **YouTube-widgeten** laster YouTube sin spiller og viser videoer fra youtube-nocookie.com. Det skjer bare når widgeten er i bruk.
 
 Bruk **📤 Eksporter data** for å ta backup av alt — klasselister, sider, innstillinger, notater og bilder — til én fil, og **📥 Importer data** for å hente det tilbake eller dele klasselister med en kollega. Et lite varsel minner deg på å eksportere når du har ulagrede endringer.
 

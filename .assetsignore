@@ -6,10 +6,10 @@
 .playwright-mcp
 .wrangler
 node_modules
-wrangler.jsonc
-serve.py
-CNAME
-README.md
-ROADMAP.md
-CLAUDE.md
-AGENTS.md
+/wrangler.jsonc
+/serve.py
+/CNAME
+/README.md
+/ROADMAP.md
+/CLAUDE.md
+/AGENTS.md
