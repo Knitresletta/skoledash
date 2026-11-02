@@ -2275,19 +2275,23 @@ const OPPDATERINGSLOGG_HTML = `
     <p>Dette er ideer, ikke løfter. Rekkefølgen kan endre seg. Savner du noe? Si fra via <strong>💬 Tilbakemelding</strong>.</p>
     <strong>Neste</strong>
     <ul>
-      <li>🔊 <strong>Lydnivåmåler:</strong> mikrofonen viser hvor høyt det er i rommet. Lyden blir værende på maskinen</li>
-      <li>🤫 <strong>Arbeidssymboler og trafikklys:</strong> «Hvisk», «Stille», «Spør en venn», «Jobb sammen», og rødt, gult og grønt</li>
-      <li>⏱ <strong>Stoppeklokke:</strong> tell oppover i Timer-kortet</li>
+      <li>⏱ <strong>Stoppeklokke og timeglass:</strong> tell oppover, eller se tiden som en skive som krymper</li>
+      <li>📋 <strong>Neste punkt i dagsplanen med én tast,</strong> og punktet som pågår, blir uthevet</li>
+      <li>🔍 <strong>Fokusmodus:</strong> ett kort fyller hele skjermen</li>
+      <li>🤫 <strong>Arbeidssymboler og trafikklys</strong> i samme kort</li>
+      <li>🔢 <strong>Teller, instruksjonskort, nedtelling til en dato og ukenummer</strong></li>
+      <li>📑 <strong>Maler for sider,</strong> og deling av en side med en kollega, uten elevnavn</li>
     </ul>
     <strong>Senere</strong>
     <ul>
-      <li>🙂 Exit-avstemning med emoji-skala, rett på tavla</li>
-      <li>🏆 Poengtavle for grupper og lag</li>
-      <li>📅 Nedtelling til en dato, for eksempel «12 dager til juleferie»</li>
-      <li>✏️ Tegnebrett</li>
-      <li>📷 Dokumentkamera (webkamera i et kort)</li>
-      <li>🔳 QR-kode fra en lenke</li>
-      <li>🖼 Bakgrunnsbilder bak kortene</li>
+      <li>🔊 Lydnivåmåler med rekord og mål for klassen</li>
+      <li>👀 «Øyne hit»-beskjed over hele skjermen, med din egen tekst</li>
+      <li>🪑 Klassekart og 🗓 ukeplan</li>
+      <li>🎡 Lykkehjul som valg i Tilfeldig elev</li>
+      <li>🃏 Kortbunke med forside og bakside</li>
+      <li>🏆 Poengtavle, 🙂 exit-avstemning og rask håndsopprekning</li>
+      <li>🎂 Bursdager i toppfeltet, 🤸 bevegelsespause og lydeffekter</li>
+      <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
   <div class="logg-entry">
