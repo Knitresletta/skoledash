@@ -2291,6 +2291,13 @@ const OPPDATERINGSLOGG_HTML = `
     </ul>
   </details>
   <div class="logg-entry">
+    <div class="logg-versjon">v2.27</div>
+    <div class="logg-dato">2. november 2026</div>
+    <ul>
+      <li><strong>Brukerveiledningen forteller nå nøyaktig hva som sendes ut av appen:</strong> værdata, posisjonsoppslag og YouTube. Elevdata blir alltid på maskinen din. Før sto det at ingenting ble sendt til internett, og det var ikke helt riktig. Se <strong>Lagring og personvern</strong> i brukerveiledningen. Det samme står nå i vilkårene for gaver</li>
+    </ul>
+  </div>
+  <div class="logg-entry">
     <div class="logg-versjon">v2.26</div>
     <div class="logg-dato">2. november 2026</div>
     <ul>
@@ -2753,8 +2760,15 @@ const BRUKERVEILEDNING_HTML = `
   <h4>💬 Tilbakemelding & kontakt</h4>
   <p>Klikk <strong>💬 Tilbakemelding</strong> i Skoledash-menyen (🏫 Skoledash øverst til venstre). Der finner du to måter å nå utvikleren på: send en e-post til <strong>knitresletta@pm.me</strong>, eller opprett en sak (issue) på GitHub for å melde en feil eller foreslå en ny funksjon.</p>
 
-  <h4>Lagring</h4>
-  <p>Alt lagres automatisk i nettleseren din (localStorage). Ingenting sendes til internett — data er kun på din maskin. Ulike nettlesere eller private vinduer har separate lagre.</p>
+  <h4>Lagring og personvern</h4>
+  <p>Alt du legger inn, lagres automatisk i nettleseren din: elevnavn, klasselister, grupper, notater og bilder. <strong>Ingen elevdata forlater maskinen.</strong> Ulike nettlesere eller private vinduer har hver sin lagring.</p>
+  <p>Noen funksjoner henter likevel data fra andre tjenester. Det som sendes, er aldri elevdata, men tjenesten ser IP-adressen din, slik alle nettsider gjør:</p>
+  <ul>
+    <li><strong>Selve appen</strong> lastes fra skoledash.app. Fontene ligger også der, så Google eller andre fonttjenester får ingenting.</li>
+    <li><strong>Vær og pollen</strong> hentes når appen starter og hvert tiende minutt. Koordinatene til stedet sendes til Meteorologisk institutt (api.met.no) og open-meteo.com. Søker du opp et sted, sendes stedsnavnet til open-meteo.com.</li>
+    <li><strong>Posisjon:</strong> første gang du åpner appen, spør nettleseren om posisjonen din. Sier du ja, eller trykker <strong>📍 Bruk min posisjon</strong>, sendes koordinatene til bigdatacloud.net for å finne stedsnavnet. Sier du nei, brukes Eidsvoll.</li>
+    <li><strong>YouTube-widgeten</strong> laster YouTube sin spiller og viser videoer fra youtube-nocookie.com. Det skjer bare når du bruker widgeten.</li>
+  </ul>
 
   <h4>📤 Eksportere og 📥 importere data</h4>
   <p>Siden data kun bor i nettleseren din, er det lurt å ta en <strong>backup</strong>. Åpne <strong>Skoledash-menyen</strong> og velg <strong>📤 Eksporter data</strong> — da lastes det ned én fil som inneholder alt: klasselister, alle sider (med elever, grupper, trekk-backlogs og begrensninger), innstillinger, notater og bilder.</p>
