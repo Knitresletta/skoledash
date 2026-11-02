@@ -2291,6 +2291,19 @@ const OPPDATERINGSLOGG_HTML = `
     </ul>
   </details>
   <div class="logg-entry">
+    <div class="logg-versjon">v2.25</div>
+    <div class="logg-dato">2. november 2026</div>
+    <ul>
+      <li><strong>Temaene er gått over:</strong> Høy kontrast, Under vann, På fjellet, I skogen, I en vulkan og Equestria har nye farger. Alle er sjekket for kontrast, så teksten kan leses fra bakerste rad</li>
+      <li><strong>Mørkt tema:</strong> knappene har fått mørk tekst, så «Trekk ordenselever», «Start» og de andre lyse knappene kan leses fra bakerste rad</li>
+      <li><strong>Høy kontrast er nå hvit tekst på svart</strong>, med gule knapper. Det skåner øynene i mørke rom</li>
+      <li><strong>Mønstre:</strong> flere temaer har et svakt mønster i bakgrunnen, for eksempel bølger, trær, glør eller stjerner. Kortene er fortsatt ensfargede, så teksten står rolig</li>
+      <li><strong>Knappene kan leses i alle temaer:</strong> før hadde knappene alltid hvit tekst, og i lyse farger ble den nesten borte. Nå har hvert tema sin egen knappetekst</li>
+      <li><strong>To nye temaer:</strong> 🌌 Cosmic v2 (mørk lilla med stjerner) og 🎀 Cute (lavendel med skyer). De ligger under <strong>Jonatan spesial</strong> sammen med Equestria</li>
+      <li>I eventyrland, Matrix og Cyberspace er tatt ut. Hadde du valgt ett av dem, bruker appen nå Lyst. Velg et nytt under <strong>🎨 Tema</strong></li>
+    </ul>
+  </div>
+  <div class="logg-entry">
     <div class="logg-versjon">v2.24</div>
     <div class="logg-dato">2. november 2026</div>
     <ul>
@@ -2694,7 +2707,7 @@ const BRUKERVEILEDNING_HTML = `
   <p><strong>Endre antall:</strong> bruk <strong>⊞ Kolonner</strong> med <strong>−</strong> og <strong>+</strong> nederst til venstre for å gå mellom 1 og 4 kolonner. Når du fjerner en kolonne, flyttes kortene som lå der over til den siste kolonnen — ingenting forsvinner. Antall kolonner lagres per side, så side 1 kan ha tre kolonner mens side 2 har én.</p>
 
   <h4>Tema</h4>
-  <p>Åpne <strong>Skoledash-menyen</strong> (🏫 Skoledash øverst til venstre) og hold musen over <strong>🎨 Tema</strong>. Velg blant tre standardtemaer (Lyst, Mørkt, Høy kontrast) eller åtte kreative temaer: Under vann, På fjellet, I skogen, I en vulkan, I eventyrland, Matrix, Cyberspace og Equestria. Temaet lagres automatisk.</p>
+  <p>Åpne <strong>Skoledash-menyen</strong> (🏫 Skoledash øverst til venstre) og hold musen over <strong>🎨 Tema</strong>. Velg blant tre standardtemaer (Lyst, Mørkt, Høy kontrast) eller sju kreative temaer: Under vann, På fjellet, I skogen og I en vulkan under <strong>Eventyr</strong>, og Equestria, Cosmic v2 og Cute under <strong>Jonatan spesial</strong>. Høy kontrast er hvit tekst på svart bakgrunn, laget for å leses på avstand. Flere temaer har et svakt mønster i bakgrunnen. Temaet lagres automatisk.</p>
 
   <h4>Font</h4>
   <p>Hold musen over <strong>🔤 Font</strong> i Skoledash-menyen. Velg blant systemstandard og fem andre: <em>Lexend</em> (laget for å gjøre lesing lettere), <em>Outfit</em> (ren og moderne), <em>Sniglet</em> (rund og leken), <em>Kalam</em> (håndskrift) og <em>JetBrains Mono</em> (alle tegn like brede). Valget lagres til neste gang.</p>
@@ -2825,7 +2838,13 @@ function inputEnter(inputId, bekreftFn) {
 // ===================== Tema =====================
 // Bytter fargetema. Selve fargene ligger i CSS, knyttet til data-theme på <html>;
 // her setter vi bare attributtet, lagrer valget og markerer det aktive valget i menyen.
+// Temaer som finnes. Et lagret tema som er tatt ut (eventyrland, matrix og cyberspace
+// forsvant i v2.25), eller et ukjent navn fra en importfil, faller tilbake til «lyst».
+const TEMAER = ['lyst', 'mørkt', 'kontrast', 'under-vann', 'fjellet', 'skogen', 'vulkan',
+  'equestria', 'cosmic', 'cute'];
+
 function settTema(tema) {
+  if (!TEMAER.includes(tema)) tema = 'lyst';
   state.tema = tema;
   document.documentElement.setAttribute('data-theme', tema);
   saveState();

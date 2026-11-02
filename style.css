@@ -79,6 +79,15 @@
     --text: #1e293b;
     --muted: #64748b;
     --border: #e2e8f0;
+    /* Tekst oppå fargede flater. Lyse temaer bruker hvit, temaer med lys primær-
+       eller signalfarge overstyrer med mørk tekst så knappene kan leses. */
+    --on-primary: #fff;
+    --on-green: #fff;
+    --on-amber: #fff;
+    --on-red: #fff;
+    --primary-tekst: var(--primary); /* tekst på spøkelsesknapper */
+    --header-tekst: #fff;
+    --monster: none; /* SVG-mønster i bakgrunnen, bare i noen temaer */
     --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.08);
     --shadow-md:
         0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.08);
@@ -94,6 +103,12 @@
    egen header-bakgrunn). Settes via data-theme på <html> fra settTema(). Vil du lage
    et nytt tema: kopier en blokk, gi den et nytt data-theme-navn og juster fargene. */
 [data-theme="mørkt"] {
+    /* Lyse aksentfarger trenger mørk tekst på knappene (hvit ga 1,7-3,8:1) */
+    --on-primary: #0f172a;
+    --on-green: #0f172a;
+    --on-amber: #0f172a;
+    --on-red: #0f172a;
+    --primary-tekst: var(--text);
     --bg: #0f172a;
     --card: #1e293b;
     --primary: #818cf8;
@@ -118,208 +133,257 @@
     border-bottom: 1px solid var(--border);
 }
 
+/* Høy kontrast, B Hvit på svart */
 [data-theme="kontrast"] {
-    --bg: #f5f5f5;
-    --card: #ffffff;
-    --primary: #000000;
-    --primary-l: #dddddd;
-    --green: #005500;
-    --green-l: #ccffcc;
-    --red: #990000;
-    --red-l: #ffcccc;
-    --amber: #664400;
-    --amber-l: #fff3cc;
-    --pink: #880066;
-    --pink-l: #ffddee;
-    --text: #000000;
-    --muted: #333333;
-    --border: #000000;
+    --bg: #000000;
+    --card: #000000;
+    --primary: #ffe600;
+    --primary-l: #383300;
+    --on-primary: #000000;
+    --primary-tekst: #ffffff;
+    --text: #ffffff;
+    --muted: #e6e6e6;
+    --border: #ffffff;
+    --green: #3dff7a;
+    --green-l: #0f3d1d;
+    --on-green: #111111;
+    --amber: #ffb000;
+    --amber-l: #3d2a00;
+    --on-amber: #111111;
+    --red: #ff6b6b;
+    --red-l: #3d1a1a;
+    --on-red: #111111;
+    --pink: #ff8ce8;
+    --pink-l: #3d2238;
+    --header-tekst: #ffffff;
     --shadow: none;
     --shadow-md: none;
 }
 [data-theme="kontrast"] header {
     background: #000000;
-    border-bottom: 2px solid #000;
+    border-bottom: 2px solid #ffffff;
 }
 [data-theme="kontrast"] .card {
-    border: 2px solid #000000;
+    border: 2px solid #ffffff;
 }
 
+/* Under vann, A Dyphav */
 [data-theme="under-vann"] {
-    --bg: #0c2a4a;
-    --card: #0d3b6e;
-    --primary: #38bdf8;
-    --primary-l: #0c4a6e;
-    --text: #e0f2fe;
-    --muted: #7dd3fc;
-    --border: #1e4d7b;
-    --green: #34d399;
-    --green-l: #064e3b;
+    --bg: #04192e;
+    --card: #0a2a47;
+    --primary: #4cc9f0;
+    --primary-l: #194d6c;
+    --on-primary: #04192e;
+    --primary-tekst: #e6f4ff;
+    --text: #e6f4ff;
+    --muted: #9cc7e6;
+    --border: #1b4468;
+    --green: #4ade80;
+    --green-l: #195555;
+    --on-green: #111111;
     --amber: #fbbf24;
-    --amber-l: #78350f;
+    --amber-l: #444e3f;
+    --on-amber: #111111;
+    --red: #fb7185;
+    --red-l: #443b56;
+    --on-red: #111111;
+    --pink: #f472b6;
+    --pink-l: #423b62;
+    --header-tekst: #e6f4ff;
+    --monster: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%2740%27%20height%3D%2724%27%3E%3Cpath%20d%3D%27M0%2015%20Q10%205%2020%2015%20T40%2015%27%20fill%3D%27none%27%20stroke%3D%27%23e6f4ff%27%20stroke-opacity%3D%270.11%27%20stroke-width%3D%271.5%27%2F%3E%3C%2Fsvg%3E");
     --shadow: 0 1px 4px 0 rgb(0 0 0 / 0.5);
     --shadow-md: 0 4px 8px -1px rgb(0 0 0 / 0.6);
 }
 [data-theme="under-vann"] header {
-    background: #061829;
-    border-bottom: 1px solid #1e4d7b;
+    background: linear-gradient(180deg, #031222, #0a3a5c);
+    border-bottom: 1px solid #1b4468;
 }
 
+/* På fjellet, B Fjellskumring */
 [data-theme="fjellet"] {
-    --bg: #cfdde8;
-    --card: #e8eff5;
-    --primary: #1e3a5f;
-    --primary-l: #b9c9d8;
-    --text: #0f172a;
-    --muted: #475569;
-    --border: #94a8bc;
-    --green: #166534;
-    --green-l: #bbf7d0;
-    --amber: #b45309;
-    --amber-l: #fde68a;
+    --bg: #1d1b2e;
+    --card: #29263f;
+    --primary: #f2a65a;
+    --primary-l: #554245;
+    --on-primary: #2a1700;
+    --primary-tekst: #f0ecf8;
+    --text: #f0ecf8;
+    --muted: #b3abcb;
+    --border: #3d3858;
+    --green: #4ade80;
+    --green-l: #31524f;
+    --on-green: #111111;
+    --amber: #fbbf24;
+    --amber-l: #5b4b39;
+    --on-amber: #111111;
+    --red: #fb7185;
+    --red-l: #5b3850;
+    --on-red: #111111;
+    --pink: #f472b6;
+    --pink-l: #5a385c;
+    --header-tekst: #f0ecf8;
+    --shadow: 0 1px 4px 0 rgb(0 0 0 / 0.5);
+    --shadow-md: 0 4px 8px -1px rgb(0 0 0 / 0.6);
 }
 [data-theme="fjellet"] header {
-    background: linear-gradient(135deg, #1e3a5f 0%, #475569 60%, #94a8bc 100%);
-    border-bottom: 1px solid #94a8bc;
+    background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%2770%27%20height%3D%2730%27%3E%3Cpath%20d%3D%27M0%2030%20L14%2014%20L22%2022%20L34%206%20L48%2022%20L56%2016%20L70%2030%20Z%27%20fill%3D%27%23ffffff%27%20opacity%3D%270.18%27%2F%3E%3C%2Fsvg%3E") repeat-x bottom, linear-gradient(90deg, #2b2448 0%, #5a3d6e 60%, #9a5222 100%);
+    border-bottom: 1px solid #3d3858;
 }
 
+/* I skogen, A Granskog */
 [data-theme="skogen"] {
-    --bg: #1a2e1a;
-    --card: #243824;
-    --primary: #86efac;
-    --primary-l: #14532d;
-    --text: #dcfce7;
-    --muted: #86efac;
-    --border: #2d4a2d;
+    --bg: #142019;
+    --card: #1c2b22;
+    --primary: #7fc28e;
+    --primary-l: #324c3a;
+    --on-primary: #0e1a12;
+    --primary-tekst: #e4f0e6;
+    --text: #e4f0e6;
+    --muted: #a7c2ad;
+    --border: #2c4234;
     --green: #4ade80;
-    --green-l: #14532d;
+    --green-l: #275639;
+    --on-green: #111111;
     --amber: #fbbf24;
-    --amber-l: #78350f;
+    --amber-l: #524f22;
+    --on-amber: #111111;
+    --red: #fb7185;
+    --red-l: #523c3a;
+    --on-red: #111111;
+    --pink: #f472b6;
+    --pink-l: #503c46;
+    --header-tekst: #e4f0e6;
+    --monster: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%2736%27%20height%3D%2734%27%3E%3Cpath%20d%3D%27M12%204%20L18%2016%20H6%20Z%20M12%2010%20L20%2024%20H4%20Z%27%20fill%3D%27%23e4f0e6%27%20opacity%3D%270.07%27%2F%3E%3C%2Fsvg%3E");
     --shadow: 0 1px 4px 0 rgb(0 0 0 / 0.5);
-    --shadow-md: 0 4px 8px -1px rgb(0 0 0 / 0.55);
+    --shadow-md: 0 4px 8px -1px rgb(0 0 0 / 0.6);
 }
 [data-theme="skogen"] header {
-    background: #0f1f0f;
-    border-bottom: 1px solid #2d4a2d;
+    background: #0d1711;
+    border-bottom: 1px solid #2c4234;
 }
 
+/* I en vulkan, A Glødende */
 [data-theme="vulkan"] {
-    --bg: #1c0a00;
-    --card: #2d1200;
-    --primary: #f97316;
-    --primary-l: #7c2d12;
-    --text: #fff7ed;
-    --muted: #fb923c;
-    --border: #431407;
-    --red: #ef4444;
-    --red-l: #7f1d1d;
+    --bg: #170b07;
+    --card: #24120b;
+    --primary: #ff6a2b;
+    --primary-l: #542512;
+    --on-primary: #1c0700;
+    --primary-tekst: #fff1e8;
+    --text: #fff1e8;
+    --muted: #f0b48f;
+    --border: #40200f;
+    --green: #4ade80;
+    --green-l: #2d4327;
+    --on-green: #111111;
     --amber: #fbbf24;
-    --amber-l: #78350f;
-    --green: #86efac;
-    --green-l: #14532d;
-    --shadow: 0 1px 4px 0 rgb(0 0 0 / 0.6);
-    --shadow-md: 0 4px 8px -1px rgb(0 0 0 / 0.7);
+    --amber-l: #583c11;
+    --on-amber: #111111;
+    --red: #fb7185;
+    --red-l: #582928;
+    --on-red: #111111;
+    --pink: #f472b6;
+    --pink-l: #562934;
+    --header-tekst: #fff1e8;
+    --monster: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%2748%27%20height%3D%2748%27%3E%3Cg%20fill%3D%27%23ff8a3d%27%3E%3Ccircle%20cx%3D%278%27%20cy%3D%2730%27%20r%3D%271.3%27%20opacity%3D%270.22%27%2F%3E%3Ccircle%20cx%3D%2726%27%20cy%3D%2712%27%20r%3D%270.9%27%20opacity%3D%270.18%27%2F%3E%3Ccircle%20cx%3D%2740%27%20cy%3D%2738%27%20r%3D%271.6%27%20opacity%3D%270.15%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+    --shadow: 0 1px 4px 0 rgb(0 0 0 / 0.5);
+    --shadow-md: 0 4px 8px -1px rgb(0 0 0 / 0.6);
 }
 [data-theme="vulkan"] header {
-    background: #120500;
-    border-bottom: 1px solid #431407;
+    background: linear-gradient(90deg, #120500, #5c1a05);
+    border-bottom: 1px solid #40200f;
 }
 
-[data-theme="eventyrland"] {
-    --bg: #ead5ff;
-    --card: #faeeff;
-    --primary: #6b21a8;
-    --primary-l: #e9d5ff;
-    --pink: #db2777;
-    --pink-l: #fce7f3;
-    --text: #2e1065;
-    --muted: #7c3aed;
-    --border: #c4b5fd;
-    --green: #15803d;
-    --green-l: #bbf7d0;
-    --amber: #d97706;
-    --amber-l: #fde68a;
-}
-[data-theme="eventyrland"] header {
-    background: linear-gradient(135deg, #6b21a8 0%, #db2777 55%, #f59e0b 100%);
-    border-bottom: 1px solid #c4b5fd;
-}
-
-[data-theme="matrix"] {
-    --bg: #000000;
-    --card: #001400;
-    --primary: #00ff41;
-    --primary-l: #003300;
-    --text: #00ff41;
-    --muted: #00aa2b;
-    --border: #004400;
-    --green: #00ff41;
-    --green-l: #003300;
-    --red: #ff4444;
-    --red-l: #330000;
-    --amber: #ffff00;
-    --amber-l: #333300;
-    --pink: #ff00ff;
-    --pink-l: #330033;
-    --shadow: 0 0 8px 0 rgb(0 255 65 / 0.3);
-    --shadow-md: 0 0 16px 0 rgb(0 255 65 / 0.4);
-}
-[data-theme="matrix"] header {
-    background: #000a00;
-    border-bottom: 1px solid #004400;
-}
-[data-theme="matrix"] .card {
-    border: 1px solid #004400;
-}
-
-[data-theme="cyberspace"] {
-    --bg: #060018;
-    --card: #0d0030;
-    --primary: #00d4ff;
-    --primary-l: #001a3d;
-    --pink: #ff00aa;
-    --pink-l: #3d0029;
-    --text: #e0f0ff;
-    --muted: #7ec8e3;
-    --border: #1a0060;
-    --green: #00ff9d;
-    --green-l: #003322;
-    --amber: #ffaa00;
-    --amber-l: #332200;
-    --shadow: 0 0 10px 0 rgb(0 212 255 / 0.25);
-    --shadow-md: 0 0 20px 0 rgb(0 212 255 / 0.35);
-}
-[data-theme="cyberspace"] header {
-    background: #030010;
-    border-bottom: 1px solid #1a0060;
-}
-
+/* Equestria, A Regnbue */
 [data-theme="equestria"] {
-    --bg: #ffcce6;
-    --card: #fff0f7;
-    --primary: #be185d;
-    --primary-l: #fbcfe8;
-    --pink: #ec4899;
-    --pink-l: #fce7f3;
-    --text: #500724;
-    --muted: #be185d;
-    --border: #f9a8d4;
-    --green: #059669;
-    --green-l: #a7f3d0;
-    --amber: #ea580c;
-    --amber-l: #fed7aa;
-    --red: #dc2626;
-    --red-l: #fecaca;
+    --bg: #ffe3f1;
+    --card: #fff7fb;
+    --primary: #b3206f;
+    --primary-l: #f6ddea;
+    --on-primary: #ffffff;
+    --primary-tekst: #b3206f;
+    --text: #4a0a2c;
+    --muted: #8a3a63;
+    --border: #f8bfdc;
+    --green: #17733f;
+    --green-l: #dfe5e1;
+    --on-green: #ffffff;
+    --amber: #9a5300;
+    --amber-l: #f1e0d8;
+    --on-amber: #ffffff;
+    --red: #b42326;
+    --red-l: #f4d9dd;
+    --on-red: #ffffff;
+    --pink: #b02a6f;
+    --pink-l: #f4dae7;
+    --header-tekst: #ffffff;
+    --monster: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%2746%27%20height%3D%2734%27%3E%3Cg%20opacity%3D%270.16%27%3E%3Ccircle%20cx%3D%276%27%20cy%3D%276%27%20r%3D%272%27%20fill%3D%27%23e0407a%27%2F%3E%3Ccircle%20cx%3D%2720%27%20cy%3D%2710%27%20r%3D%272%27%20fill%3D%27%23e8833a%27%2F%3E%3Ccircle%20cx%3D%2734%27%20cy%3D%276%27%20r%3D%272%27%20fill%3D%27%23d9b21a%27%2F%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%2724%27%20r%3D%272%27%20fill%3D%27%233aa65a%27%2F%3E%3Ccircle%20cx%3D%2728%27%20cy%3D%2726%27%20r%3D%272%27%20fill%3D%27%233a7fd9%27%2F%3E%3Ccircle%20cx%3D%2740%27%20cy%3D%2720%27%20r%3D%272%27%20fill%3D%27%238a4fd9%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
 }
 [data-theme="equestria"] header {
-    background: linear-gradient(
-        135deg,
-        #ec4899 0%,
-        #a855f7 33%,
-        #3b82f6 66%,
-        #22c55e 100%
-    );
-    border-bottom: 1px solid #f9a8d4;
+    background: linear-gradient(90deg, #b82a5e, #b85a18, #8f7008, #2a7a3e, #2a5fa8, #6a3fb0);
+    border-bottom: 1px solid #f8bfdc;
+}
+
+/* Cosmic v2, A Kosmos tro */
+[data-theme="cosmic"] {
+    --bg: #080414;
+    --card: #12102a;
+    --primary: #a78bfa;
+    --primary-l: #332b58;
+    --on-primary: #0b0620;
+    --primary-tekst: #e8ecf8;
+    --text: #e8ecf8;
+    --muted: #9aa3bd;
+    --border: #262150;
+    --green: #6ee7b7;
+    --green-l: #28444c;
+    --on-green: #111111;
+    --amber: #fcd34d;
+    --amber-l: #4a3f32;
+    --on-amber: #111111;
+    --red: #fb7185;
+    --red-l: #4a2740;
+    --on-red: #111111;
+    --pink: #ff8ad8;
+    --pink-l: #4b2d54;
+    --header-tekst: #e8ecf8;
+    --monster: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%2752%27%20height%3D%2752%27%3E%3Cg%20fill%3D%27%23e8ecf8%27%3E%3Ccircle%20cx%3D%276%27%20cy%3D%278%27%20r%3D%271%27%20opacity%3D%270.32%27%2F%3E%3Ccircle%20cx%3D%2734%27%20cy%3D%2722%27%20r%3D%270.7%27%20opacity%3D%270.27%27%2F%3E%3Ccircle%20cx%3D%2720%27%20cy%3D%2740%27%20r%3D%271.2%27%20opacity%3D%270.27%27%2F%3E%3Cpath%20d%3D%27M44%206%20l1%203%203%201%20-3%201%20-1%203%20-1%20-3%20-3%20-1%203%20-1z%27%20opacity%3D%270.22%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+    --shadow: 0 1px 4px 0 rgb(0 0 0 / 0.5);
+    --shadow-md: 0 4px 8px -1px rgb(0 0 0 / 0.6);
+}
+[data-theme="cosmic"] header {
+    background: linear-gradient(90deg, #080414, #1a1040);
+    border-bottom: 1px solid #262150;
+}
+
+/* Cute, C Lavendelsky */
+[data-theme="cute"] {
+    --bg: #f0edff;
+    --card: #fdfcff;
+    --primary: #5e4fc4;
+    --primary-l: #eae7f8;
+    --on-primary: #ffffff;
+    --primary-tekst: #5e4fc4;
+    --text: #2a2350;
+    --muted: #5f5890;
+    --border: #dcd6fb;
+    --green: #17733f;
+    --green-l: #dde9e4;
+    --on-green: #ffffff;
+    --amber: #9a5300;
+    --amber-l: #efe4db;
+    --on-amber: #ffffff;
+    --red: #b42326;
+    --red-l: #f3dee1;
+    --on-red: #ffffff;
+    --pink: #b02a6f;
+    --pink-l: #f2dfeb;
+    --header-tekst: #2a2350;
+    --monster: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%2770%27%20height%3D%2740%27%3E%3Cg%20fill%3D%27%23ffffff%27%20opacity%3D%270.8%27%3E%3Cellipse%20cx%3D%2720%27%20cy%3D%2720%27%20rx%3D%2714%27%20ry%3D%276%27%2F%3E%3Cellipse%20cx%3D%2728%27%20cy%3D%2716%27%20rx%3D%278%27%20ry%3D%276%27%2F%3E%3Cellipse%20cx%3D%2714%27%20cy%3D%2717%27%20rx%3D%276%27%20ry%3D%275%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+}
+[data-theme="cute"] header {
+    background: linear-gradient(90deg, #b9a2ff, #ffc2e2);
+    border-bottom: 1px solid #dcd6fb;
 }
 
 /* ===================== Reset ===================== */
@@ -335,6 +399,8 @@
 body {
     font-family: var(--font);
     background: var(--bg);
+    /* Mønsteret ligger bare bak kortene. Kortene er alltid ensfargede. */
+    background-image: var(--monster);
     color: var(--text);
     font-size: 0.875rem; /* ca. 16,6px ved normal rot (19px), skalerer med --font-size */
     min-height: 100vh;
@@ -345,7 +411,7 @@ body {
 /* ===================== Header ===================== */
 header {
     background: #8b5cf6; /* ensfarget lilla i standardtemaet, temaene overstyrer */
-    color: white;
+    color: var(--header-tekst);
     padding: 10px 20px;
     display: flex;
     align-items: center;
@@ -378,7 +444,7 @@ header h1 {
     padding: 4px 10px;
     cursor: pointer;
     font-size: 0.85rem;
-    color: white;
+    color: var(--header-tekst);
     display: flex;
     align-items: center;
     gap: 5px;
@@ -421,12 +487,13 @@ header h1 {
     padding: 4px 9px;
     cursor: pointer;
     font-size: 1rem;
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--header-tekst);
+    opacity: 0.8;
     line-height: 1;
 }
 .side-legg-til:hover {
-    border-color: white;
-    color: white;
+    border-color: currentColor;
+    opacity: 1;
 }
 #header-dato {
     font-size: 0.85rem;
@@ -942,23 +1009,23 @@ body.kl-resizing .kl-col-resizer::before {
 }
 .btn-primary {
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
 }
 .btn-success {
     background: var(--green);
-    color: #fff;
+    color: var(--on-green);
 }
 .btn-danger {
     background: var(--red);
-    color: #fff;
+    color: var(--on-red);
 }
 .btn-amber {
     background: var(--amber);
-    color: #fff;
+    color: var(--on-amber);
 }
 .btn-ghost {
     background: var(--primary-l);
-    color: var(--primary);
+    color: var(--primary-tekst);
 }
 .btn-sm {
     padding: 5px 10px;
@@ -1339,7 +1406,7 @@ textarea[id^="notat-textarea"]:focus {
 #btn-widget-meny {
     background: rgb(255 255 255 / 0.18);
     border: 1px solid rgb(255 255 255 / 0.3);
-    color: white;
+    color: var(--header-tekst);
     border-radius: var(--r-sm);
     padding: 5px 11px;
     font-size: 0.82rem;
@@ -1886,7 +1953,7 @@ main.drag-active::before {
 .yt-modus-knapp.aktiv {
     background: var(--primary);
     border-color: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
 }
 .yt-bytt-lenke {
     flex-shrink: 0;
@@ -1943,7 +2010,7 @@ main.drag-active::before {
     border-radius: 50%;
     border: none;
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
     font-size: 0.9rem;
     cursor: pointer;
     display: flex;
@@ -2075,7 +2142,7 @@ main.drag-active::before {
 .terning-type-knapp.aktiv {
     background: var(--primary);
     border-color: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
 }
 
 .terning-kontroller {
