@@ -2241,6 +2241,29 @@ textarea[id^="notat-textarea"]:focus {
    hentes fra temavariablene, så klokka følger temaet uten egne regler per tema.
    Koordinatene i SVG-en er i viewBox-enheter (0–100), ikke piksler — derfor er
    strektykkelser og skriftstørrelser her små tall. */
+/* Overskrifta er en knapp som bytter visning. Den arver utseendet til en vanlig
+   kortoverskrift, og får bare en svak bakgrunn når musa er over. */
+.kl-klokke-visning {
+    font: inherit;
+    color: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    background: none;
+    border: none;
+    padding: 2px 6px;
+    margin-left: -6px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.kl-klokke-visning:hover {
+    background: var(--primary-l);
+    color: var(--primary);
+}
+#card-klokke[data-visning="analog"] #klokke-digital,
+#card-klokke[data-visning="digital"] .klokke-urskive {
+    display: none;
+}
+
 #card-klokke .klokke-urskive {
     display: flex;
     justify-content: center;

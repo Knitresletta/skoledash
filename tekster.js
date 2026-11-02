@@ -17,6 +17,7 @@
 
 const NYNORSK = {
   // ---------- Toppfelt, menyer og knapper ----------
+  'Bytt mellom begge, analog og digital': 'Byt mellom begge, analog og digital',
   // Guidekortene for nye brukere (index.html, data-t-html)
   '↗ Widgets': '↗ Widgetar',
   '↘ Hurtigtaster': '↘ Snøggtastar',
@@ -295,6 +296,7 @@ const BRUKERVEILEDNING_NN = `
 
   <h4>🕐 Klokke</h4>
   <p>Viser ei <strong>analog urskive</strong> med tala 1–12 og tre visarar, og den <strong>digitale tida</strong> rett under. Time- og minuttvisaren glir jamt slik ekte klokker gjer. Er ho 09:55, står timevisaren nesten på 10, ikkje rett på 9. Det gjer kortet trygt å bruke når klassen øver på å lese klokka.</p>
+  <p><strong>Vel visning:</strong> klikk på overskrifta i kortet (der det står <strong>Begge</strong>, <strong>Analog</strong> eller <strong>Digital</strong>) for å byte mellom urskive og tal, berre urskive eller berre tal. Valet blir hugsa.</p>
   <p>Kortet viser berre tida. <strong>Vêret finn du oppe til høgre</strong> i toppen av sida. Sjå avsnittet under.</p>
   <p>Klokka går sjølv om nettet er nede, for ho hentar tida frå maskina di.</p>
 

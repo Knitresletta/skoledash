@@ -276,7 +276,10 @@
     <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-klokke" title="Fjern fra siden">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
-      <h2>🕐 Klokke</h2>
+      <!-- Overskrifta er også visningsvelgeren: klikk bytter mellom begge, analog og
+           digital (byttKlokkeVisning). Teksten settes fra JS. -->
+      <h2><button class="kl-klokke-visning" id="btn-klokke-visning" data-klikk="klokke-visning"
+                  title="Bytt mellom begge, analog og digital">Begge</button></h2>
     </div>
 
     <div class="klokke-urskive">

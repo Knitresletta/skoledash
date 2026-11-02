@@ -94,6 +94,11 @@ const GUIDE_KORT = ['card-guide-meny', 'card-guide-widgets', 'card-guide-taster'
 const SKALER_MED_KORT = ['card-klokke', 'card-timer', 'card-tilfeldig',
   'card-ordenselev', 'card-ulv', 'card-terning'];
 
+// Visningene klokka går gjennom når man klikker på overskrifta, i denne rekkefølgen.
+// Står her oppe fordi loadState() sjekker lagret verdi mot lista.
+const KLOKKE_VISNINGER = ['begge', 'analog', 'digital'];
+const KLOKKE_VISNING_NAVN = { begge: 'Begge', analog: 'Analog', digital: 'Digital' };
+
 // Terningtypene widgeten tilbyr, og taket for hvor mange som kan kastes samtidig.
 // Bare d6 har ekte prikkeflater — d4, d8, d10, d12 og d20 har tall på flatene også i
 // virkeligheten, og tegnes derfor med sin egen silhuett og tallet i midten.
@@ -187,7 +192,8 @@ function defaultState() {
     vær_sted:            { ...STANDARD_VÆR_STED }, // sted for vær + pollen (delt av alle sider)
     terning_type:        6,   // hvilken terning som er valgt (antall sider)
     terning_antall:      1,   // hvor mange som kastes om gangen
-    terning_kast:        [],  // siste kast, slik at kortet ikke står tomt etter omlasting
+    terning_kast:        [],
+    klokke_visning:      'begge', // 'begge', 'analog' eller 'digital' (klikk på klokkeoverskrifta)  // siste kast, slik at kortet ikke står tomt etter omlasting
     notater:      {},                // ingen notatkort på et tomt bord; legges til via «+»
     bilder:       {},                // ingen bildekort som standard; legges til via «+». Selve bildene bor i IndexedDB
     youtube:      {},                // ingen YouTube-kort som standard; legges til via «+»
@@ -562,6 +568,7 @@ function loadState() {
       // Terning (v2.20). Klem verdiene innenfor det widgeten faktisk støtter, så en
       // redigert eller importert fil ikke gir en «d7» eller 40 terninger på skjermen.
       if (!TERNING_TYPER.includes(state.terning_type)) state.terning_type = 6;
+      if (!KLOKKE_VISNINGER.includes(state.klokke_visning)) state.klokke_visning = 'begge';
       state.terning_antall = Math.min(MAKS_TERNINGER, Math.max(1, state.terning_antall | 0 || 1));
       if (!Array.isArray(state.terning_kast)) state.terning_kast = [];
       // Størrelse per widget (v2.24) er prosent avvik fra global størrelse. Før var det
@@ -935,6 +942,27 @@ function setupTerning() {
 // Tegner strekene og tallene på urskiven. Kjøres én gang ved oppstart — merkene står
 // stille, det er bare viserne som beveger seg. 60 minuttstreker, der hver femte er
 // lengre og tykkere (timemarkering), pluss tallene 1–12.
+// Viser valgt klokkevisning: data-visning på kortet styrer hva som skjules (CSS), og
+// overskrifta viser navnet på visningen.
+function visKlokkeVisning() {
+  const card = document.getElementById('card-klokke');
+  card.dataset.visning = state.klokke_visning;
+  document.getElementById('btn-klokke-visning').textContent = t(KLOKKE_VISNING_NAVN[state.klokke_visning]);
+}
+
+// Går videre til neste visning. Høyden tilpasses den nye visningen hvis læreren ikke
+// selv har satt størrelsen (digital alene trenger mye mindre plass enn begge), og
+// innholdet skaleres på nytt til å fylle kortet.
+function byttKlokkeVisning() {
+  const i = KLOKKE_VISNINGER.indexOf(state.klokke_visning);
+  state.klokke_visning = KLOKKE_VISNINGER[(i + 1) % KLOKKE_VISNINGER.length];
+  visKlokkeVisning();
+  const w = aktivSide().widget_layout.find(x => x.id === 'card-klokke');
+  if (w) tilpassHøyde(w);
+  skalerInnhold(document.querySelector('#card-klokke .kl-skaler'));
+  saveState();
+}
+
 function setupKlokke() {
   const merker = document.getElementById('klokke-merker');
   const tall   = document.getElementById('klokke-tall');
@@ -2738,6 +2766,7 @@ const OPPDATERINGSLOGG_HTML = `
       <li><strong>Oppsettet ditt er tatt vare på:</strong> kortene står omtrent der de sto i kolonnene da du sist brukte Skoledash</li>
       <li><strong>Et kort du skrur av og på igjen, kommer tilbake der det sto,</strong> så sant plassen er ledig. Ellers havner det på første ledige plass</li>
       <li><strong>Innholdet vokser med kortet:</strong> drar du klokka, timeren, tilfeldig elev, ordenselever, klassebamsen eller terningen større, blir tall, urskive og knapper større også. Disse seks har derfor ikke lenger egen prosent under <strong>📏 Skriftstørrelse → Enkelt widget</strong></li>
+      <li><strong>Klokka kan vise analog, digital eller begge:</strong> klikk på overskriften i klokkekortet for å bytte</li>
       <li><strong>Nye brukere møter et tomt bord</strong> med tre små guidekort som forklarer Skoledash-menyen, ⊞ Widgets og hurtigtastene. Klokka står nå nederst til venstre når du henter den fram, og er høy nok til at både urskiva og tallene synes</li>
     </ul>
   </div>
@@ -3182,6 +3211,7 @@ const BRUKERVEILEDNING_HTML = `
 
   <h4>🕐 Klokke</h4>
   <p>Viser en <strong>analog urskive</strong> med tallene 1–12 og tre visere, og den <strong>digitale tiden</strong> rett under. Time- og minuttviseren glir jevnt slik ekte klokker gjør — er den 09:55, står timeviseren nesten på 10, ikke rett på 9. Det gjør kortet trygt å bruke når klassen øver på å lese klokka.</p>
+  <p><strong>Velg visning:</strong> klikk på overskriften i kortet (der det står <strong>Begge</strong>, <strong>Analog</strong> eller <strong>Digital</strong>) for å bytte mellom urskive og tall, bare urskive eller bare tall. Valget huskes.</p>
   <p>Kortet viser bare tiden. <strong>Været finner du oppe til høyre</strong> i toppen av siden — se avsnittet under.</p>
   <p>Klokka går uansett om nettet er nede: den henter tiden fra maskinen din.</p>
 
@@ -4839,6 +4869,7 @@ function init() {
   oversettStatisk(); // først, før noe tegnes (se kommentaren ved funksjonen)
   oppdaterDato();
   setupKlokke();
+  visKlokkeVisning();
   oppdaterKlokke();
   // Hent været for stedet vi har lagret. Posisjonen spørres det ikke om her: det skjer
   // bare når læreren selv ber om det (velkomstmeldingen eller 📍 i vær-vinduet).
@@ -4961,6 +4992,7 @@ const KLIKK_HANDLINGER = {
   'lukk-tilbakemelding':  () => { document.getElementById('feedback-modal').style.display = 'none'; },
   'begrensning':          () => åpneBegrensningModal(),
   'skjul-widget':         el => toggleWidgetSynlighet(el.dataset.widget, false),
+  'klokke-visning':       () => byttKlokkeVisning(),
   'fjern-guide':          el => fjernGuide(el.dataset.widget),
   'rediger-elev':         el => startRedigerElev(Number(el.dataset.idx)),
   'fjern-elev':           el => fjernElev(Number(el.dataset.idx)),
