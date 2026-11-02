@@ -1,0 +1,149 @@
+/* Prototype: fritt oppsett. Egen, enkel stil, ikke koblet til appens temaer. */
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  font-family: system-ui, sans-serif;
+  background: #eef1f5;
+  color: #1d2733;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+#linje {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  background: #fff;
+  border-bottom: 1px solid #d6dce4;
+  flex: 0 0 auto;
+}
+#linje button {
+  font: inherit;
+  padding: 4px 10px;
+  border: 1px solid #c4ccd6;
+  border-radius: 6px;
+  background: #f7f9fb;
+  cursor: pointer;
+}
+#hint { color: #5b6878; font-size: 0.9em; }
+
+/* Flata fyller resten av vinduet. Kortene plasseres absolutt i prosent av den,
+   så bordet ser likt ut uansett skjermstørrelse. Ingen scrolling. */
+#flate {
+  position: relative;
+  flex: 1 1 auto;
+  margin: 10px;
+  overflow: hidden;
+}
+
+.kort {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  min-width: 0;
+  /* Kortet er en «container», så innholdet kan skalere med kortets størrelse
+     (cqi/cqb-enheter) i stedet for med vinduet. */
+  container-type: size;
+}
+.kort.aktiv { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); }
+
+.kort-topp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 4px;
+  cursor: grab;
+  touch-action: none; /* ellers scroller touch-tavla i stedet for å dra */
+  user-select: none;
+}
+.kort-topp h2 { margin: 0; font-size: 1rem; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.grep { color: #9aa6b4; }
+.lukk { border: 0; background: none; font-size: 1.1rem; cursor: pointer; color: #9aa6b4; }
+
+/* Innholdet scroller inni kortet når kortet er mindre enn innholdet. */
+.kort-innhold {
+  flex: 1;
+  overflow: auto;
+  padding: 4px 12px 12px;
+}
+
+/* Håndtak for størrelse: fire kanter og fire hjørner, litt utenfor kortet. */
+.kant { position: absolute; touch-action: none; z-index: 2; }
+.kant[data-kant="n"]  { top: -4px; left: 10px; right: 10px; height: 8px; cursor: ns-resize; }
+.kant[data-kant="s"]  { bottom: -4px; left: 10px; right: 10px; height: 8px; cursor: ns-resize; }
+.kant[data-kant="e"]  { right: -4px; top: 10px; bottom: 10px; width: 8px; cursor: ew-resize; }
+.kant[data-kant="w"]  { left: -4px; top: 10px; bottom: 10px; width: 8px; cursor: ew-resize; }
+.kant[data-kant="ne"] { top: -6px; right: -6px; width: 16px; height: 16px; cursor: nesw-resize; }
+.kant[data-kant="sw"] { bottom: -6px; left: -6px; width: 16px; height: 16px; cursor: nesw-resize; }
+.kant[data-kant="nw"] { top: -6px; left: -6px; width: 16px; height: 16px; cursor: nwse-resize; }
+.kant[data-kant="se"] { bottom: -6px; right: -6px; width: 16px; height: 16px; cursor: nwse-resize; }
+/* Et synlig grep i nedre høyre hjørne, så man skjønner at kortet kan strekkes. */
+.kant[data-kant="se"]::after {
+  content: "";
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid #c4ccd6;
+  border-bottom: 2px solid #c4ccd6;
+  border-radius: 0 0 3px 0;
+}
+
+body.flytter, body.flytter * { cursor: grabbing !important; user-select: none; }
+body.endrer-størrelse { user-select: none; }
+
+/* Hjelpelinjer som viser hvilken kant kortet har festet seg til. */
+.linje-hjelp {
+  position: absolute;
+  background: #3b82f6;
+  pointer-events: none;
+  z-index: 9999;
+}
+.linje-hjelp.loddrett { top: 0; bottom: 0; width: 1px; }
+.linje-hjelp.vannrett { left: 0; right: 0; height: 1px; }
+
+/* Innhold i eksempelkortene */
+.stor {
+  /* Store tall vokser og krymper med kortet: begrenset av både bredde og høyde. */
+  font-size: clamp(1.4rem, min(18cqi, 30cqb), 9rem);
+  font-weight: 600;
+  text-align: center;
+  margin: 4px 0;
+  white-space: nowrap;
+}
+.kort-innhold ul { margin: 0; padding-left: 18px; line-height: 1.7; }
+.kort-innhold textarea { width: 100%; height: 100%; min-height: 60px; resize: none; font: inherit; border: 1px solid #d6dce4; border-radius: 6px; padding: 6px; }
+
+/* Smal skjerm: fritt oppsett gir ikke mening. Kortene stables etter y, så x
+   (rekkefølgen settes med `order` fra JS). */
+@media (max-width: 960px) {
+  #flate {
+    position: static;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: auto;
+  }
+  .kort {
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    flex: 0 0 auto;          /* ellers klemmer flex-stabelen kortene sammen */
+    container-type: inline-size; /* høyden følger innholdet her */
+  }
+  .kort-innhold { overflow: visible; }
+  .stor { font-size: clamp(1.6rem, 12cqi, 4rem); }
+  .kant { display: none; }
+  .kort-topp { cursor: default; }
+  #hint { display: none; }
+}
