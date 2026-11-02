@@ -1140,11 +1140,42 @@ function leggTilElev(navn) {
     return false;
   }
   s.elever = [...s.elever, navn];
+  const gruppe = plasserIGruppe(navn); // null hvis det ikke finnes grupper
   saveState();
   renderElever();
   renderAlleTrekk();
-  notify(t('✓ {navn} lagt til', { navn }));
+  if (gruppe === null) {
+    notify(t('✓ {navn} lagt til', { navn }));
+  } else if (gruppe === -1) {
+    notify(t('{navn} er lagt til, men passer ikke i noen gruppe uten å bryte en begrensning. Del inn på nytt.', { navn }), 'warning');
+  } else {
+    renderGrupper();
+    notify(t('✓ {navn} lagt til i gruppe {n}', { navn, n: gruppe + 1 }));
+  }
   return true;
+}
+
+// Setter en ny elev inn i gruppeinndelingen som allerede finnes, uten å stokke de
+// andre: i den minste gruppen, så gruppene holder seg jevne. Er flere like små,
+// velges en av dem tilfeldig. Grupper der eleven ville brutt en «hold fra
+// hverandre»-begrensning, hoppes over.
+// Returnerer gruppeindeksen, -1 hvis ingen gruppe passer (eleven står da utenfor),
+// eller null hvis siden ikke har grupper.
+function plasserIGruppe(navn) {
+  const s = aktivSide();
+  if (!s.grupper?.length) return null;
+  const sperret = new Set((s.gruppe_begrensninger ?? [])
+    .filter(par => par.includes(navn))
+    .map(([a, b]) => (a === navn ? b : a)));
+  const lovlige = s.grupper
+    .map((g, i) => ({ i, størrelse: g.length, ok: !g.some(n => sperret.has(n)) }))
+    .filter(g => g.ok);
+  if (!lovlige.length) return -1;
+  const minst = Math.min(...lovlige.map(g => g.størrelse));
+  const kandidater = lovlige.filter(g => g.størrelse === minst);
+  const valgt = kandidater[Math.floor(Math.random() * kandidater.length)].i;
+  s.grupper[valgt] = [...s.grupper[valgt], navn];
+  return valgt;
 }
 
 // Fjerner én elev ved listeindeks fra aktiv side og oppdaterer visningen.
@@ -1153,9 +1184,11 @@ function fjernElev(idx) {
   const navn = s.elever[idx];
   if (!navn) return;
   s.elever = s.elever.filter((_, i) => i !== idx);
+  fjernFraGrupper(new Set([navn]));
   saveState();
   renderElever();
   renderAlleTrekk();
+  renderGrupper();
 }
 
 // Fjerner flere elever på én gang (brukes av «Fjern elever»-modalen).
@@ -1163,9 +1196,21 @@ function fjernElev(idx) {
 function fjernEleverBatch(fjernSett) {
   const s = aktivSide();
   s.elever = s.elever.filter(e => !fjernSett.has(e));
+  fjernFraGrupper(fjernSett);
   saveState();
   renderElever();
   renderAlleTrekk();
+  renderGrupper();
+}
+
+// Tar elever som er fjernet fra klassen, ut av gruppeinndelingen på aktiv side.
+// Grupper som blir tomme, forsvinner, og er det ingen grupper igjen, er inndelingen
+// borte. De andre elevene blir der de er. Lagrer ikke selv: kalleren gjør det.
+function fjernFraGrupper(fjernSett) {
+  const s = aktivSide();
+  if (!s.grupper) return;
+  const igjen = s.grupper.map(g => g.filter(n => !fjernSett.has(n))).filter(g => g.length);
+  s.grupper = igjen.length ? igjen : null;
 }
 
 // Renser et sett med fjernede elever ut av alle backlogs/valgte-felt på aktiv side,
@@ -2857,6 +2902,8 @@ const OPPDATERINGSLOGG_HTML = `
       <li><strong>Oppsettet ditt er tatt vare på:</strong> kortene står omtrent der de sto i kolonnene da du sist brukte Skoledash</li>
       <li><strong>Et kort du skrur av og på igjen, kommer tilbake der det sto,</strong> så sant plassen er ledig. Ellers havner det på første ledige plass</li>
       <li><strong>Innholdet vokser med kortet:</strong> drar du klokka, timeren, tilfeldig elev, ordenselever, klassebamsen eller terningen større, blir tall, urskive og knapper større også. Disse seks har derfor ikke lenger egen prosent under <strong>📏 Skriftstørrelse → Enkelt widget</strong></li>
+      <li>Fikset: en elev du fjernet, ble stående i gruppa si. Nå forsvinner eleven fra gruppa også, og en gruppe som blir tom, fjernes</li>
+      <li><strong>En ny elev havner rett i en gruppe</strong> når gruppene allerede er laget: i den minste gruppen, uten at de andre stokkes om. Gruppebegrensningene følges</li>
       <li><strong>Elevlista, dagsplanen, gruppene og notatene vokser med innholdet:</strong> nedover, og oppover når det er stopp under, så langt det er ledig plass. Har du selv satt størrelsen, blir den stående</li>
       <li><strong>Klokka kan vise analog, digital eller begge:</strong> klikk på overskriften i klokkekortet for å bytte</li>
       <li><strong>Nye brukere møter et tomt bord</strong> med tre små guidekort som forklarer Skoledash-menyen, ⊞ Widgets og hurtigtastene. Klokka står nå nederst til venstre når du henter den fram, og er høy nok til at både urskiva og tallene synes</li>
@@ -3290,6 +3337,7 @@ const BRUKERVEILEDNING_HTML = `
 
   <h4>Grupper</h4>
   <p>Trykk <strong>🎲 Del inn</strong> i Grupper-kortet (eller tasten <kbd>g</kbd>). Skriv inn antall grupper, og elevene fordeles tilfeldig. Gruppefarger vises også i elevlisten. Trykk <strong>✕</strong> for å fjerne gruppeinndelingen.</p>
+  <p><strong>Ny elev når gruppene er laget:</strong> eleven havner i den minste gruppen, og de andre blir der de er. Er flere grupper like små, velges en av dem tilfeldig. Gruppebegrensninger følges: passer eleven ikke i noen gruppe uten å bryte en, står eleven utenfor til du deler inn på nytt.</p>
 
   <h4>⛔ Gruppebegrensning</h4>
   <p>Klikk <strong>⛔ Par</strong> i Grupper-kortets hjørne for å åpne begrensningslisten. Velg to elever fra nedtrekksmenyene og klikk <strong>Legg til</strong>. Paret vil aldri havne i samme gruppe. Du kan legge til så mange par du vil. Fjern et par ved å klikke <strong>✕</strong> ved siden av det.</p>

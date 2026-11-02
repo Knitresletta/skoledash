@@ -106,6 +106,8 @@ const NYNORSK = {
   '. Gjelder siden du står på.': '. Gjeld sida du står på.',
   'Velg to forskjellige elever': 'Vel to ulike elevar',
   'Dette paret er allerede lagt til': 'Dette paret er alt lagt til',
+  '{navn} er lagt til, men passer ikke i noen gruppe uten å bryte en begrensning. Del inn på nytt.':
+    '{navn} er lagt til, men passar ikkje i nokon gruppe utan å bryte ei avgrensing. Del inn på nytt.',
   'Legg til minst to elever i elevlista først.': 'Legg til minst to elevar i elevlista først.',
   'Ingen par ennå.': 'Ingen par enno.',
 
@@ -283,6 +285,7 @@ const BRUKERVEILEDNING_NN = `
 
   <h4>Grupper</h4>
   <p>Trykk <strong>🎲 Del inn</strong> i Grupper-kortet (eller tasten <kbd>g</kbd>). Skriv inn kor mange grupper du vil ha, og elevane blir fordelte tilfeldig. Gruppefargane blir òg viste i elevlista. Trykk <strong>✕</strong> for å fjerne gruppeinndelinga.</p>
+  <p><strong>Ny elev når gruppene er laga:</strong> eleven hamnar i den minste gruppa, og dei andre blir verande der dei er. Er fleire grupper like små, blir ei av dei vald tilfeldig. Gruppeavgrensingar blir følgde: passar eleven ikkje i nokon gruppe utan å bryte ei, står eleven utanfor til du deler inn på nytt.</p>
 
   <h4>⛔ Gruppeavgrensing</h4>
   <p>Klikk <strong>⛔ Par</strong> i hjørnet av Grupper-kortet for å opne lista over par. Vel to elevar i nedtrekkslistene og klikk <strong>Legg til</strong>. Paret hamnar aldri i same gruppe. Du kan leggje til så mange par du vil. Fjern eit par ved å klikke <strong>✕</strong> ved sida av det.</p>
