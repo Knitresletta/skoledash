@@ -2295,6 +2295,13 @@ const OPPDATERINGSLOGG_HTML = `
     </ul>
   </details>
   <div class="logg-entry">
+    <div class="logg-versjon">v2.28</div>
+    <div class="logg-dato">2. november 2026</div>
+    <ul>
+      <li>Fikset: når du ga klassebamsen nytt navn, sto det gamle navnet igjen under <strong>📏 Skriftstørrelse → Enkelt widget</strong> til siden ble lastet på nytt</li>
+    </ul>
+  </div>
+  <div class="logg-entry">
     <div class="logg-versjon">v2.27</div>
     <div class="logg-dato">2. november 2026</div>
     <ul>
@@ -3295,6 +3302,7 @@ function settOppRename() {
       aktivSide().ulv_navn = nyttNavn;
       saveState();
       renderUlv();
+      renderWidgetStørrelseMeny(); // Skriftstørrelse-menyen viser også bamsenavnet
     }
     lukkModal();
   };
