@@ -6,6 +6,9 @@
 // NB: nøkkelen heter fortsatt «klasserom» selv om appen nå heter Skoledash. Endres den,
 // finner ikke appen igjen dataene til eksisterende brukere.
 const STORAGE_KEY = 'klasserom_state_v1';
+// Reservekopi av lagret tilstand som ikke kunne leses, så den ikke går tapt når appen
+// starter blank og lagrer på nytt.
+const RESERVE_KEY = 'klasserom_state_v1_reserve';
 
 // Hvor ☕-knappen og velkomstmeldingen sender folk som vil donere. Når Vipps er
 // godkjent, blir ☕ en liten meny med Vipps, Ko-fi og lenke til vilkar.html.
@@ -216,6 +219,156 @@ function klemWidgetProsent(verdi) {
   return Math.min(WIDGET_PROSENT_MAKS, Math.max(WIDGET_PROSENT_MIN, tall));
 }
 
+// ===================== Normalisering av lagret og importert data =====================
+// All tilstand passerer loadState() før appen bruker den, også importerte backupfiler
+// («Erstatt alt» skriver fila til localStorage og laster siden på nytt). Her sørger vi
+// for at hvert felt har riktig type og ligger innenfor grensene, så en skadet eller
+// manipulert fil verken kan krasje appen eller få kode inn i HTML-en. Feil verdier
+// byttes ut med standardverdier; gyldige data røres ikke.
+//
+// Ligger før loadState() med vilje: konstanter lenger ned finnes ikke ennå når den kjører.
+
+// Nøkler som kan endre prototypen til et objekt. Fjernes allerede i JSON.parse.
+const FARLIGE_NØKLER = new Set(['__proto__', 'constructor', 'prototype']);
+function trygtJsonParse(tekst) {
+  return JSON.parse(tekst, (nøkkel, verdi) => (FARLIGE_NØKLER.has(nøkkel) ? undefined : verdi));
+}
+
+// Gyldige ID-er for flerinstans-widgets. ID-ene havner i element-ID-er og onclick, så
+// alt annet enn «type-tall» forkastes.
+const INSTANS_ID = /^(notat|bilde|youtube)-\d{1,6}$/;
+const YOUTUBE_VIDEO_ID = /^[\w-]{11}$/;
+const SKRIFT_NØKLER = ['liten', 'normal', 'stor', 'xl']; // speiler STØRRELSER lenger ned
+
+const erObjekt = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+const tekstEllerNull = (v, maks) => (typeof v === 'string' ? v.slice(0, maks) : null);
+const tekstliste = (v, maks = 200) =>
+  Array.isArray(v) ? v.filter(x => typeof x === 'string').map(x => x.slice(0, maks)) : [];
+const heltall = (v, min, maks, standard) =>
+  Number.isInteger(v) ? Math.min(maks, Math.max(min, v)) : standard;
+
+// Gyldig kort-ID: en av de faste widgetene, eller card-notat-1, card-bilde-2 osv.
+function erGyldigKortId(id) {
+  return typeof id === 'string' &&
+    (Object.hasOwn(WIDGET_NAVN, id) || INSTANS_ID.test(id.replace(/^card-/, '')) && id.startsWith('card-'));
+}
+
+// Første, grove pass på det rå objektet FØR migreringene i loadState. Migreringene
+// forutsetter at enkelte felt er lister eller objekter, og ville ellers krasjet.
+function rensRåState(raw) {
+  if (!erObjekt(raw)) throw new Error('Lagret tilstand er ikke et objekt');
+  if ('sider' in raw) {
+    raw.sider = Array.isArray(raw.sider) ? raw.sider.filter(erObjekt) : [];
+    if (!raw.sider.length) raw.sider = [nySide('Side 1')];
+    for (const side of raw.sider) {
+      if (!Array.isArray(side.widget_layout)) side.widget_layout = nySide('').widget_layout;
+      if (!Array.isArray(side.widget_hidden)) side.widget_hidden = [];
+      if ('dagsplan' in side && !Array.isArray(side.dagsplan)) side.dagsplan = [];
+    }
+  }
+  for (const felt of ['notater', 'bilder', 'youtube', 'lister', 'widget_størrelser']) {
+    if (felt in raw && !erObjekt(raw[felt])) delete raw[felt];
+  }
+  if ('widget_layout' in raw && !Array.isArray(raw.widget_layout)) delete raw.widget_layout;
+  return raw;
+}
+
+// Endelig pass etter migreringene: hvert felt får riktig type. Endrer på stedet og
+// returnerer samme objekt. Ukjente felt får stå, de brukes ikke til noe.
+function normaliserState(s) {
+  // --- Sider ---
+  s.sider = s.sider.map((side, i) => {
+    side.navn = tekstEllerNull(side.navn, 60) || `Side ${i + 1}`;
+    side.kolonner = heltall(side.kolonner, 1, 4, 3);
+    if (!Array.isArray(side.kol_bredder) || side.kol_bredder.length !== side.kolonner ||
+        !side.kol_bredder.every(b => typeof b === 'number' && Number.isFinite(b) && b > 0)) {
+      side.kol_bredder = standardBredder(side.kolonner);
+    }
+    side.elever = tekstliste(side.elever, 60);
+    side.grupper = Array.isArray(side.grupper)
+      ? side.grupper.filter(Array.isArray).map(g => tekstliste(g, 60))
+      : null;
+    side.dagsplan = (Array.isArray(side.dagsplan) ? side.dagsplan : [])
+      .map(p => (typeof p === 'string' ? { tekst: p, ferdig: false } : p))
+      .filter(p => erObjekt(p) && typeof p.tekst === 'string')
+      .map(p => ({ tekst: p.tekst.slice(0, 200), ferdig: p.ferdig === true }));
+    side.tilfeldig_backlog  = tekstliste(side.tilfeldig_backlog, 60);
+    side.ordenselev_backlog = tekstliste(side.ordenselev_backlog, 60);
+    side.ordenselev_valgte  = tekstliste(side.ordenselev_valgte, 60).slice(0, 2);
+    side.ulv_backlog        = tekstliste(side.ulv_backlog, 60);
+    side.tilfeldig_valgt    = tekstEllerNull(side.tilfeldig_valgt, 60);
+    side.ulv_valgt          = tekstEllerNull(side.ulv_valgt, 60);
+    side.ulv_navn           = tekstEllerNull(side.ulv_navn, 40) || 'Klassebamse';
+    side.gruppe_begrensninger = (Array.isArray(side.gruppe_begrensninger) ? side.gruppe_begrensninger : [])
+      .filter(par => Array.isArray(par) && par.length === 2 && par.every(n => typeof n === 'string'))
+      .map(par => par.map(n => n.slice(0, 60)));
+    side.widget_layout = side.widget_layout
+      .filter(w => erObjekt(w) && erGyldigKortId(w.id))
+      .map(w => ({ id: w.id, col: heltall(w.col, 1, 4, 1) }));
+    side.widget_hidden = tekstliste(side.widget_hidden).filter(erGyldigKortId);
+    return side;
+  });
+  s.aktiv_side = heltall(s.aktiv_side, 0, s.sider.length - 1, 0);
+
+  // --- Lagrede klasselister: navn → liste med elevnavn ---
+  const lister = {};
+  for (const [navn, elever] of Object.entries(erObjekt(s.lister) ? s.lister : {})) {
+    if (Array.isArray(elever)) lister[navn.slice(0, 60)] = tekstliste(elever, 60);
+  }
+  s.lister = lister;
+
+  // --- Flerinstans-widgets. Bare gyldige ID-er overlever ---
+  const notater = {};
+  for (const [id, n] of Object.entries(s.notater ?? {})) {
+    if (!INSTANS_ID.test(id) || !id.startsWith('notat-')) continue;
+    notater[id] = {
+      tekst: erObjekt(n) && typeof n.tekst === 'string' ? n.tekst.slice(0, 100000) : '',
+      kursiv: erObjekt(n) && n.kursiv === true,
+    };
+  }
+  s.notater = notater;
+
+  const bilder = {};
+  for (const [id, b] of Object.entries(s.bilder ?? {})) {
+    if (!INSTANS_ID.test(id) || !id.startsWith('bilde-')) continue;
+    // Bildedata som data-URL finnes bare som reserve uten IndexedDB, eller i en
+    // importfil. Andre adresser (f.eks. https://) ville blitt en sporingspiksel.
+    bilder[id] = erObjekt(b) && typeof b.data === 'string' && b.data.startsWith('data:image/')
+      ? { data: b.data }
+      : {};
+  }
+  s.bilder = bilder;
+
+  const youtube = {};
+  for (const [id, y] of Object.entries(s.youtube ?? {})) {
+    if (!INSTANS_ID.test(id) || !id.startsWith('youtube-')) continue;
+    const ny = { modus: erObjekt(y) && y.modus === 'lyd' ? 'lyd' : 'video' };
+    if (erObjekt(y) && typeof y.videoId === 'string' && YOUTUBE_VIDEO_ID.test(y.videoId)) {
+      ny.videoId = y.videoId;
+      ny.url   = tekstEllerNull(y.url, 500) || `https://www.youtube.com/watch?v=${y.videoId}`;
+      ny.start = heltall(y.start, 0, 86400, 0);
+    }
+    if (erObjekt(y) && Number.isFinite(y.volum)) ny.volum = heltall(Math.round(y.volum), 0, 100, 100);
+    youtube[id] = ny;
+  }
+  s.youtube = youtube;
+
+  // Tellerne må ligge minst like høyt som største ID, ellers kan et nytt kort få en
+  // ID som allerede er i bruk.
+  const størsteId = (obj) => Math.max(0, ...Object.keys(obj).map(k => parseInt(k.split('-')[1], 10)));
+  s.notat_teller   = Math.max(heltall(s.notat_teller, 0, 999999, 0), størsteId(s.notater));
+  s.bilde_teller   = Math.max(heltall(s.bilde_teller, 0, 999999, 0), størsteId(s.bilder));
+  s.youtube_teller = Math.max(heltall(s.youtube_teller, 0, 999999, 0), størsteId(s.youtube));
+
+  // --- Øvrige globale felt ---
+  s.timer_varighet = heltall(s.timer_varighet, 1, 86400, 300);
+  if (!SKRIFT_NØKLER.includes(s.skrift_størrelse)) s.skrift_størrelse = 'normal';
+  if (typeof s.tema !== 'string') s.tema = 'lyst';  // settTema() sjekker mot gyldige temaer
+  if (typeof s.font !== 'string') s.font = 'system'; // settFont() sjekker mot FONTER
+  if (typeof s.eksport_signatur !== 'string') s.eksport_signatur = null;
+  return s;
+}
+
 let state = loadState();
 let værData = null;    // siste værsvar fra met.no, delt mellom topptekst, popup og klokkekort
 let pollenData = null; // siste pollensvar fra Open-Meteo, brukt av klokkekortet
@@ -237,7 +390,7 @@ function loadState() {
       // det default-flettede `state`. defaultState() fyller alltid sider[0] og notater/bilder
       // med tomme defaults, så guards som "finnes feltet?" må sjekke _raw — ellers ser de
       // alltid defaultene og migrerer aldri (→ datatap for gamle states). Se v2.7.
-      const _raw = JSON.parse(raw);
+      const _raw = rensRåState(trygtJsonParse(raw));
       const state = Object.assign(defaultState(), _raw);
       if (!_raw.sider) {
         // Flatt pre-v1.9-state uten `sider`: bygg side 1 fra gammelt topp-nivå-oppsett
@@ -343,10 +496,16 @@ function loadState() {
         if (pst) størrelser[id] = pst;
       }
       state.widget_størrelser = størrelser;
-      return state;
+      return normaliserState(state);
     }
   } catch (e) {
     console.warn('loadState:', e);
+    // Appen starter blank og vil snart lagre over det som lå der. Ta vare på det
+    // uleselige først, så dataene kan reddes (se nødmeldingen i startOppTrygt).
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) localStorage.setItem(RESERVE_KEY, raw);
+    } catch (_) { /* full lagring eller ingen tilgang: ingenting mer å gjøre */ }
   }
   return defaultState();
 }
@@ -1715,23 +1874,27 @@ function renderListerModal() {
     innhold.innerHTML = '<p class="tom-tekst" style="padding:12px">Ingen lagrede lister ennå.</p>';
     return;
   }
+  // Listenavnet ligger i data-navn (escapet) og leses av en lytter. Det settes aldri
+  // inn i en onclick, der et navn fra en delt fil kunne blitt til kode.
   innhold.innerHTML = `<div class="modal-list">
-    ${poster.map(([navn, elever]) => {
-      // Listenavnet havner inne i en inline onclick="lastListe(…)". JSON.stringify gir
-      // korrekt JS-streng (escaper anførselstegn/spesialtegn), og vi bytter " → &quot;
-      // så den trygt kan stå inni HTML-attributtet uten å bryte det.
-      const jn = JSON.stringify(navn).replace(/"/g, '&quot;');
-      return `
-      <div class="modal-list-item" onclick="lastListe(${jn});lukkModal()">
+    ${poster.map(([navn, elever]) => `
+      <div class="modal-list-item" data-navn="${esc(navn)}">
         <span>📋 ${esc(navn)}</span>
         <div class="flex gap-2" style="align-items:center">
           <span class="item-meta">${elever.length} elever</span>
-          <button class="btn btn-sm" style="background:var(--red-l);color:var(--red);padding:3px 8px"
-            onclick="event.stopPropagation();slettListe(${jn})">✕</button>
+          <button class="btn btn-sm liste-slett" style="background:var(--red-l);color:var(--red);padding:3px 8px"
+            title="Slett lista">✕</button>
         </div>
-      </div>`;
-    }).join('')}
+      </div>`).join('')}
   </div>`;
+  innhold.querySelectorAll('.modal-list-item[data-navn]').forEach(el => {
+    const navn = el.dataset.navn;
+    el.addEventListener('click', () => { lastListe(navn); lukkModal(); });
+    el.querySelector('.liste-slett').addEventListener('click', e => {
+      e.stopPropagation();
+      slettListe(navn);
+    });
+  });
 }
 
 // Finner kolonnen med mest ledig plass på aktiv side, altså den som er kortest akkurat
@@ -2295,6 +2458,14 @@ const OPPDATERINGSLOGG_HTML = `
     </ul>
   </details>
   <div class="logg-entry">
+    <div class="logg-versjon">v2.29</div>
+    <div class="logg-dato">2. november 2026</div>
+    <ul>
+      <li><strong>Mer robust import av backupfiler:</strong> en skadet eller ufullstendig fil kan ikke lenger ødelegge appen. Det som ikke kan brukes, hoppes over, og resten kommer inn som før</li>
+      <li>Skulle appen likevel ikke klare å starte, får du en melding med mulighet til å laste ned dataene dine før du begynner på nytt</li>
+    </ul>
+  </div>
+  <div class="logg-entry">
     <div class="logg-versjon">v2.28</div>
     <div class="logg-dato">2. november 2026</div>
     <ul>
@@ -2857,7 +3028,8 @@ function esc(str) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // Snarvei for modal-input: Enter kjører bekreft-funksjonen, Esc lukker modalen.
@@ -3907,7 +4079,9 @@ function oppdaterBegrensningSelecter() {
     if (!sel) return;
     const val = sel.value;
     const elever = aktivSide().elever;
-    sel.innerHTML = elever.map(e => `<option value="${e}">${e}</option>`).join('');
+    // new Option() setter navnet som ren tekst. Bygget som HTML-tekst ville et elevnavn
+    // med f.eks. «<img onerror=...>» blitt til kode.
+    sel.replaceChildren(...elever.map(e => new Option(e, e)));
     if (elever.includes(val)) sel.value = val;
   });
 }
@@ -4015,7 +4189,7 @@ function håndterImportFil(input) {
   reader.onload = e => {
     let data;
     try {
-      data = JSON.parse(e.target.result);
+      data = trygtJsonParse(e.target.result); // fjerner __proto__ o.l. allerede her
     } catch (_) {
       notify('Kunne ikke lese fila — er det en gyldig JSON-fil?', 'error');
       return;
@@ -4049,12 +4223,19 @@ async function bekreftImport() {
   const innhold = data.innhold ?? {};
 
   if (modus === 'flett_lister') {
-    // Behold alt nåværende; legg til/oppdater kun de lagrede listene
-    Object.assign(state.lister, innhold.klasselister ?? {});
+    // Behold alt nåværende; legg til/oppdater kun de lagrede listene. Fila kan komme
+    // fra en kollega, så bare lister med tekst slippes inn, med samme grenser som
+    // normaliserState() bruker for lagret data.
+    const innkommende = erObjekt(innhold.klasselister) ? innhold.klasselister : {};
+    let n = 0;
+    for (const [navn, elever] of Object.entries(innkommende)) {
+      if (!Array.isArray(elever) || FARLIGE_NØKLER.has(navn)) continue;
+      state.lister[navn.slice(0, 60)] = tekstliste(elever, 60);
+      n++;
+    }
     saveState();
     lukkModal();
     ventendeImport = null;
-    const n = Object.keys(innhold.klasselister ?? {}).length;
     notify(`📥 ${n} liste(r) flettet inn`);
     return;
   }
@@ -4206,5 +4387,75 @@ function init() {
   initBilder();
 }
 
+// Starter appen, og fanger det hvis oppstarten krasjer. Uten dette ville en feil i
+// lagret data gitt en død side der verken menyer, eksport eller nullstilling virker.
+// Da vises i stedet en enkel melding som lar læreren redde dataene og starte på nytt.
+// Bygges med DOM og textContent, uten innerHTML, så den virker uansett hva som ligger
+// i lagringen.
+function startOppTrygt() {
+  try {
+    init();
+  } catch (feil) {
+    console.error('Oppstart feilet:', feil);
+    visNødmelding();
+  }
+}
+
+function visNødmelding() {
+  const boks = document.createElement('div');
+  boks.setAttribute('role', 'alertdialog');
+  boks.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;' +
+    'background:rgba(15,23,42,0.85);font-family:system-ui,sans-serif;padding:20px';
+  const kort = document.createElement('div');
+  kort.style.cssText = 'background:#fff;color:#1e293b;max-width:520px;border-radius:12px;padding:24px;' +
+    'display:grid;gap:12px;line-height:1.5';
+  const tittel = document.createElement('h2');
+  tittel.textContent = 'Skoledash klarte ikke å starte';
+  tittel.style.margin = '0';
+  const tekst = document.createElement('p');
+  tekst.style.margin = '0';
+  tekst.textContent = 'De lagrede dataene i denne nettleseren kunne ikke leses. Last dem ned først, ' +
+    'så går ingenting tapt. Deretter kan du starte med en tom app og importere en tidligere backup.';
+  const knapp = (etikett, farge) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = etikett;
+    b.style.cssText = `font:inherit;font-weight:600;padding:10px 14px;border:0;border-radius:8px;cursor:pointer;color:#fff;background:${farge}`;
+    return b;
+  };
+  const lastNed = knapp('📤 Last ned lagrede data', '#4f46e5');
+  lastNed.onclick = () => {
+    const data = {};
+    for (const nøkkel of [STORAGE_KEY, RESERVE_KEY]) {
+      try { data[nøkkel] = localStorage.getItem(nøkkel); } catch (_) {}
+    }
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `skoledash-redning-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  let bekreft = false;
+  const nullstill = knapp('Start med tom app', '#b91c1c');
+  nullstill.onclick = () => {
+    if (!bekreft) {
+      bekreft = true;
+      nullstill.textContent = 'Trykk igjen for å bekrefte';
+      return;
+    }
+    // Det gamle flyttes til reservenøkkelen, så det fortsatt kan reddes.
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) localStorage.setItem(RESERVE_KEY, raw);
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (_) {}
+    location.reload();
+  };
+  kort.append(tittel, tekst, lastNed, nullstill);
+  boks.appendChild(kort);
+  document.body.appendChild(boks);
+}
+
 // Start appen når DOM-en er ferdig parset (skriptet ligger i <head> uten defer).
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', startOppTrygt);
