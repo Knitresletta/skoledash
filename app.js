@@ -86,6 +86,14 @@ const HØYDEVEKT = {
 // ✕ fjerner dem for godt (fjernGuide).
 const GUIDE_KORT = ['card-guide-meny', 'card-guide-widgets', 'card-guide-taster'];
 
+// Widgets med fast innhold: når kortet blir større enn innholdet trenger, skaleres
+// innholdet opp (se «Skalering med kortet»). Kortstørrelsen erstatter prosent-
+// innstillingen under Skriftstørrelse → Enkelt widget for disse. Widgets med
+// voksende innhold (elever, dagsplan, grupper, notat) står ikke her: der betyr
+// større kort plass til flere linjer.
+const SKALER_MED_KORT = ['card-klokke', 'card-timer', 'card-tilfeldig',
+  'card-ordenselev', 'card-ulv', 'card-terning'];
+
 // Terningtypene widgeten tilbyr, og taket for hvor mange som kan kastes samtidig.
 // Bare d6 har ekte prikkeflater — d4, d8, d10, d12 og d20 har tall på flatene også i
 // virkeligheten, og tegnes derfor med sin egen silhuett og tallet i midten.
@@ -2182,6 +2190,8 @@ function tilpassHøyde(w) {
   if (!flateH) return;
 
   const før = plass.style.height;
+  const boks = card.querySelector('.kl-skaler');
+  if (boks) boks.style.zoom = ''; // mål naturlig størrelse; ResizeObserver skalerer igjen
   plass.style.height = 'auto';
   const innhold = card.getBoundingClientRect().height;
   plass.style.height = før;
@@ -2192,6 +2202,73 @@ function tilpassHøyde(w) {
   w.y = iBunnen ? rundPst(Math.max(0, 100 - h)) : Math.min(w.y, rundPst(100 - h));
   w.h = h;
   settPlassStil(plass, w);
+}
+
+// ===================== Skalering med kortet =====================
+// For widgetene i SKALER_MED_KORT pakkes alt under overskrifta i en .kl-skaler. Når
+// kortet er større enn innholdet trenger, får boksen CSS-zoom slik at innholdet fyller
+// plassen. Overskrifta skaleres ikke.
+//
+// Zoomen finnes med binærsøk: største faktor der innholdet fortsatt får plass i både
+// høyde og bredde. Bredden må sjekkes for seg, fordi zoom gjør plassen innholdet ser
+// smalere, og et navn eller en knapperad kan da bryte over flere linjer. Faktoren
+// går aldri under 1: er kortet for lite, scroller det som før.
+//
+// Kjøres når kortet endrer størrelse (ResizeObserver) og når innholdet endrer seg
+// (MutationObserver, f.eks. et nytt navn i trekket), samlet til én gang per bilde.
+const MAKS_SKALERING = 6;
+
+function settOppSkalering() {
+  const venter = new Set();
+  let planlagt = false;
+  const planlegg = boks => {
+    venter.add(boks);
+    if (planlagt) return;
+    planlagt = true;
+    requestAnimationFrame(() => {
+      planlagt = false;
+      venter.forEach(skalerInnhold);
+      venter.clear();
+    });
+  };
+  const størrelse = new ResizeObserver(oppføringer =>
+    oppføringer.forEach(o => planlegg(o.target.querySelector('.kl-skaler'))));
+  const innhold = new MutationObserver(endringer =>
+    endringer.forEach(e => {
+      const boks = (e.target.nodeType === 1 ? e.target : e.target.parentElement)?.closest('.kl-skaler');
+      if (boks) planlegg(boks);
+    }));
+
+  for (const id of SKALER_MED_KORT) {
+    const card = document.getElementById(id);
+    if (!card || card.querySelector('.kl-skaler')) continue;
+    const boks = document.createElement('div');
+    boks.className = 'kl-skaler';
+    [...card.children]
+      .filter(el => !el.classList.contains('card-header') && !el.classList.contains('kl-widget-close'))
+      .forEach(el => boks.appendChild(el));
+    card.appendChild(boks);
+    størrelse.observe(card);
+    innhold.observe(boks, { childList: true, subtree: true, characterData: true });
+  }
+}
+
+function skalerInnhold(boks) {
+  if (!boks) return;
+  boks.style.zoom = '';
+  if (smalSkjerm() || !boks.offsetParent) return;
+  const passer = z => {
+    boks.style.zoom = String(z);
+    return boks.scrollHeight <= boks.clientHeight + 1 && boks.scrollWidth <= boks.clientWidth + 1;
+  };
+  if (!passer(1)) { boks.style.zoom = ''; return; }
+  let lav = 1;
+  let høy = MAKS_SKALERING;
+  for (let i = 0; i < 8; i++) {
+    const midt = (lav + høy) / 2;
+    if (passer(midt)) lav = midt; else høy = midt;
+  }
+  boks.style.zoom = lav > 1.02 ? String(lav) : '';
 }
 
 // Gir kortet høyest z, og nummererer de andre 1..n på nytt så tallene ikke vokser
@@ -2660,6 +2737,7 @@ const OPPDATERINGSLOGG_HTML = `
       <li><strong>Samme oppsett på laptop og tavle:</strong> plasseringen huskes som andeler av skjermen, så oppsettet ser likt ut uansett skjermstørrelse, og alt får plass uten at siden må scrolles</li>
       <li><strong>Oppsettet ditt er tatt vare på:</strong> kortene står omtrent der de sto i kolonnene da du sist brukte Skoledash</li>
       <li><strong>Et kort du skrur av og på igjen, kommer tilbake der det sto,</strong> så sant plassen er ledig. Ellers havner det på første ledige plass</li>
+      <li><strong>Innholdet vokser med kortet:</strong> drar du klokka, timeren, tilfeldig elev, ordenselever, klassebamsen eller terningen større, blir tall, urskive og knapper større også. Disse seks har derfor ikke lenger egen prosent under <strong>📏 Skriftstørrelse → Enkelt widget</strong></li>
       <li><strong>Nye brukere møter et tomt bord</strong> med tre små guidekort som forklarer Skoledash-menyen, ⊞ Widgets og hurtigtastene. Klokka står nå nederst til venstre når du henter den fram, og er høy nok til at både urskiva og tallene synes</li>
     </ul>
   </div>
@@ -3158,6 +3236,7 @@ const BRUKERVEILEDNING_HTML = `
 
   <h4>Skriftstørrelse</h4>
   <p>Hold musen over <strong>📏 Skriftstørrelse</strong> i Skoledash-menyen. Under <strong>Alle widgets</strong> skalerer du hele grensesnittet (Liten → Ekstra stor), der Normal er standardstørrelsen. Under <strong>Enkelt widget</strong> står hver widget som er på siden, med et tall i prosent. <strong>0</strong> betyr samme størrelse som alle de andre. Skriv for eksempel <strong>-20</strong> for å gjøre kortet 20 % mindre, eller <strong>30</strong> for å gjøre det 30 % større. Du kan også bruke piltastene. Tallet kan være fra -50 til 100.</p>
+  <p><strong>Klokke, timer, tilfeldig elev, ordenselever, klassebamse og terning</strong> står ikke i lista. De blir større når du drar kortet større: tall, urskive og knapper vokser til de fyller kortet. Gjør du kortet mindre enn innholdet trenger, kan du scrolle inni det.</p>
   <p>Størrelsen huskes selv om du tar bort widgeten. Slår du den på igjen senere, har den samme størrelse som før.</p>
 
   <h4>Kursiv tekst i Notat</h4>
@@ -3452,6 +3531,8 @@ function settWidgetSkriftstørrelse(widgetId, prosent) {
 // Gjenoppretter alle lagrede per-widget-størrelser ved oppstart.
 function applyWidgetStørrelser() {
   const map = state.widget_størrelser ?? {};
+  // Widgets som skalerer med kortet, har ikke prosent lenger (se SKALER_MED_KORT).
+  SKALER_MED_KORT.forEach(id => delete map[id]);
   Object.entries(map).forEach(([id, pst]) => settWidgetSkriftstørrelse(id, pst));
 }
 
@@ -3462,9 +3543,12 @@ function renderWidgetStørrelseMeny() {
   const liste = document.getElementById('widget-str-liste');
   if (!liste) return;
   const skjult = aktivSide().widget_hidden ?? [];
-  const synlige = Object.keys(WIDGET_NAVN).filter(id => !skjult.includes(id));
+  const synlige = Object.keys(WIDGET_NAVN)
+    .filter(id => !skjult.includes(id) && !SKALER_MED_KORT.includes(id));
+  // Forklarer hvorfor klokka og de andre ikke står i lista.
+  const skalerHint = `<div class="widget-str-tom">${t('Klokke, timer, trekk, klassebamse og terning blir større når du drar kortet større.')}</div>`;
   if (!synlige.length) {
-    liste.innerHTML = `<div class="widget-str-tom">${t('Ingen widgets på denne siden')}</div>`;
+    liste.innerHTML = `<div class="widget-str-tom">${t('Ingen widgets på denne siden')}</div>${skalerHint}`;
     return;
   }
   liste.innerHTML = synlige.map(id => {
@@ -3483,7 +3567,7 @@ function renderWidgetStørrelseMeny() {
           %
         </span>
       </label>`;
-  }).join('');
+  }).join('') + skalerHint;
 }
 
 // ===================== Event setup =====================
@@ -4826,6 +4910,7 @@ function init() {
   settOppRename();
   settOppBegrensning();
   settOppFlate();
+  settOppSkalering();
   setupDagsplanDrag();
   renderSiderNav();
   oppdaterEksportVarsel();

@@ -2197,6 +2197,25 @@ textarea[id^="notat-textarea"]:focus {
     font-variant-numeric: tabular-nums;
 }
 
+/* ===================== Skalering med kortet ===================== */
+/* Innholdet i widgets med fast innhold (klokke, timer, trekk ...) ligger i en
+   .kl-skaler som fyller kortet under overskrifta. JS setter zoom på den når kortet
+   er større enn innholdet trenger (skalerInnhold). Sentrert, så luften som blir
+   igjen i den ene retningen fordeles jevnt. */
+.kl-skaler {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+}
+@media (max-width: 960px) {
+    .kl-skaler {
+        flex: none;
+    }
+}
+
 /* ===================== Guidekort for nye brukere ===================== */
 /* Vanlige kort med litt farge i kanten, så de leses som hjelp og ikke som et verktøy. */
 .kl-guide {

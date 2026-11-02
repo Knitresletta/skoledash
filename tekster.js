@@ -349,6 +349,7 @@ const BRUKERVEILEDNING_NN = `
 
   <h4>Skriftstorleik</h4>
   <p>Hald musa over <strong>📏 Skriftstorleik</strong> i Skoledash-menyen. Under <strong>Alle widgetar</strong> skalerer du heile skjermbiletet (Liten → Ekstra stor), der Normal er standardstorleiken. Under <strong>Enkelt widget</strong> står kvar widget som er på sida, med eit tal i prosent. <strong>0</strong> betyr same storleik som alle dei andre. Skriv til dømes <strong>-20</strong> for å gjere kortet 20 % mindre, eller <strong>30</strong> for å gjere det 30 % større. Du kan òg bruke piltastane. Talet kan vere frå -50 til 100.</p>
+  <p><strong>Klokke, timer, tilfeldig elev, ordenselevar, klassebamse og terning</strong> står ikkje i lista. Dei blir større når du drar kortet større: tal, urskive og knappar veks til dei fyller kortet. Gjer du kortet mindre enn innhaldet treng, kan du rulle inne i det.</p>
   <p>Storleiken blir hugsa sjølv om du tek bort widgeten. Slår du han på att seinare, har han same storleik som før.</p>
 
   <h4>Kursiv tekst i notat</h4>
