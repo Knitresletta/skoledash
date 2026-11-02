@@ -1,0 +1,10 @@
+// Oppsett for Cloudflare Workers (statiske filer). Skoledash har ingen serverkode:
+// Workers leverer bare filene i rotmappa. Hva som holdes utenfor, står i .assetsignore.
+// Bygges automatisk ved push til main (Workers Builds, koblet til GitHub).
+{
+  "name": "skoledash",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "."
+  }
+}

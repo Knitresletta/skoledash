@@ -1,0 +1,15 @@
+# Filer i repoet som ikke er en del av nettsiden (Cloudflare laster dem ikke opp)
+.assetsignore
+.gitignore
+.nojekyll
+.claude
+.playwright-mcp
+.wrangler
+node_modules
+wrangler.jsonc
+serve.py
+CNAME
+README.md
+ROADMAP.md
+CLAUDE.md
+AGENTS.md
