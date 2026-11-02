@@ -17,12 +17,22 @@
 
 const NYNORSK = {
   // ---------- Toppfelt, menyer og knapper ----------
+  // Guidekortene for nye brukere (index.html, data-t-html)
+  '↗ Widgets': '↗ Widgetar',
+  '↘ Hurtigtaster': '↘ Snøggtastar',
+  'Klikk på <strong>🏫 Skoledash</strong> oppe til venstre for å velge tema, font, skriftstørrelse og bokmål eller nynorsk.':
+    'Klikk på <strong>🏫 Skoledash</strong> oppe til venstre for å velje tema, font, skriftstorleik og bokmål eller nynorsk.',
+  'Der finner du også eksport og import av dataene dine, brukerveiledningen og hva som er nytt.':
+    'Der finn du også eksport og import av dataa dine, brukarrettleiinga og kva som er nytt.',
+  'Bordet er tomt med vilje. Under <strong>⊞ Widgets</strong> oppe til høyre henter du fram det du trenger: klokke, elevliste, trekk, dagsplan, timer, notater og mer.':
+    'Bordet er tomt med vilje. Under <strong>⊞ Widgetar</strong> oppe til høgre hentar du fram det du treng: klokke, elevliste, trekk, dagsplan, timer, notat og meir.',
+  'Dra i overskriften på et kort for å flytte det, og i kantene for å endre størrelsen.':
+    'Dra i overskrifta på eit kort for å flytte det, og i kantane for å endre storleiken.',
+  'Bokstavene nede til høyre styrer appen uten mus. <kbd>a</kbd> legger til en elev, <kbd>r</kbd> trekker en tilfeldig elev, <kbd>t</kbd> starter og pauser timeren, og <kbd>b</kbd> gjør skjermen svart.':
+    'Bokstavane nede til høgre styrer appen utan mus. <kbd>a</kbd> legg til ein elev, <kbd>r</kbd> trekkjer ein tilfeldig elev, <kbd>t</kbd> startar og pausar timeren, og <kbd>b</kbd> gjer skjermen svart.',
+  'Hold musa over en knapp for å se hvilken tast den har.': 'Hald musa over ein knapp for å sjå kva tast han har.',
   '⊞ Widgets': '⊞ Widgetar',
   'Vis/skjul widgets': 'Vis/skjul widgetar',
-  '⊞ Kolonner': '⊞ Kolonnar',
-  'Antall kolonner på denne siden': 'Talet på kolonnar på denne sida',
-  'Flere kolonner': 'Fleire kolonnar',
-  'Færre kolonner': 'Færre kolonnar',
   'Lagres automatisk i nettleseren': 'Blir lagra automatisk i nettlesaren',
   '● Ueksporterte endringer': '● Ueksporterte endringar',
   'Du har endringer siden siste eksport — klikk for å eksportere nå': 'Du har endringar sidan siste eksport — klikk for å eksportere no',
@@ -38,7 +48,6 @@ const NYNORSK = {
   'Legg til flere': 'Legg til fleire',
   '+ 🖼 Bilde': '+ 🖼 Bilete',
   'Fjern fra siden': 'Fjern frå sida',
-  'Dra for å justere kolonnebredde': 'Dra for å justere kolonnebreidda',
   'Dobbeltklikk for å gi nytt navn': 'Dobbeltklikk for å gi nytt namn',
   'Dra for å endre rekkefølge': 'Dra for å endre rekkjefølgja',
 
@@ -246,7 +255,7 @@ const BRUKERVEILEDNING_NN = `
   <h4>Sider: eitt arbeidsbord per klasse</h4>
   <p>Klikk <strong>+</strong> midt i toppfeltet for å leggje til ei ny side, klikk på eit sidenamn for å byte, og <strong>✕</strong> på ei fane for å slette. Tanken er at <strong>kvar side er sin eigen klasse</strong>: lag side 1 for 1A og side 2 for 1B, og byt fritt mellom dei gjennom dagen utan at noko blir blanda.</p>
   <p><strong>Gi ei side nytt namn</strong> ved å dobbeltklikke på fana. Då blir ho til eit lite skrivefelt. Skriv inn namnet (t.d. «1A» eller «Mattegruppe») og trykk <kbd>Enter</kbd> for å lagre. <kbd>Esc</kbd> avbryt utan å endre namnet.</p>
-  <p><strong>Per side</strong> (eiga for kvar klasse): elevlista, grupper, alle trekk og backlogar (tilfeldig, ordenselev og klassebamse), dagsplanen, gruppeavgrensingar, namnet på klassebamsen, og i tillegg kolonneoppsett, notat og bilete.</p>
+  <p><strong>Per side</strong> (eiga for kvar klasse): elevlista, grupper, alle trekk og backlogar (tilfeldig, ordenselev og klassebamse), dagsplanen, gruppeavgrensingar, namnet på klassebamsen, og i tillegg oppsettet av korta, notat og bilete.</p>
   <p><strong>Felles for alle sider:</strong> lagra klasselister (📋 Lister, eit felles bibliotek du kan laste inn på kva side som helst), tema, font, skriftstorleik, målform og timeren.</p>
   <p>Timeren er felles og held fram med å gå sjølv om du byter side. Vil du til dømes vise eit bilete på ei eiga side medan nedteljinga går, går det heilt fint. Timeren tel vidare i bakgrunnen.</p>
   <p>Ei <strong>ny side startar heilt tom</strong>, utan synlege kort. Du hentar sjølv fram akkurat dei korta du vil ha via <strong>⊞ Widgetar</strong>-menyen, så kvar side blir nøyaktig slik du vil ha ho.</p>
@@ -319,14 +328,14 @@ const BRUKERVEILEDNING_NN = `
   <p>Du kan ha <strong>fleire YouTube-kort</strong>, og dei er per side som dei andre widgetane.</p>
 
   <h4>Tilpasse oppsettet</h4>
-  <p>Dra eit kort til ein annan kolonne ved å halde inne drahandtaket <strong>⠿</strong> (det kjem fram når du held musa over kortet). Oppsettet blir hugsa automatisk.</p>
+  <p><strong>Flytte eit kort:</strong> ta tak i overskrifta på kortet og dra det dit du vil. Korta kan liggje kvar som helst på skjermen, også delvis oppå kvarandre. Kortet du tek i, legg seg øvst.</p>
+  <p><strong>Endre storleik:</strong> dra i ein kant eller eit hjørne av kortet. Er innhaldet større enn kortet, kan du rulle inne i det.</p>
+  <p><strong>Magnetiske kantar:</strong> når ein kant kjem nær kanten av skjermen eller eit anna kort, smell han på plass, og ei blå linje viser kva han festa seg til. Då blir det lett å få korta på rad. Hald <kbd>Alt</kbd> medan du drar om du vil plassere heilt fritt.</p>
+  <p><strong>Same oppsett på tavla:</strong> plassering og storleik blir hugsa som delar av skjermen, ikkje i pikslar. Lagar du oppsettet på den berbare maskina, ser det likt ut på tavla, berre større. Oppsettet blir lagra per side.</p>
   <p><strong>Fjerne eit kort:</strong> hald musa over kortet og klikk <strong>✕</strong> øvst i høgre hjørne. Faste widgetar (elevar, grupper, trekk, timer, dagsplan) blir berre skjulte, og du hentar dei att i <strong>⊞ Widgetar</strong>-menyen. Notat- og biletkort blir sletta heilt.</p>
   <p><strong>⊞ Widgetar-menyen</strong> (øvst til høgre) viser dei faste widgetane med avkryssing for på og av per side. Notat, bilete og YouTube har i staden ein <strong>«+»</strong>. Trykk for å leggje til så mange du vil. Kvart nytt kort høyrer til sida du står på.</p>
-  <p><strong>Kvar hamnar eit nytt kort?</strong> Nedst i den kolonnen som har mest ledig plass akkurat då, anten du kryssar det av i menyen eller trykkjer «+». Då slepp du å leite etter det, og kolonnane held seg om lag like lange. Vil du ha det ein annan stad, drar du det dit etterpå med <strong>⠿</strong>. Merk at eit kort du slår av og på att, kan hamne ein annan stad enn der det stod, sidan regelen er den same.</p>
-
-  <h4>Kolonnebreidd og tal på kolonnar</h4>
-  <p><strong>Juster breidda:</strong> hald musa mellom to kolonnar, så kjem det fram ei tynn skiljelinje. Dra i henne for å gjere den eine kolonnen breiare og den andre smalare. Breiddene blir hugsa per side.</p>
-  <p><strong>Endre talet:</strong> bruk <strong>⊞ Kolonnar</strong> med <strong>−</strong> og <strong>+</strong> nedst til venstre for å gå mellom 1 og 4 kolonnar. Når du fjernar ein kolonne, blir korta som låg der, flytta til den siste kolonnen, så ingenting forsvinn. Talet på kolonnar blir lagra per side, så side 1 kan ha tre kolonnar medan side 2 har éin.</p>
+  <p><strong>Kvar hamnar eit nytt kort?</strong> På første ledige plass, rekna ovanfrå og frå venstre, anten du kryssar det av i menyen eller trykkjer «+». Er skjermen full, blir det lagt litt forskove oppå dei andre, så du ser det med ein gong. Eit kort du slår av og på att, kjem tilbake der det stod om plassen er ledig. Elles held det på storleiken sin og hamnar på første ledige plass.</p>
+  <p><strong>Liten skjerm:</strong> på smale skjermar (nettbrett på høgkant, mobil) blir korta stabla under kvarandre, ovanfrå og ned i same rekkjefølgje som på den store skjermen.</p>
 
   <h4>Tema</h4>
   <p>Opne <strong>Skoledash-menyen</strong> (🏫 Skoledash øvst til venstre) og hald musa over <strong>🎨 Tema</strong>. Vel mellom tre standardtema (Lyst, Mørkt, Høg kontrast) eller sju kreative tema: Under vatnet, På fjellet, I skogen og I ein vulkan under <strong>Eventyr</strong>, og Fluttershy, Twilight og Rarity under <strong>Jonatan spesial</strong>. Høg kontrast er kvit tekst på svart bakgrunn, laga for å lesast på avstand. Fleire tema har eit svakt mønster i bakgrunnen. Temaet blir lagra automatisk.</p>

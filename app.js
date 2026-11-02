@@ -53,6 +53,39 @@ const WIDGET_NAVN = {
   'card-terning':    '🎲 Terning',
 };
 
+// Fri flate: magneter, minstestørrelser og standardstørrelser. Står her oppe fordi
+// loadState() (via migrerTilFlate) bruker dem før resten av fila er kjørt, og en
+// const som ikke er definert ennå kaster feil. Selve logikken ligger under
+// «Fri flate (layout)».
+const MAGNET_PX  = 8;   // så nær må en kant komme før den klikker seg fast
+const AVSTAND_PX = 12;  // luft mellom kort som magnetene legger «ved siden av»
+const DRA_TERSKEL_PX = 4; // så langt må pekeren flytte seg før et drag starter
+const LUFT_PST = 1;     // luft rundt kort som plasseres automatisk, i prosent
+
+// Minstestørrelse i piksler per widget-type, så ingen krymper klokka til et frimerke.
+const MIN_STØRRELSE = {
+  klokke: [160, 100], tilfeldig: [200, 150], ordenselev: [200, 150], ulv: [200, 150],
+  terning: [200, 160], timer: [200, 150], dagsplan: [220, 160], elever: [200, 180],
+  grupper: [220, 160], notat: [180, 120], bilde: [160, 120], youtube: [220, 170],
+};
+// Standardstørrelse i prosent (bredde, høyde) når et kort plasseres automatisk.
+const STANDARD_STØRRELSE = {
+  klokke: [26, 30], tilfeldig: [26, 32], ordenselev: [26, 32], ulv: [26, 30],
+  terning: [26, 34], timer: [26, 32], dagsplan: [34, 50], elever: [26, 70],
+  grupper: [34, 45], notat: [30, 35], bilde: [28, 38], youtube: [34, 45],
+};
+// Hvor stor andel av en gammel kolonne hvert kort fikk ved migreringen. Grovt sett
+// hvor høyt kortet pleide å være i kolonneoppsettet.
+const HØYDEVEKT = {
+  klokke: 1, tilfeldig: 1.3, ordenselev: 1.3, ulv: 1.2, terning: 1.3, timer: 1.3,
+  dagsplan: 2.2, elever: 2.6, grupper: 1.8, notat: 1.6, bilde: 1.6, youtube: 1.8,
+};
+
+// Guidekortene nye brukere møter på et tomt bord, ett ved hver meny. De er vanlige
+// kort på flata, men står ikke i WIDGET_NAVN: de skal ikke i ⊞ Widgets-menyen, og
+// ✕ fjerner dem for godt (fjernGuide).
+const GUIDE_KORT = ['card-guide-meny', 'card-guide-widgets', 'card-guide-taster'];
+
 // Terningtypene widgeten tilbyr, og taket for hvor mange som kan kastes samtidig.
 // Bare d6 har ekte prikkeflater — d4, d8, d10, d12 og d20 har tall på flatene også i
 // virkeligheten, og tegnes derfor med sin egen silhuett og tallet i midten.
@@ -147,24 +180,42 @@ function defaultState() {
     terning_type:        6,   // hvilken terning som er valgt (antall sider)
     terning_antall:      1,   // hvor mange som kastes om gangen
     terning_kast:        [],  // siste kast, slik at kortet ikke står tomt etter omlasting
-    notater:      { 'notat-1': { tekst: '', kursiv: false } },
+    notater:      {},                // ingen notatkort på et tomt bord; legges til via «+»
     bilder:       {},                // ingen bildekort som standard; legges til via «+». Selve bildene bor i IndexedDB
     youtube:      {},                // ingen YouTube-kort som standard; legges til via «+»
-    notat_teller: 1,
+    notat_teller: 0,
     bilde_teller: 0,
     youtube_teller: 0,
     eksport_signatur: null, // signatur av data ved siste eksport (for endrings-varsel)
     aktiv_side: 0,
-    sider: [ nySide('Side 1') ],
+    sider: [ førsteSide() ],
   };
+}
+
+// Første side for en helt ny bruker: et tomt bord med tre guidekort, ett inntil hver
+// meny (Skoledash-menyen, ⊞ Widgets og hurtigtastene). Alle widgets er skjult og
+// hentes fram fra ⊞ Widgets, der de havner på plassen sin fra nySide().
+function førsteSide() {
+  const side = nySide('Side 1');
+  side.widget_layout = side.widget_layout.filter(w => w.id !== 'card-notat-1');
+  side.widget_hidden = side.widget_layout.map(w => w.id);
+  const z = side.widget_layout.length;
+  side.widget_layout.push(
+    { id: 'card-guide-meny',    col: 1, x: 0,  y: 0,  b: 26, h: 46, z: z + 1 },
+    { id: 'card-guide-widgets', col: 3, x: 74, y: 0,  b: 26, h: 46, z: z + 2 },
+    { id: 'card-guide-taster',  col: 3, x: 70, y: 54, b: 30, h: 46, z: z + 3 },
+  );
+  return side;
 }
 
 // Et nytt, tomt side-objekt («klasse-arbeidsbord»). Inneholder alt som er
 // per-side scope: roster, grupper, trekk + backlogs, dagsplan, klassebamse-navn,
-// gruppebegrensninger — pluss kolonne- og widget-oppsett.
+// gruppebegrensninger, pluss widget-oppsettet på flata.
 function nySide(navn) {
   return {
     navn,
+    // kolonner/kol_bredder/col brukes ikke lenger (fri flate fra v2.35), men står
+    // igjen så en eldre versjon fortsatt finner et oppsett ved tilbakerulling.
     kolonner: 3,
     kol_bredder: [3, 4, 3],
     elever:              [],
@@ -178,24 +229,26 @@ function nySide(navn) {
     ulv_valgt:           null,
     ulv_navn:            'Klassebamse',
     gruppe_begrensninger: [],
-    // Rekkefølgen her er også den vertikale rekkefølgen innenfor hver kolonne.
-    // Alle enkeltinstans-widgets skal stå oppført, også de som er skjult fra start —
-    // applyLayout() tvinger inn manglende, og widget_hidden styrer hva som vises.
+    // Posisjon og størrelse i prosent av flata (se «Fri flate»). Alle enkeltinstans-
+    // widgets skal stå oppført, også de som er skjult fra start: applyLayout() tvinger
+    // inn manglende, og widget_hidden styrer hva som vises. Et kort som slås på, får
+    // plassen sin her hvis den er ledig, ellers første ledige flate.
     widget_layout: [
-      { id: 'card-klokke',     col: 1 },
-      { id: 'card-tilfeldig',  col: 1 },
-      { id: 'card-ordenselev', col: 1 },
-      { id: 'card-ulv',        col: 1 },
-      { id: 'card-terning',    col: 1 },
-      { id: 'card-dagsplan',   col: 2 },
-      { id: 'card-notat-1',    col: 2 },
-      { id: 'card-timer',      col: 2 },
-      { id: 'card-elever',     col: 3 },
-      { id: 'card-grupper',    col: 3 },
+      // Klokka trenger ca. 320 px for både urskive og digital tid. 54 % holder fra
+      // en 1280×720-skjerm og oppover.
+      { id: 'card-klokke',     col: 1, x: 0,  y: 46, b: 20, h: 54,  z: 1 },
+      { id: 'card-tilfeldig',  col: 1, x: 0,  y: 0,  b: 27, h: 30,  z: 2 },
+      { id: 'card-ordenselev', col: 1, x: 0,  y: 64, b: 27, h: 32,  z: 3 },
+      { id: 'card-ulv',        col: 1, x: 0,  y: 64, b: 27, h: 30,  z: 4 },
+      { id: 'card-terning',    col: 1, x: 0,  y: 64, b: 27, h: 34,  z: 5 },
+      { id: 'card-dagsplan',   col: 2, x: 28, y: 0,  b: 43, h: 58,  z: 6 },
+      { id: 'card-notat-1',    col: 2, x: 28, y: 60, b: 43, h: 40,  z: 7 },
+      { id: 'card-timer',      col: 2, x: 28, y: 60, b: 26, h: 32,  z: 8 },
+      { id: 'card-elever',     col: 3, x: 72, y: 0,  b: 28, h: 100, z: 9 },
+      { id: 'card-grupper',    col: 3, x: 72, y: 0,  b: 28, h: 45,  z: 10 },
     ],
-    // En ny bruker møter et rolig bord: klokke, trekk, dagsplan, notat og elevliste.
-    // Resten ligger ett klikk unna i ⊞ Widgets, og dukker opp på plassen over når de
-    // slås på. Poenget er at førsteinntrykket får plass på skjermen uten å scrolle.
+    // Gjelder bare hvis noe kaller nySide() uten å skjule alt selv. Nye sider
+    // (leggTilSide) og nye brukere (førsteSide) starter med alt skjult.
     widget_hidden: [
       'card-ordenselev', 'card-ulv', 'card-terning', 'card-timer', 'card-grupper',
     ],
@@ -257,7 +310,7 @@ const heltall = (v, min, maks, standard) =>
 // Gyldig kort-ID: en av de faste widgetene, eller card-notat-1, card-bilde-2 osv.
 function erGyldigKortId(id) {
   return typeof id === 'string' &&
-    (Object.hasOwn(WIDGET_NAVN, id) || INSTANS_ID.test(id.replace(/^card-/, '')) && id.startsWith('card-'));
+    (Object.hasOwn(WIDGET_NAVN, id) || GUIDE_KORT.includes(id) || INSTANS_ID.test(id.replace(/^card-/, '')) && id.startsWith('card-'));
 }
 
 // Første, grove pass på det rå objektet FØR migreringene i loadState. Migreringene
@@ -309,10 +362,13 @@ function normaliserState(s) {
     side.gruppe_begrensninger = (Array.isArray(side.gruppe_begrensninger) ? side.gruppe_begrensninger : [])
       .filter(par => Array.isArray(par) && par.length === 2 && par.every(n => typeof n === 'string'))
       .map(par => par.map(n => n.slice(0, 60)));
+    side.widget_hidden = tekstliste(side.widget_hidden).filter(erGyldigKortId);
     side.widget_layout = side.widget_layout
       .filter(w => erObjekt(w) && erGyldigKortId(w.id))
-      .map(w => ({ id: w.id, col: heltall(w.col, 1, 4, 1) }));
-    side.widget_hidden = tekstliste(side.widget_hidden).filter(erGyldigKortId);
+      .map(w => ({ id: w.id, col: heltall(w.col, 1, 4, 1), ...gyldigPlassering(w) }));
+    // Kolonneoppsett fra før v2.35 (eller et kort uten gyldig plass): regn om hele
+    // siden til fri plassering. Se migrerTilFlate().
+    if (side.widget_layout.some(w => w.x === undefined)) migrerTilFlate(side);
     return side;
   });
   s.aktiv_side = heltall(s.aktiv_side, 0, s.sider.length - 1, 0);
@@ -1556,12 +1612,10 @@ function leggTilNotat() {
   const id = `notat-${state.notat_teller}`;
   state.notater[id] = { tekst: '', kursiv: false };
   const cardId = `card-${id}`;
-  const col = romsligsteKolonne();
-  aktivSide().widget_layout.push({ id: cardId, col });
+  aktivSide().widget_layout.push(nyPlassering(cardId));
   const el = lagNotatElement(id);
-  document.querySelector(`.col-wrapper[data-col="${col}"]`).appendChild(el);
+  settInnKort(el);
   setupNotat(id);
-  settOppDragOgDrop();
   applyLayout();
   renderWidgetMeny();
   saveState();
@@ -1579,8 +1633,9 @@ function fjernNotat(instansId) {
   const ingenSiderBrukerDen = state.sider.every(s => !s.widget_layout.some(w => w.id === cardId));
   if (ingenSiderBrukerDen) {
     delete state.notater[instansId];
-    document.getElementById(cardId)?.remove();
+    fjernKortEl(cardId);
   }
+  applyLayout(); // skjuler kortet om det fortsatt brukes på en annen side
   renderWidgetMeny();
   saveState();
 }
@@ -1929,67 +1984,418 @@ function renderListerModal() {
   });
 }
 
-// Finner kolonnen med mest ledig plass på aktiv side, altså den som er kortest akkurat
-// nå. Vi måler den faktiske høyden i nettleseren i stedet for å telle kort, fordi et
-// kort kan være alt fra en knapperad til en full elevliste — og fordi per-widget-zoom
-// (S/M/L/XL) endrer hvor mye plass det samme kortet tar.
+// ===================== Fri flate (layout) =====================
+// Hvert kort på en side har { id, x, y, b, h, z } i widget_layout. x og b er prosent
+// av flatas bredde, y og h prosent av høyden, og z er hvilket kort som ligger øverst.
+// Prosent gjør at bordet beholder komposisjonen fra laptop til tavle. Under et drag
+// regner vi i piksler (det er det pekeren gir oss), og gjør om til prosent ved slipp.
 //
-// Kolonnene er flex-barn av <main> med align-items: flex-start, så høyden på en
-// .col-wrapper ER innholdshøyden. En tom kolonne måler ~0 og vinner dermed alltid.
-// Ved likt (typisk når alt er tomt) vinner den venstre, siden > gjør at første minimum
-// beholdes. Returnerer et 1-indeksert kolonnenummer, klemt til antallet siden har.
-function romsligsteKolonne() {
-  const wrappers = [...document.querySelectorAll('.col-wrapper')];
-  if (!wrappers.length) return 1;
+// `col` står også i hver oppføring. Den brukes ikke lenger, men gjør at en eldre
+// versjon av appen fortsatt finner et fornuftig oppsett om vi må rulle tilbake.
+//
+// DOM: hvert .card pakkes i en .kl-plass som eier posisjon, z-index og håndtakene for
+// størrelse. Kortet fyller plassen og scroller selv.
 
-  let beste = 1;
-  let lavest = Infinity;
-  wrappers.forEach(w => {
-    const høyde = w.getBoundingClientRect().height;
-    if (høyde < lavest) {
-      lavest = høyde;
-      beste = Number(w.dataset.col);
-    }
-  });
-  return Math.min(beste, aktivSide().kolonner ?? 3);
+// «card-notat-3» → «notat», «card-klokke» → «klokke».
+function kortType(id) {
+  return id.replace(/^card-/, '').replace(/-\d+$/, '');
 }
 
-// ===================== Layout (drag) =====================
-// Plasserer hvert widget-kort i riktig kolonne for aktiv side, og skjuler dem som
-// står i widget_hidden. Kjøres ved sidebytte, drag-slipp og widget-endringer.
+function klampTall(v, min, maks) { return Math.max(min, Math.min(maks, v)); }
+function rundPst(v) { return Math.round(v * 100) / 100; }
+
+// Plukker ut en gyldig plassering fra en lagret oppføring, eller null. Brukes av
+// normaliserState(), så rare verdier fra en importert fil ikke sprenger flata.
+function gyldigPlassering(w) {
+  const tall = ['x', 'y', 'b', 'h'].map(k => w[k]);
+  if (!tall.every(v => typeof v === 'number' && Number.isFinite(v))) return null;
+  const b = klampTall(w.b, 5, 100);
+  const h = klampTall(w.h, 5, 100);
+  return {
+    x: klampTall(w.x, 0, 100 - b),
+    y: klampTall(w.y, 0, 100 - h),
+    b, h,
+    z: Number.isInteger(w.z) && w.z > 0 ? w.z : 1,
+    ...(w.fast === true && { fast: true }),
+  };
+}
+
+// Gjør et kolonneoppsett ({ id, col } + kolonner/kol_bredder) om til fri plassering.
+// Regnes ut, ikke måles: da virker det likt for alle sider (også de som ikke vises)
+// og for importerte filer. Kolonnebreddene blir x og b. Synlige kort i hver kolonne
+// deler høyden etter HØYDEVEKT, i samme rekkefølge som før. Skjulte kort får en
+// standardstørrelse øverst i kolonnen; de får uansett ny plass når de slås på.
+function migrerTilFlate(side) {
+  const n = side.kolonner;
+  const bredder = side.kol_bredder;
+  const sum = bredder.reduce((a, v) => a + v, 0);
+  const skjult = new Set(side.widget_hidden);
+  let venstre = 0;
+  for (let col = 1; col <= n; col++) {
+    const andel = bredder[col - 1] / sum * 100;
+    const x = venstre + (col > 1 ? LUFT_PST / 2 : 0);
+    const b = andel - (col > 1 ? LUFT_PST / 2 : 0) - (col < n ? LUFT_PST / 2 : 0);
+    venstre += andel;
+
+    const iKol = side.widget_layout.filter(w => Math.min(w.col, n) === col);
+    const synlige = iKol.filter(w => !skjult.has(w.id));
+    const vektSum = synlige.reduce((a, w) => a + (HØYDEVEKT[kortType(w.id)] ?? 1.5), 0);
+    const tilgjengelig = 100 - LUFT_PST * 1.5 * Math.max(0, synlige.length - 1);
+    let y = 0;
+    synlige.forEach(w => {
+      const h = tilgjengelig * (HØYDEVEKT[kortType(w.id)] ?? 1.5) / vektSum;
+      Object.assign(w, { x: rundPst(x), y: rundPst(y), b: rundPst(b), h: rundPst(h) });
+      y += h + LUFT_PST * 1.5;
+    });
+    iKol.filter(w => skjult.has(w.id)).forEach(w => {
+      const [, sh] = STANDARD_STØRRELSE[kortType(w.id)] ?? [26, 30];
+      Object.assign(w, { x: rundPst(x), y: 0, b: rundPst(b), h: sh });
+    });
+  }
+  side.widget_layout.forEach((w, i) => { w.z = i + 1; });
+}
+
+function overlapper(a, b, luft = 0) {
+  return a.x < b.x + b.b + luft && b.x < a.x + a.b + luft &&
+         a.y < b.y + b.h + luft && b.y < a.y + a.h + luft;
+}
+
+// Første ledige flate (ovenfra, så fra venstre) med plass til et kort på b × h
+// prosent, med litt luft rundt. Bare synlige kort på aktiv side teller. Finnes ingen
+// ledig flate, legges kortet litt forskjøvet oppå de andre.
+function ledigPlass(b, h, unntattId = null) {
+  const side = aktivSide();
+  const skjult = side.widget_hidden ?? [];
+  const opptatt = side.widget_layout.filter(w => w.id !== unntattId && !skjult.includes(w.id));
+  for (let y = 0; y + h <= 100; y += 2) {
+    for (let x = 0; x + b <= 100; x += 2) {
+      const kandidat = { x, y, b, h };
+      if (!opptatt.some(w => overlapper(kandidat, w, LUFT_PST))) return { x, y };
+    }
+  }
+  const n = opptatt.length % 8;
+  return { x: klampTall(8 + n * 3, 0, 100 - b), y: klampTall(8 + n * 3, 0, 100 - h) };
+}
+
+function høyesteZ() {
+  return Math.max(0, ...aktivSide().widget_layout.map(w => w.z ?? 0));
+}
+
+// Ny oppføring for et kort som legges til på aktiv side: standardstørrelse, første
+// ledige flate, øverst. `col` regnes ut fra x for eldre versjoner (se toppen).
+function nyPlassering(id) {
+  const [b, h] = STANDARD_STØRRELSE[kortType(id)] ?? [26, 30];
+  const { x, y } = ledigPlass(b, h);
+  return { id, col: Math.min(3, Math.floor(x / 33.4) + 1), x, y, b, h, z: høyesteZ() + 1 };
+}
+
+// Setter et nytt kort-element inn på flata. applyLayout() pakker det i en plass.
+function settInnKort(el) {
+  document.getElementById('flate').appendChild(el);
+}
+
+// Fjerner et kort fra DOM-en, med plassen rundt.
+function fjernKortEl(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const plass = el.parentElement?.classList.contains('kl-plass') ? el.parentElement : el;
+  plass.remove();
+}
+
+// Returnerer .kl-plass rundt kortet, og lager den første gang.
+function plassFor(card) {
+  if (card.parentElement?.classList.contains('kl-plass')) return card.parentElement;
+  const plass = document.createElement('div');
+  plass.className = 'kl-plass';
+  plass.dataset.kort = card.id;
+  plass.innerHTML = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
+    .map(k => `<div class="kl-kant" data-kant="${k}"></div>`).join('');
+  document.getElementById('flate').appendChild(plass);
+  plass.appendChild(card);
+  return plass;
+}
+
+function settPlassStil(plass, w) {
+  plass.style.left   = `${w.x}%`;
+  plass.style.top    = `${w.y}%`;
+  plass.style.width  = `${w.b}%`;
+  plass.style.height = `${w.h}%`;
+  plass.style.zIndex = w.z;
+}
+
+// Rekkefølgen kortene stables i på smal skjerm: ovenfra og ned, så venstre mot høyre.
+function settStabelRekkefølge() {
+  [...aktivSide().widget_layout]
+    .sort((a, b) => a.y - b.y || a.x - b.x)
+    .forEach((w, i) => {
+      const plass = document.getElementById(w.id)?.parentElement;
+      if (plass?.classList.contains('kl-plass')) plass.style.order = i;
+    });
+}
+
+// Plasserer hvert widget-kort på flata for aktiv side, og skjuler dem som står i
+// widget_hidden eller ikke hører til siden. Kjøres ved sidebytte, slipp og
+// widget-endringer.
 function applyLayout() {
+  const side = aktivSide();
   // Forsikre at de faste (singleton) widgetene finnes (for gamle lagrede states).
-  // notat/bilde utelates med vilje — de er flerinstans og eies per side, så de skal
+  // notat/bilde utelates med vilje: de er flerinstans og eies per side, så de skal
   // IKKE tvinges inn på en side som har sine egne (eller har fjernet dem).
-  const defaults = defaultState().sider[0].widget_layout
+  // Hentes fra nySide(), ikke defaultState(): der ligger guidekortene, og de skal
+  // aldri tvinges inn hos noen.
+  const defaults = nySide('').widget_layout
     .filter(def => !def.id.startsWith('card-notat-') && !def.id.startsWith('card-bilde-'));
   defaults.forEach(def => {
-    if (!aktivSide().widget_layout.find(w => w.id === def.id)) {
-      aktivSide().widget_layout.push({ ...def });
+    if (!side.widget_layout.find(w => w.id === def.id)) {
+      side.widget_layout.push(nyPlassering(def.id));
+      if (!side.widget_hidden.includes(def.id)) side.widget_hidden.push(def.id);
     }
   });
 
-  const antallKol = aktivSide().kolonner ?? 3;
-  const skjult = aktivSide().widget_hidden ?? [];
-  aktivSide().widget_layout.forEach(({ id, col }) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    if (skjult.includes(id)) { el.style.display = 'none'; return; }
-    el.style.display = '';
-    el.style.gridColumn = '';
-    // Klamp til antall kolonner på denne siden (kort i fjernede kolonner havner i siste)
-    const målKol = Math.min(col, antallKol);
-    const wrapper = document.querySelector(`.col-wrapper[data-col="${målKol}"]`);
-    if (wrapper) wrapper.appendChild(el);
+  const skjult = side.widget_hidden ?? [];
+  const iLayout = new Map(side.widget_layout.map(w => [w.id, w]));
+  document.querySelectorAll('main .card').forEach(card => {
+    const plass = plassFor(card);
+    const w = iLayout.get(card.id);
+    if (!w || skjult.includes(card.id)) { plass.style.display = 'none'; return; }
+    plass.style.display = '';
+    settPlassStil(plass, w);
   });
-
-  const aktivIds = new Set(aktivSide().widget_layout.map(w => w.id));
-  document.querySelectorAll('[id^="card-notat-"], [id^="card-bilde-"]').forEach(el => {
-    if (!aktivIds.has(el.id)) el.style.display = 'none';
-  });
+  settStabelRekkefølge();
 
   // Skriftstørrelse-menyen viser bare widgets som er synlige på denne siden.
   renderWidgetStørrelseMeny();
+}
+
+// Setter høyden på et kort til det innholdet faktisk trenger, målt i nettleseren og
+// regnet om til prosent av flata. Brukes når et kort vises og læreren ikke selv har
+// endret størrelsen (w.fast). Da blir klokka akkurat så høy som urskive og tall
+// krever, både på en liten laptop og på en stor tavle, i stedet for en fast prosent
+// som er for lite på den ene og for mye på den andre.
+// Kort som står helt nede, beholder bunnkanten; ellers står toppkanten fast.
+function tilpassHøyde(w) {
+  if (w.fast || smalSkjerm()) return;
+  const card = document.getElementById(w.id);
+  const plass = card?.parentElement;
+  if (!plass?.classList.contains('kl-plass') || plass.style.display === 'none') return;
+  const flateH = document.getElementById('flate').getBoundingClientRect().height;
+  if (!flateH) return;
+
+  const før = plass.style.height;
+  plass.style.height = 'auto';
+  const innhold = card.getBoundingClientRect().height;
+  plass.style.height = før;
+
+  const [, minH] = MIN_STØRRELSE[kortType(w.id)] ?? [160, 100];
+  const h = rundPst(klampTall(Math.max(innhold, minH) / flateH * 100, 5, 100));
+  const iBunnen = w.y + w.h >= 99;
+  w.y = iBunnen ? rundPst(Math.max(0, 100 - h)) : Math.min(w.y, rundPst(100 - h));
+  w.h = h;
+  settPlassStil(plass, w);
+}
+
+// Gir kortet høyest z, og nummererer de andre 1..n på nytt så tallene ikke vokser
+// for evig. Lagrer ikke selv: kalleren gjør det.
+function løftFram(id) {
+  const layout = aktivSide().widget_layout;
+  const kort = layout.find(w => w.id === id);
+  if (!kort || kort.z === høyesteZ()) return false;
+  const sortert = layout.filter(w => w !== kort).sort((a, b) => a.z - b.z);
+  sortert.push(kort);
+  sortert.forEach((w, i) => {
+    w.z = i + 1;
+    const plass = document.getElementById(w.id)?.parentElement;
+    if (plass?.classList.contains('kl-plass')) plass.style.zIndex = w.z;
+  });
+  return true;
+}
+
+// Finner den nærmeste magneten for en av kantene. Returnerer { delta, linje } for
+// kanten som er nærmest (innenfor MAGNET_PX), eller null.
+function nærmesteMagnet(kanter, kandidaterPerKant) {
+  let beste = null;
+  kanter.forEach((kant, i) => {
+    kandidaterPerKant[i].forEach(k => {
+      const delta = k - kant;
+      if (Math.abs(delta) <= MAGNET_PX && (!beste || Math.abs(delta) < Math.abs(beste.delta))) {
+        beste = { delta, linje: k };
+      }
+    });
+  });
+  return beste;
+}
+
+// Magnetkandidater langs én akse: for «start»-kanten (venstre/topp) og «slutt»-
+// kanten (høyre/bunn). Flatekanten, flukt med et annet kort, eller rett ved siden av
+// det med AVSTAND_PX luft. pos/str er 'x','b' eller 'y','h'.
+function magnetKandidater(andre, pos, str, total) {
+  const start = [0];
+  const slutt = [total];
+  andre.forEach(o => {
+    start.push(o[pos], o[pos] + o[str] + AVSTAND_PX);
+    slutt.push(o[pos] + o[str], o[pos] - AVSTAND_PX);
+  });
+  return { start, slutt };
+}
+
+function visHjelpelinjer(loddrett, vannrett) {
+  const flate = document.getElementById('flate');
+  flate.querySelectorAll('.kl-hjelpelinje').forEach(l => l.remove());
+  for (const [verdi, retning, egenskap] of [[loddrett, 'loddrett', 'left'], [vannrett, 'vannrett', 'top']]) {
+    if (verdi == null) continue;
+    const l = document.createElement('div');
+    l.className = `kl-hjelpelinje ${retning}`;
+    l.style[egenskap] = `${verdi}px`;
+    flate.appendChild(l);
+  }
+}
+
+const smalSkjerm = () => window.matchMedia('(max-width: 960px)').matches;
+
+// Kobler flytting og størrelse for alle kort med én lytter på flata, så nye kort
+// virker uten ny oppkobling. Overskrifta er dra-sona (knapper og felt i den virker
+// som før), og kantene endrer størrelse. Peker-hendelser, så det virker med mus,
+// penn og touch-tavle.
+function settOppFlate() {
+  const flate = document.getElementById('flate');
+  flate.addEventListener('pointerdown', e => {
+    const plass = e.target.closest('.kl-plass');
+    if (!plass || e.button !== 0) return;
+    const id = plass.dataset.kort;
+    if (løftFram(id)) saveState();
+    if (smalSkjerm()) return;
+
+    const kant = e.target.closest('.kl-kant')?.dataset.kant ?? null;
+    const iOverskrift = e.target.closest('.card-header') &&
+      !e.target.closest('button, input, select, textarea, a, label, [contenteditable="true"]');
+    if (!kant && !iOverskrift) return;
+    startOperasjon(e, plass, id, kant);
+  });
+}
+
+// kant = null betyr flytt hele kortet; ellers en av n, s, e, w, ne, nw, se, sw.
+function startOperasjon(e, plass, id, kant) {
+  const w = aktivSide().widget_layout.find(x => x.id === id);
+  if (!w) return;
+  if (kant) e.preventDefault(); // flytting venter på terskelen, så klikk virker
+
+  const flate = document.getElementById('flate');
+  const fr = flate.getBoundingClientRect();
+  const W = fr.width;
+  const H = fr.height;
+  const skjult = aktivSide().widget_hidden ?? [];
+  const tilPx = k => ({ x: k.x / 100 * W, y: k.y / 100 * H, b: k.b / 100 * W, h: k.h / 100 * H });
+  const start = tilPx(w);
+  const andre = aktivSide().widget_layout
+    .filter(k => k !== w && !skjult.includes(k.id) && document.getElementById(k.id))
+    .map(tilPx);
+  const kx = magnetKandidater(andre, 'x', 'b', W);
+  const ky = magnetKandidater(andre, 'y', 'h', H);
+  const [minB0, minH0] = MIN_STØRRELSE[kortType(id)] ?? [160, 100];
+  const minB = Math.min(minB0, W);
+  const minH = Math.min(minH0, H);
+  const startX = e.clientX;
+  const startY = e.clientY;
+  const pekerId = e.pointerId;
+  let i_gang = !!kant;   // flytting starter først etter DRA_TERSKEL_PX
+  let r = { ...start };
+
+  const begynn = () => {
+    i_gang = true;
+    try { flate.setPointerCapture(pekerId); } catch { /* pekeren kan være borte */ }
+    plass.classList.add('kl-aktiv');
+    document.body.classList.add(kant ? 'kl-endrer-storrelse' : 'kl-flytter');
+  };
+  if (kant) begynn();
+
+  function vedFlytt(ev) {
+    if (ev.pointerId !== pekerId) return;
+    const dx = ev.clientX - startX;
+    const dy = ev.clientY - startY;
+    if (!i_gang) {
+      if (Math.hypot(dx, dy) < DRA_TERSKEL_PX) return;
+      begynn();
+    }
+    ev.preventDefault();
+    const magnet = !ev.altKey;
+    let linjeX = null;
+    let linjeY = null;
+
+    if (!kant) {
+      r = { ...start, x: start.x + dx, y: start.y + dy };
+      if (magnet) {
+        const mx = nærmesteMagnet([r.x, r.x + r.b], [kx.start, kx.slutt]);
+        if (mx) { r.x += mx.delta; linjeX = mx.linje; }
+        const my = nærmesteMagnet([r.y, r.y + r.h], [ky.start, ky.slutt]);
+        if (my) { r.y += my.delta; linjeY = my.linje; }
+      }
+      r.x = klampTall(r.x, 0, Math.max(0, W - r.b));
+      r.y = klampTall(r.y, 0, Math.max(0, H - r.h));
+    } else {
+      // Bare kantene man drar i, flytter seg. Den motsatte kanten står fast, så kortet
+      // ikke «vandrer» når det treffer minstestørrelsen.
+      const høyre = start.x + start.b;
+      const bunn  = start.y + start.h;
+      r = { ...start };
+      if (kant.includes('e')) {
+        let ny = høyre + dx;
+        const m = magnet && nærmesteMagnet([ny], [kx.slutt]);
+        if (m) { ny += m.delta; linjeX = m.linje; }
+        r.b = klampTall(ny - start.x, minB, W - start.x);
+      }
+      if (kant.includes('w')) {
+        let ny = start.x + dx;
+        const m = magnet && nærmesteMagnet([ny], [kx.start]);
+        if (m) { ny += m.delta; linjeX = m.linje; }
+        r.x = klampTall(ny, 0, høyre - minB);
+        r.b = høyre - r.x;
+      }
+      if (kant.includes('s')) {
+        let ny = bunn + dy;
+        const m = magnet && nærmesteMagnet([ny], [ky.slutt]);
+        if (m) { ny += m.delta; linjeY = m.linje; }
+        r.h = klampTall(ny - start.y, minH, H - start.y);
+      }
+      if (kant.includes('n')) {
+        let ny = start.y + dy;
+        const m = magnet && nærmesteMagnet([ny], [ky.start]);
+        if (m) { ny += m.delta; linjeY = m.linje; }
+        r.y = klampTall(ny, 0, bunn - minH);
+        r.h = bunn - r.y;
+      }
+    }
+
+    plass.style.left   = `${r.x}px`;
+    plass.style.top    = `${r.y}px`;
+    plass.style.width  = `${r.b}px`;
+    plass.style.height = `${r.h}px`;
+    visHjelpelinjer(linjeX, linjeY);
+  }
+
+  function vedSlipp(ev) {
+    if (ev.pointerId !== pekerId) return;
+    document.removeEventListener('pointermove', vedFlytt);
+    document.removeEventListener('pointerup', vedSlipp);
+    document.removeEventListener('pointercancel', vedSlipp);
+    if (!i_gang) return; // bare et klikk i overskrifta
+    plass.classList.remove('kl-aktiv');
+    document.body.classList.remove('kl-flytter', 'kl-endrer-storrelse');
+    visHjelpelinjer(null, null);
+
+    w.x = rundPst(r.x / W * 100);
+    w.y = rundPst(r.y / H * 100);
+    w.b = rundPst(r.b / W * 100);
+    w.h = rundPst(r.h / H * 100);
+    w.col = Math.min(3, Math.floor(w.x / 33.4) + 1);
+    if (kant) w.fast = true; // læreren har valgt størrelsen selv: ikke tilpass mer
+    settPlassStil(plass, w); // tilbake til prosent
+    settStabelRekkefølge();
+    saveState();
+  }
+
+  document.addEventListener('pointermove', vedFlytt);
+  document.addEventListener('pointerup', vedSlipp);
+  document.addEventListener('pointercancel', vedSlipp);
 }
 
 // Bygger innholdet i ⊞ Widgets-nedtrekket: av/på-avkrysning for enkeltinstans-
@@ -2026,285 +2432,44 @@ function renderWidgetMeny() {
 // Skrur en widget av/på for aktiv side ved å legge id-en til eller fjerne den fra
 // widget_hidden.
 //
-// Når et kort slås PÅ, flyttes det til kolonnen med mest ledig plass og legges nederst
-// der — samme regel som for nye notat-, bilde- og YouTube-kort. Det gir én forutsigbar
-// regel for alt som dukker opp, i stedet for at kortet spretter tilbake til en gammel
-// plass i en kolonne som kanskje er full. Vil du ha det et annet sted, drar du det dit.
-//
-// Vi flytter oppføringen bakerst i widget_layout, ikke bare endrer `col`: rekkefølgen i
-// lista er også den vertikale rekkefølgen innenfor kolonnen, så uten dette ville kortet
-// kunne dukke opp midt i stabelen i stedet for nederst.
+// Når et kort slås PÅ, kommer det tilbake der det sto hvis plassen er ledig. Er den
+// dekket av andre kort, beholder det størrelsen, men flyttes til første ledige flate.
+// Uansett legges det øverst. Slik får nye brukere klokka nederst til venstre, og en
+// lærer som skrur et kort av og på, finner det igjen der det var.
+// Fjerner et guidekort for godt: ut av oppsettet og ut av DOM-en.
+function fjernGuide(id) {
+  if (!GUIDE_KORT.includes(id)) return;
+  for (const side of state.sider) {
+    side.widget_layout = side.widget_layout.filter(w => w.id !== id);
+    side.widget_hidden = side.widget_hidden.filter(h => h !== id);
+  }
+  fjernKortEl(id);
+  saveState();
+}
+
 function toggleWidgetSynlighet(id, synlig) {
   const skjult = aktivSide().widget_hidden ?? [];
   aktivSide().widget_hidden = synlig
     ? skjult.filter(h => h !== id)
     : [...skjult, id];
 
+  let w = null;
   if (synlig) {
-    const layout = aktivSide().widget_layout;
-    const idx = layout.findIndex(w => w.id === id);
-    if (idx !== -1) {
-      const [entry] = layout.splice(idx, 1);
-      entry.col = romsligsteKolonne();
-      layout.push(entry);
+    w = aktivSide().widget_layout.find(x => x.id === id);
+    if (w) {
+      // Vis kortet først, så høyden kan måles, og velg plass etterpå.
+      applyLayout();
+      tilpassHøyde(w);
+      const andre = aktivSide().widget_layout
+        .filter(x => x.id !== id && !aktivSide().widget_hidden.includes(x.id));
+      if (andre.some(x => overlapper(w, x))) Object.assign(w, ledigPlass(w.b, w.h, id));
+      w.z = høyesteZ() + 1;
     }
   }
 
   saveState();
   applyLayout();
   renderWidgetMeny();
-}
-
-// ===================== Kolonner (antall + bredde, per side) =====================
-const MIN_KOL = 1;
-const MAKS_KOL = 4;
-const MIN_KOL_PX = 100; // minste bredde en kolonne kan dras ned til
-
-// Bygger riktig antall .col-wrapper for aktiv side, setter breddene (flex-vekter)
-// og legger dra-håndtak (.kl-col-resizer) mellom kolonnene. Beholder kort-elementer.
-function byggKolonner() {
-  const main = document.querySelector('main');
-  const side = aktivSide();
-  const n = side.kolonner ?? 3;
-  const bredder = side.kol_bredder ?? standardBredder(n);
-
-  // Fjern gamle resizers (settes inn på nytt under)
-  main.querySelectorAll('.kl-col-resizer').forEach(r => r.remove());
-
-  let wrappers = [...main.querySelectorAll('.col-wrapper')];
-
-  // For mange kolonner: flytt kortene til siste gjenværende, fjern wrapperen
-  while (wrappers.length > n) {
-    const w = wrappers.pop();
-    const siste = wrappers[wrappers.length - 1];
-    [...w.children].forEach(c => { if (c.classList.contains('card')) siste.appendChild(c); });
-    w.remove();
-  }
-  // For få kolonner: legg til tomme wrappers
-  while (wrappers.length < n) {
-    const w = document.createElement('div');
-    w.className = 'col-wrapper';
-    main.appendChild(w);
-    wrappers.push(w);
-  }
-
-  // Sett kolonnenummer + bredde, og sett inn resizer etter hver kolonne unntatt siste
-  wrappers.forEach((w, i) => {
-    w.dataset.col = i + 1;
-    w.style.flex = `${bredder[i] ?? 1} 1 0`;
-    if (i < wrappers.length - 1) {
-      const r = document.createElement('div');
-      r.className = 'kl-col-resizer';
-      r.dataset.venstre = i + 1; // resizer mellom kolonne (i+1) og (i+2)
-      r.title = t('Dra for å justere kolonnebredde');
-      w.after(r);
-    }
-  });
-
-  settOppResizers();
-}
-
-// Kobler mousedown på hvert kolonne-håndtak til startResize (kjøres etter byggKolonner).
-function settOppResizers() {
-  document.querySelectorAll('.kl-col-resizer').forEach(r => {
-    r.onmousedown = e => startResize(e, r);
-  });
-}
-
-// Drar grensen mellom to nabokolonner. Vi jobber i flex-vekter (ikke piksler): de
-// to kolonnene deler en fast sum av vekt, og vi flytter vekt mellom dem etter hvor
-// langt musa dras — med en minstebredde (MIN_KOL_PX) så ingen kolonne kollapser.
-// onMove kjører mens musa holdes nede; onUp rydder opp og lagrer de nye breddene.
-function startResize(e, resizer) {
-  e.preventDefault();
-  const venstreCol = Number(resizer.dataset.venstre);
-  const wVenstre = document.querySelector(`.col-wrapper[data-col="${venstreCol}"]`);
-  const wHøyre   = document.querySelector(`.col-wrapper[data-col="${venstreCol + 1}"]`);
-  if (!wVenstre || !wHøyre) return;
-
-  const bredder = aktivSide().kol_bredder;
-  const startX  = e.clientX;
-  const pxV0    = wVenstre.getBoundingClientRect().width;
-  const pxH0    = wHøyre.getBoundingClientRect().width;
-  const pxSum   = pxV0 + pxH0;
-  const vektSum = bredder[venstreCol - 1] + bredder[venstreCol];
-  document.body.classList.add('kl-resizing');
-
-  function onMove(ev) {
-    let nyPxV = pxV0 + (ev.clientX - startX);
-    nyPxV = Math.max(MIN_KOL_PX, Math.min(pxSum - MIN_KOL_PX, nyPxV));
-    const andel = nyPxV / pxSum;
-    const nyVektV = vektSum * andel;
-    const nyVektH = vektSum - nyVektV;
-    bredder[venstreCol - 1] = nyVektV;
-    bredder[venstreCol]     = nyVektH;
-    wVenstre.style.flex = `${nyVektV} 1 0`;
-    wHøyre.style.flex   = `${nyVektH} 1 0`;
-  }
-  function onUp() {
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
-    document.body.classList.remove('kl-resizing');
-    saveState();
-  }
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
-}
-
-// Øker eller minker antall kolonner på aktiv side med `delta` (±1), klampet til
-// [MIN_KOL, MAKS_KOL]. Ved færre kolonner flyttes kort fra fjernede kolonner inn
-// i den siste gjenværende, så ingen widget blir hjemløs.
-function endreKolonneAntall(delta) {
-  const side = aktivSide();
-  const n  = side.kolonner ?? 3;
-  const ny = Math.max(MIN_KOL, Math.min(MAKS_KOL, n + delta));
-  if (ny === n) return;
-
-  if (ny > n) {
-    // Legg til kolonne(r) med standard enkeltbredde (3 ≈ samme vekt som sidekolonnene)
-    for (let i = n; i < ny; i++) side.kol_bredder.push(3);
-  } else {
-    // Fjern kolonne(r): klamp kort som lå i fjernet kolonne til den siste
-    side.kol_bredder = side.kol_bredder.slice(0, ny);
-    side.widget_layout.forEach(w => { if (w.col > ny) w.col = ny; });
-  }
-  side.kolonner = ny;
-  saveState();
-  byggKolonner();
-  applyLayout();
-  oppdaterKolonneStepper();
-}
-
-// Oppdaterer kolonne-tellerens visning og deaktiverer +/− når man er på grensen.
-function oppdaterKolonneStepper() {
-  const n = aktivSide().kolonner ?? 3;
-  const tall = document.getElementById('kol-antall');
-  if (tall) tall.textContent = n;
-  const minus = document.getElementById('btn-kol-minus');
-  const pluss = document.getElementById('btn-kol-pluss');
-  if (minus) minus.disabled = n <= MIN_KOL;
-  if (pluss) pluss.disabled = n >= MAKS_KOL;
-}
-
-// Finner hvilket kolonnenummer musas x-posisjon er over (brukes under drag-slipp).
-// Returnerer første kolonne der musa er til venstre for kolonnens høyre kant.
-function kolonneFraMus(clientX) {
-  const wrappers = document.querySelectorAll('.col-wrapper');
-  for (const w of wrappers) {
-    const rect = w.getBoundingClientRect();
-    if (clientX <= rect.right) return Number(w.dataset.col);
-  }
-  return aktivSide().kolonner ?? 3;
-}
-
-// Regner ut hvilken indeks i widget_layout et kort som slippes skal settes inn på,
-// ut fra musas y-posisjon i målkolonnen: vi setter inn foran det første kortet som
-// musa er over øvre halvdel av. Kortet som dras (dragId) hoppes over.
-function posisjonFraMus(clientY, dragId, nyKolonne) {
-  let insertAt = aktivSide().widget_layout.length;
-  for (let i = 0; i < aktivSide().widget_layout.length; i++) {
-    const { id, col } = aktivSide().widget_layout[i];
-    if (col !== nyKolonne || id === dragId) continue;
-    const el = document.getElementById(id);
-    if (!el || el.style.display === 'none') continue;
-    const rect = el.getBoundingClientRect();
-    if (clientY < rect.top + rect.height / 2) { insertAt = i; break; }
-  }
-  return insertAt;
-}
-
-// Setter opp dra-og-slipp for å flytte widget-kort mellom kolonner. Kort er bare
-// draggable mens man holder i drag-håndtaket (⠿) — ellers ville tekstmarkering og
-// klikk inni kortene starte en dragging. Under dragover vises en innsettings-
-// indikator; ved drop oppdateres widget_layout og layouten tegnes på nytt.
-// Kalles på nytt hver gang nye kort opprettes, så de også blir dragbare.
-function settOppDragOgDrop() {
-  const main = document.querySelector('main');
-  let dragId = null;
-  let indikatorEl = null;
-
-  document.querySelectorAll('.drag-handle').forEach(handle => {
-    const card = handle.closest('.card');
-    handle.addEventListener('mousedown', () => { card.draggable = true; });
-  });
-
-  document.addEventListener('mouseup', () => {
-    document.querySelectorAll('.col-wrapper > .card').forEach(c => { c.draggable = false; });
-  });
-
-  main.addEventListener('dragstart', e => {
-    const card = e.target.closest('.card');
-    if (!card || !card.draggable) { e.preventDefault(); return; }
-    dragId = card.id;
-    card.classList.add('dragging');
-    e.dataTransfer.setData('text/plain', card.id);
-    e.dataTransfer.effectAllowed = 'move';
-    // Bruk kortet selv som drag-ghost
-    e.dataTransfer.setDragImage(card, 20, 20);
-    main.classList.add('drag-active');
-  });
-
-  main.addEventListener('dragover', e => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (!dragId) return;
-
-    const nyKolonne = kolonneFraMus(e.clientX);
-
-    if (!indikatorEl) {
-      indikatorEl = document.createElement('div');
-      indikatorEl.className = 'drop-indikator';
-    }
-
-    const wrapper = document.querySelector(`.col-wrapper[data-col="${nyKolonne}"]`);
-    const kortsIKol = aktivSide().widget_layout
-      .filter(w => w.col === nyKolonne && w.id !== dragId)
-      .map(w => document.getElementById(w.id))
-      .filter(Boolean);
-
-    const referanse = kortsIKol.find(el => {
-      const rect = el.getBoundingClientRect();
-      return e.clientY < rect.top + rect.height / 2;
-    }) ?? null;
-
-    if (referanse) wrapper.insertBefore(indikatorEl, referanse);
-    else wrapper.appendChild(indikatorEl);
-  });
-
-  main.addEventListener('drop', e => {
-    e.preventDefault();
-    if (!dragId) return;
-
-    const nyKolonne = kolonneFraMus(e.clientX);
-    let nyIndeks    = posisjonFraMus(e.clientY, dragId, nyKolonne);
-
-    const gammelIndeks = aktivSide().widget_layout.findIndex(w => w.id === dragId);
-    const entry = { ...aktivSide().widget_layout[gammelIndeks] };
-    entry.col = nyKolonne;
-
-    // Fjern kortet fra sin gamle plass, sett det inn på den nye. Når vi flytter
-    // framover i lista forskyver fjerningen alle senere indekser ett hakk ned,
-    // så vi justerer målindeksen tilsvarende.
-    aktivSide().widget_layout.splice(gammelIndeks, 1);
-    if (nyIndeks > gammelIndeks) nyIndeks--;
-    aktivSide().widget_layout.splice(nyIndeks, 0, entry);
-
-    saveState();
-    applyLayout();
-    avsluttDrag();
-  });
-
-  main.addEventListener('dragend', () => avsluttDrag());
-
-  function avsluttDrag() {
-    if (dragId) {
-      const el = document.getElementById(dragId);
-      if (el) { el.classList.remove('dragging'); el.draggable = false; }
-      dragId = null;
-    }
-    if (indikatorEl) { indikatorEl.remove(); indikatorEl = null; }
-    main.classList.remove('drag-active');
-  }
 }
 
 // ===================== Sider =====================
@@ -2386,12 +2551,11 @@ function startSideRename(idx) {
   input.addEventListener('blur', () => avslutt(true));
 }
 
-// Bytter til side `idx`: setter aktiv side, bygger kolonnene på nytt og re-rendrer
+// Bytter til side `idx`: setter aktiv side, plasserer kortene på nytt og re-rendrer
 // ALT per-side-innhold for den nye siden. Timeren røres ikke — den er global.
 function byttSide(idx) {
   state.aktiv_side = idx;
   saveState();
-  byggKolonner();
   applyLayout();
   // Re-rendre all per-side data for den nye siden (timeren er global og røres ikke)
   renderElever();
@@ -2401,7 +2565,6 @@ function byttSide(idx) {
   oppdaterBegrensningSelecter();
   renderWidgetMeny();
   renderSiderNav();
-  oppdaterKolonneStepper();
 }
 
 // Oppretter en ny, tom side og bytter til den. Den får egne notat- og bilde-
@@ -2419,14 +2582,13 @@ function leggTilSide() {
     w.id === 'card-notat-1' ? { ...w, id: `card-${notatId}` } : w
   );
   // Ny side starter tom: alle widgets skjules som default. Læreren henter dem
-  // fram igjen via ⊞ Widgets-menyen, og havner da i kolonnen med mest ledig plass.
+  // fram igjen via ⊞ Widgets-menyen, og de havner da på første ledige flate.
   side.widget_hidden = side.widget_layout.map(w => w.id);
   state.sider.push(side);
   // Opprett DOM-elementene for de nye instansene (applyLayout plasserer/skjuler dem ved byttSide)
   const notatEl = lagNotatElement(notatId);
-  document.querySelector('.col-wrapper[data-col="1"]').appendChild(notatEl);
+  settInnKort(notatEl);
   setupNotat(notatId);
-  settOppDragOgDrop();
   byttSide(state.sider.length - 1);
 }
 
@@ -2435,7 +2597,7 @@ function leggTilSide() {
 function fjernSide(idx) {
   if (state.sider.length <= 1) return;
   state.sider.splice(idx, 1);
-  // byttSide lagrer og re-rendrer alt (kolonner + per-side data) for den nye aktive siden
+  // byttSide lagrer og re-rendrer alt (layout + per-side data) for den nye aktive siden
   byttSide(Math.min(state.aktiv_side, state.sider.length - 1));
 }
 
@@ -2489,6 +2651,18 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.35</div>
+    <div class="logg-dato">2. november 2026</div>
+    <ul>
+      <li><strong>Flytt kortene fritt:</strong> kolonnene er borte. Ta tak i overskriften på et kort og dra det dit du vil, og dra i kantene eller hjørnene for å endre størrelsen. Kortene kan ligge oppå hverandre, og kortet du tar i, legger seg øverst</li>
+      <li><strong>Magnetiske kanter</strong> gjør det lett å få kortene på rad. Hold <kbd>Alt</kbd> mens du drar for å plassere helt fritt</li>
+      <li><strong>Samme oppsett på laptop og tavle:</strong> plasseringen huskes som andeler av skjermen, så oppsettet ser likt ut uansett skjermstørrelse, og alt får plass uten at siden må scrolles</li>
+      <li><strong>Oppsettet ditt er tatt vare på:</strong> kortene står omtrent der de sto i kolonnene da du sist brukte Skoledash</li>
+      <li><strong>Et kort du skrur av og på igjen, kommer tilbake der det sto,</strong> så sant plassen er ledig. Ellers havner det på første ledige plass</li>
+      <li><strong>Nye brukere møter et tomt bord</strong> med tre små guidekort som forklarer Skoledash-menyen, ⊞ Widgets og hurtigtastene. Klokka står nå nederst til venstre når du henter den fram, og er høy nok til at både urskiva og tallene synes</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.34</div>
     <div class="logg-dato">2. november 2026</div>
@@ -2890,7 +3064,7 @@ const BRUKERVEILEDNING_HTML = `
   <h4>Sider — ett arbeidsbord per klasse</h4>
   <p>Klikk <strong>+</strong> i midten av headeren for å legge til en ny side, klikk på et sidenavn for å bytte, og <strong>✕</strong> på en fane for å slette. Tanken er at <strong>hver side er sin egen klasse</strong>: lag side 1 for 1A og side 2 for 1B, og bytt fritt mellom dem gjennom dagen uten at noe blandes.</p>
   <p><strong>Gi en side nytt navn</strong> ved å dobbeltklikke på fanen. Da blir den til et lite skrivefelt — skriv inn navnet (f.eks. «1A» eller «Mattegruppe») og trykk <kbd>Enter</kbd> for å lagre. <kbd>Esc</kbd> avbryter uten å endre navnet.</p>
-  <p><strong>Per side</strong> (egen for hver klasse): elevlisten, grupper, alle trekk og backlogs (tilfeldig/ordenselev/klassebamse), dagsplanen, gruppebegrensninger, klassebamsens navn — pluss kolonneoppsett, notater og bilder.</p>
+  <p><strong>Per side</strong> (egen for hver klasse): elevlisten, grupper, alle trekk og backlogs (tilfeldig/ordenselev/klassebamse), dagsplanen, gruppebegrensninger, klassebamsens navn, pluss oppsettet av kortene, notater og bilder.</p>
   <p><strong>Delt mellom alle sider:</strong> lagrede klasselister (📋 Lister — et felles bibliotek du kan laste inn i hvilken som helst side), tema, font, skriftstørrelse og timeren.</p>
   <p>Timeren er felles og fortsetter å gå selv om du bytter side. Vil du f.eks. vise et bilde på en egen side mens nedtellingen ruller, går det helt fint — timeren teller videre i bakgrunnen.</p>
   <p>En <strong>ny side starter helt tom</strong> — ingen kort er synlige ennå. Du henter selv fram akkurat de kortene du vil ha via <strong>⊞ Widgets</strong>-menyen, så hver side blir nøyaktig slik du ønsker den.</p>
@@ -2963,14 +3137,14 @@ const BRUKERVEILEDNING_HTML = `
   <p>Du kan ha <strong>flere YouTube-kort</strong>, og de er per side som de andre widgetene.</p>
 
   <h4>Tilpasse layouten</h4>
-  <p>Dra et kort til en annen kolonne ved å holde inne dra-håndtaket <strong>⠿</strong> (dukker opp når du holder musen over kortet). Layouten huskes automatisk.</p>
+  <p><strong>Flytte et kort:</strong> ta tak i overskriften på kortet og dra det dit du vil. Kortene kan ligge hvor som helst på skjermen, også delvis oppå hverandre. Kortet du tar i, legger seg øverst.</p>
+  <p><strong>Endre størrelse:</strong> dra i en kant eller et hjørne av kortet. Er innholdet større enn kortet, kan du scrolle inni det.</p>
+  <p><strong>Magnetiske kanter:</strong> når en kant kommer nær kanten av skjermen eller et annet kort, smekker den på plass, og en blå linje viser hva den festet seg til. Da blir det lett å få kortene på rad. Hold <kbd>Alt</kbd> mens du drar hvis du vil plassere helt fritt.</p>
+  <p><strong>Samme oppsett på tavla:</strong> plassering og størrelse huskes som andeler av skjermen, ikke i piksler. Lager du oppsettet på laptopen, ser det likt ut på tavla, bare større. Oppsettet lagres per side.</p>
   <p><strong>Fjerne et kort:</strong> hold musen over kortet og klikk <strong>✕</strong> øverst i høyre hjørne. Faste widgets (elever, grupper, trekk, timer, dagsplan) blir bare skjult — du henter dem tilbake i <strong>⊞ Widgets</strong>-menyen. Notat- og bildekort slettes helt.</p>
   <p><strong>⊞ Widgets-menyen</strong> (øverst til høyre) viser de faste widgetene med av/på-avkryssing per side. Notat, bilde og YouTube har i stedet en <strong>«+»</strong> — trykk for å legge til så mange du vil. Hvert nytt kort er eget for den siden du står på.</p>
-  <p><strong>Hvor havner et nytt kort?</strong> Nederst i den kolonnen som har mest ledig plass akkurat da — enten du krysser det av i menyen eller trykker «+». Da slipper du å lete etter det, og kolonnene holder seg noenlunde like lange. Vil du ha det et annet sted, drar du det dit etterpå med <strong>⠿</strong>. Merk at et kort du skrur av og på igjen kan havne et annet sted enn der det sto, siden regelen er den samme uansett.</p>
-
-  <h4>Kolonnebredde og antall kolonner</h4>
-  <p><strong>Juster bredden:</strong> hold musen mellom to kolonner — det dukker opp en tynn skillelinje. Dra i den for å gjøre den ene kolonnen bredere og den andre smalere. Breddene huskes per side.</p>
-  <p><strong>Endre antall:</strong> bruk <strong>⊞ Kolonner</strong> med <strong>−</strong> og <strong>+</strong> nederst til venstre for å gå mellom 1 og 4 kolonner. Når du fjerner en kolonne, flyttes kortene som lå der over til den siste kolonnen — ingenting forsvinner. Antall kolonner lagres per side, så side 1 kan ha tre kolonner mens side 2 har én.</p>
+  <p><strong>Hvor havner et nytt kort?</strong> På første ledige plass, regnet ovenfra og fra venstre, enten du krysser det av i menyen eller trykker «+». Er skjermen full, legges det litt forskjøvet oppå de andre, så du ser det med en gang. Et kort du skrur av og på igjen, kommer tilbake der det sto hvis plassen er ledig. Ellers beholder det størrelsen sin og havner på første ledige plass.</p>
+  <p><strong>Liten skjerm:</strong> på smale skjermer (nettbrett på høykant, mobil) stables kortene under hverandre, ovenfra og ned i samme rekkefølge som på den store skjermen.</p>
 
   <h4>Tema</h4>
   <p>Åpne <strong>Skoledash-menyen</strong> (🏫 Skoledash øverst til venstre) og hold musen over <strong>🎨 Tema</strong>. Velg blant tre standardtemaer (Lyst, Mørkt, Høy kontrast) eller sju kreative temaer: Under vann, På fjellet, I skogen og I en vulkan under <strong>Eventyr</strong>, og Fluttershy, Twilight og Rarity under <strong>Jonatan spesial</strong>. Høy kontrast er hvit tekst på svart bakgrunn, laget for å leses på avstand. Flere temaer har et svakt mønster i bakgrunnen. Temaet lagres automatisk.</p>
@@ -3463,9 +3637,6 @@ function settOppHendelser() {
   document.getElementById('blackboard-overlay').onclick = () =>
     document.getElementById('blackboard-overlay').classList.add('hidden');
 
-  // Kolonne-stepper (antall kolonner på denne siden)
-  document.getElementById('btn-kol-minus').onclick = () => endreKolonneAntall(-1);
-  document.getElementById('btn-kol-pluss').onclick = () => endreKolonneAntall(1);
 
   // Widget-synlighetsmeny
   const btnWidgetMeny   = document.getElementById('btn-widget-meny');
@@ -3939,8 +4110,9 @@ async function fjernBildeWidget(instansId) {
     delete state.bilder[instansId];
     await BildeLager.slett(instansId);
     if (bildeUrler[instansId]) { URL.revokeObjectURL(bildeUrler[instansId]); delete bildeUrler[instansId]; }
-    document.getElementById(cardId)?.remove();
+    fjernKortEl(cardId);
   }
+  applyLayout(); // skjuler kortet om det fortsatt brukes på en annen side
   renderWidgetMeny();
   saveState();
 }
@@ -3952,12 +4124,10 @@ function leggTilBilde() {
   const id = `bilde-${state.bilde_teller}`;
   state.bilder[id] = {};
   const cardId = `card-${id}`;
-  const col = romsligsteKolonne();
-  aktivSide().widget_layout.push({ id: cardId, col });
+  aktivSide().widget_layout.push(nyPlassering(cardId));
   const el = lagBildeElement(id);
-  document.querySelector(`.col-wrapper[data-col="${col}"]`).appendChild(el);
+  settInnKort(el);
   setupBilde(id);
-  settOppDragOgDrop();
   applyLayout();
   renderWidgetMeny();
   saveState();
@@ -4231,12 +4401,10 @@ function leggTilYoutube() {
   const id = `youtube-${state.youtube_teller}`;
   state.youtube[id] = { modus: 'video' };
   const cardId = `card-${id}`;
-  const col = romsligsteKolonne();
-  aktivSide().widget_layout.push({ id: cardId, col });
+  aktivSide().widget_layout.push(nyPlassering(cardId));
   const el = lagYoutubeElement(id);
-  document.querySelector(`.col-wrapper[data-col="${col}"]`).appendChild(el);
+  settInnKort(el);
   setupYoutube(id);
-  settOppDragOgDrop();
   applyLayout();
   renderWidgetMeny();
   saveState();
@@ -4253,8 +4421,9 @@ function fjernYoutubeWidget(instansId) {
   if (ingenSiderBrukerDen) {
     if (ytPlayers[instansId]) { try { ytPlayers[instansId].destroy(); } catch (_) {} delete ytPlayers[instansId]; }
     delete state.youtube[instansId];
-    document.getElementById(cardId)?.remove();
+    fjernKortEl(cardId);
   }
+  applyLayout(); // skjuler kortet om det fortsatt brukes på en annen side
   renderWidgetMeny();
   saveState();
 }
@@ -4601,22 +4770,28 @@ function init() {
 
   for (const instansId of Object.keys(state.notater)) {
     const el = lagNotatElement(instansId);
-    document.querySelector('.col-wrapper[data-col="1"]').appendChild(el);
+    settInnKort(el);
     setupNotat(instansId);
   }
 
   renderTimer();
   setupTerning();
 
+  // Guidekortene ligger i markupen for alle, men hører bare hjemme hos en ny bruker
+  // som ikke har fjernet dem ennå.
+  GUIDE_KORT
+    .filter(id => !state.sider.some(s => s.widget_layout.some(w => w.id === id)))
+    .forEach(id => document.getElementById(id)?.remove());
+
   for (const instansId of Object.keys(state.bilder)) {
     const el = lagBildeElement(instansId);
-    document.querySelector('.col-wrapper[data-col="3"]').appendChild(el);
+    settInnKort(el);
     setupBilde(instansId);
   }
 
   for (const instansId of Object.keys(state.youtube ?? {})) {
     const el = lagYoutubeElement(instansId);
-    document.querySelector('.col-wrapper[data-col="3"]').appendChild(el);
+    settInnKort(el);
     setupYoutube(instansId);
   }
 
@@ -4634,19 +4809,25 @@ function init() {
     }
   });
 
-  byggKolonner();
   applyLayout();
   settTema(state.tema ?? 'lyst');
   settFont(state.font ?? 'system');
   settSkriftstørrelse(state.skrift_størrelse ?? 'normal');
   applyWidgetStørrelser();
+  // Guidekortene får høyden innholdet trenger på denne skjermen. Vent på fontene,
+  // ellers måles teksten med reservefonten og kortet blir litt for lavt eller høyt.
+  document.fonts.ready.then(() => {
+    const guider = aktivSide().widget_layout.filter(w => GUIDE_KORT.includes(w.id) && !w.fast);
+    if (!guider.length) return;
+    guider.forEach(tilpassHøyde);
+    saveState();
+  });
   settOppHendelser();
   settOppRename();
   settOppBegrensning();
-  settOppDragOgDrop();
+  settOppFlate();
   setupDagsplanDrag();
   renderSiderNav();
-  oppdaterKolonneStepper();
   oppdaterEksportVarsel();
   setupVelkommen();
 
@@ -4695,6 +4876,7 @@ const KLIKK_HANDLINGER = {
   'lukk-tilbakemelding':  () => { document.getElementById('feedback-modal').style.display = 'none'; },
   'begrensning':          () => åpneBegrensningModal(),
   'skjul-widget':         el => toggleWidgetSynlighet(el.dataset.widget, false),
+  'fjern-guide':          el => fjernGuide(el.dataset.widget),
   'rediger-elev':         el => startRedigerElev(Number(el.dataset.idx)),
   'fjern-elev':           el => fjernElev(Number(el.dataset.idx)),
   'rediger-dagsplan':     el => startRedigerDagsplan(Number(el.dataset.idx)),

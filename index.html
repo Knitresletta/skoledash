@@ -25,9 +25,9 @@
 <!--
   Sidestruktur:
    <header>  — tittel/meny, fane-rad for sider, dato, vær og ⊞ Widgets-menyen
-   <main>    — tre (eller flere) .col-wrapper-kolonner som JS fyller med widget-kort,
-               etterfulgt av selve kort-malene (app.js flytter dem inn i kolonnene)
-   #action-bar — bunnlinje med Nullstill, Tavle, kolonneteller og hurtigtast-hint
+   <main>    : den frie flata (#flate), etterfulgt av selve kort-malene
+               (app.js pakker dem i en .kl-plass og plasserer dem på flata)
+   #action-bar : bunnlinje med Nullstill, Tavle og hurtigtast-hint
    #modal-overlay + frittstående modaler — dialoger (se MODALS-seksjonen)
   All logikk ligger i app.js (lastes nederst). Tekst styres via data-attributter.
 -->
@@ -116,14 +116,48 @@
 </header>
 
 <main>
-  <!-- Kolonnene kortene plasseres i. Tomme her — applyLayout() flytter kort-malene
-       under inn i riktig kolonne per side. byggKolonner() kan legge til/fjerne flere. -->
-  <div class="col-wrapper" data-col="1"></div>
-  <div class="col-wrapper" data-col="2"></div>
-  <div class="col-wrapper" data-col="3"></div>
+  <!-- Den frie flata kortene plasseres på. Tom her: applyLayout() pakker hvert kort
+       under i en .kl-plass med posisjon og størrelse, og flytter den inn hit. -->
+  <div id="flate"></div>
   <!-- Widget-kortene under er maler som ligger fast i markupen. JS skjuler/viser og
-       flytter dem mellom kolonnene; hvert kort har en ✕ (skjul), et drag-håndtak (⠿)
-       og en stabil id (card-*) som layout og widget-meny refererer til. -->
+       plasserer dem; hvert kort har en ✕ (skjul), en overskrift man drar i, og en
+       stabil id (card-*) som layout og widget-meny refererer til. -->
+  <!-- Guidekort for nye brukere. Bare første side i en helt ny lagring har dem i
+       widget_layout (se defaultState). Hos alle andre fjerner init() dem fra DOM-en.
+       ✕ fjerner dem for godt; de står ikke i ⊞ Widgets-menyen. -->
+  <div class="card kl-guide" id="card-guide-meny">
+    <button class="kl-widget-close" data-klikk="fjern-guide" data-widget="card-guide-meny" title="Fjern fra siden">✕</button>
+    <div class="card-header">
+      <span class="drag-handle" title="Dra for å flytte">⠿</span>
+      <h2>↖ Skoledash-menyen</h2>
+    </div>
+    <p data-t-html>Klikk på <strong>🏫 Skoledash</strong> oppe til venstre for å velge tema, font, skriftstørrelse og bokmål eller nynorsk.</p>
+    <p data-t-html>Der finner du også eksport og import av dataene dine, brukerveiledningen og hva som er nytt.</p>
+    <p class="kl-guide-fot" data-t-html>Fjern kortet med ✕ når du er klar.</p>
+  </div>
+
+  <div class="card kl-guide" id="card-guide-widgets">
+    <button class="kl-widget-close" data-klikk="fjern-guide" data-widget="card-guide-widgets" title="Fjern fra siden">✕</button>
+    <div class="card-header">
+      <span class="drag-handle" title="Dra for å flytte">⠿</span>
+      <h2>↗ Widgets</h2>
+    </div>
+    <p data-t-html>Bordet er tomt med vilje. Under <strong>⊞ Widgets</strong> oppe til høyre henter du fram det du trenger: klokke, elevliste, trekk, dagsplan, timer, notater og mer.</p>
+    <p data-t-html>Dra i overskriften på et kort for å flytte det, og i kantene for å endre størrelsen.</p>
+    <p class="kl-guide-fot" data-t-html>Fjern kortet med ✕ når du er klar.</p>
+  </div>
+
+  <div class="card kl-guide" id="card-guide-taster">
+    <button class="kl-widget-close" data-klikk="fjern-guide" data-widget="card-guide-taster" title="Fjern fra siden">✕</button>
+    <div class="card-header">
+      <span class="drag-handle" title="Dra for å flytte">⠿</span>
+      <h2>↘ Hurtigtaster</h2>
+    </div>
+    <p data-t-html>Bokstavene nede til høyre styrer appen uten mus. <kbd>a</kbd> legger til en elev, <kbd>r</kbd> trekker en tilfeldig elev, <kbd>t</kbd> starter og pauser timeren, og <kbd>b</kbd> gjør skjermen svart.</p>
+    <p data-t-html>Hold musa over en knapp for å se hvilken tast den har.</p>
+    <p class="kl-guide-fot" data-t-html>Fjern kortet med ✕ når du er klar.</p>
+  </div>
+
   <!-- Card: Elever -->
   <div class="card" id="card-elever">
     <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-elever" title="Fjern fra siden">✕</button>
@@ -297,12 +331,6 @@
 <div id="action-bar">
   <button class="btn btn-ghost btn-sm" id="btn-nullstill" title="Nullstill (n)">⚙️ Nullstill…</button>
   <button class="btn btn-ghost btn-sm" id="btn-blackboard" title="Tavlemodus (b)">🖥 Tavle</button>
-  <div class="kl-kol-stepper" title="Antall kolonner på denne siden">
-    <span>⊞ Kolonner</span>
-    <button class="btn btn-ghost btn-sm btn-icon" id="btn-kol-minus" title="Færre kolonner">−</button>
-    <span id="kol-antall">3</span>
-    <button class="btn btn-ghost btn-sm btn-icon" id="btn-kol-pluss" title="Flere kolonner">+</button>
-  </div>
   <div class="action-bar-right">
     <span class="shortcut-hint">
       <kbd>a</kbd> elev &nbsp;

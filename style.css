@@ -4,7 +4,7 @@
     2. Temaer ([data-theme="…"]) — hvert tema overstyrer DE SAMME variablene
     3. Reset + grunnoppsett
     4. Header, meny og undermenyer
-    5. Hovedlayout (kolonner) + kort + dra-håndtak
+    5. Hovedlayout (fri flate) + kort + dra-håndtak
     6. Knapper + utility-klasser
     7. Widget-spesifikk stil (elever, trekk, timer, notat, dagsplan, grupper, bilde)
     8. Modaler, varsler, tavlemodus, info-modal
@@ -403,9 +403,11 @@ body {
     background-image: var(--monster);
     color: var(--text);
     font-size: 0.875rem; /* ca. 16,6px ved normal rot (19px), skalerer med --font-size */
-    min-height: 100vh;
+    height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
+    overflow: hidden; /* bordet scroller ikke, kortene gjør det selv */
 }
 
 /* ===================== Header ===================== */
@@ -820,68 +822,93 @@ textarea[id^="notat-textarea"].kursiv {
 }
 
 /* ===================== Main layout ===================== */
-/* Hovedområdet er en vannrett flex-rad av kolonner (.col-wrapper). Hver kolonne
-   stabler kortene sine loddrett. align-items: flex-start gjør at kolonnene starter
-   øverst i stedet for å strekkes like høye. */
+/* Hovedområdet er en fri flate. Hvert kort ligger i en .kl-plass som er absolutt
+   plassert i PROSENT av flata (left/top/width/height settes fra widget_layout av
+   applyLayout). Prosent gjør at bordet beholder komposisjonen fra laptop til tavle.
+   Flata fyller resten av skjermen og scroller ikke; innholdet i kortene gjør det.
+   Den indre div-en gir padding uten at prosentene må regne med den. */
 main {
-    display: flex;
-    flex-direction: row;
-    gap: 12px;
+    flex: 1 1 auto;
+    min-height: 0;
     padding: 12px;
+    display: flex;
+}
+#flate {
+    position: relative;
     flex: 1;
-    align-items: flex-start;
+    min-width: 0;
+    min-height: 0;
 }
 
-.col-wrapper {
+/* Plassen eier posisjon, lagrekkefølge (z-index) og håndtakene. Kortet inni fyller
+   plassen og scroller selv, så håndtakene ikke scroller bort med innholdet. */
+.kl-plass {
+    position: absolute;
     display: flex;
-    flex-direction: column;
-    gap: 12px;
-    flex: 1 1 0; /* faktisk bredde settes inline pr. side fra kol_bredder */
     min-width: 0;
 }
-
-/* Dra-håndtak mellom kolonner for å justere bredde (settes inn av byggKolonner) */
-.kl-col-resizer {
-    flex: 0 0 8px;
-    align-self: stretch;
-    position: relative;
-    cursor: col-resize;
-    border-radius: 4px;
-    transition: background 0.12s;
+.kl-plass > .card {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    /* Static her gjør at ✕-knappen (absolutt) festes til plassen og ikke scroller
+       bort med innholdet. */
+    position: static;
 }
-.kl-col-resizer::before {
+.kl-plass.kl-aktiv > .card {
+    box-shadow: var(--shadow-md);
+}
+
+/* Håndtak for størrelse: fire kanter og fire hjørner, litt utenfor kortet. */
+.kl-kant {
+    position: absolute;
+    z-index: 3;
+    touch-action: none; /* ellers scroller touch-tavla i stedet for å dra */
+}
+.kl-kant[data-kant="n"]  { top: -4px; left: 12px; right: 12px; height: 8px; cursor: ns-resize; }
+.kl-kant[data-kant="s"]  { bottom: -4px; left: 12px; right: 12px; height: 8px; cursor: ns-resize; }
+.kl-kant[data-kant="e"]  { right: -4px; top: 12px; bottom: 12px; width: 8px; cursor: ew-resize; }
+.kl-kant[data-kant="w"]  { left: -4px; top: 12px; bottom: 12px; width: 8px; cursor: ew-resize; }
+.kl-kant[data-kant="ne"] { top: -6px; right: -6px; width: 16px; height: 16px; cursor: nesw-resize; }
+.kl-kant[data-kant="sw"] { bottom: -6px; left: -6px; width: 16px; height: 16px; cursor: nesw-resize; }
+.kl-kant[data-kant="nw"] { top: -6px; left: -6px; width: 16px; height: 16px; cursor: nwse-resize; }
+.kl-kant[data-kant="se"] { bottom: -6px; right: -6px; width: 16px; height: 16px; cursor: nwse-resize; }
+/* Et lite grep i nedre høyre hjørne viser at kortet kan strekkes. Vises ved hover. */
+.kl-kant[data-kant="se"]::after {
     content: "";
     position: absolute;
-    top: 8px;
+    right: 8px;
     bottom: 8px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 2px;
-    border-radius: 2px;
-    background: var(--border);
+    width: 7px;
+    height: 7px;
+    border-right: 2px solid var(--border);
+    border-bottom: 2px solid var(--border);
+    border-radius: 0 0 3px 0;
     opacity: 0;
-    transition:
-        opacity 0.12s,
-        background 0.12s;
+    transition: opacity 0.15s;
 }
-main:hover .kl-col-resizer::before {
-    opacity: 0.35;
-}
-.kl-col-resizer:hover {
-    background: var(--primary-l);
-}
-.kl-col-resizer:hover::before {
+.kl-plass:hover .kl-kant[data-kant="se"]::after {
     opacity: 1;
-    background: var(--primary);
 }
-body.kl-resizing {
-    cursor: col-resize;
+
+body.kl-flytter,
+body.kl-flytter * {
+    cursor: grabbing !important;
     user-select: none;
 }
-body.kl-resizing .kl-col-resizer::before {
-    opacity: 1;
-    background: var(--primary);
+body.kl-endrer-storrelse {
+    user-select: none;
 }
+
+/* Hjelpelinjer som viser hvilken kant kortet har festet seg til. */
+.kl-hjelpelinje {
+    position: absolute;
+    background: var(--primary);
+    pointer-events: none;
+    z-index: 9999;
+}
+.kl-hjelpelinje.loddrett { top: 0; bottom: 0; width: 1px; }
+.kl-hjelpelinje.vannrett { left: 0; right: 0; height: 1px; }
 
 /* ===================== Cards ===================== */
 .card {
@@ -897,10 +924,6 @@ body.kl-resizing .kl-col-resizer::before {
         opacity 0.15s;
     min-width: 0; /* viktig for grid-overflow */
     position: relative; /* for .kl-widget-close i hjørnet */
-}
-.card.dragging {
-    opacity: 0.45;
-    box-shadow: none;
 }
 
 /* Fjern-knapp i kortets hjørne: skjuler singletons / sletter notat-bilde-instanser */
@@ -947,6 +970,21 @@ body.kl-resizing .kl-col-resizer::before {
     align-items: center;
     gap: 6px;
     padding-right: 20px; /* gjør plass til .kl-widget-close i hjørnet */
+    cursor: grab;
+    touch-action: none; /* hele overskrifta er dra-sone, også på touch */
+    user-select: none;
+    /* Står fast øverst når innholdet i kortet scroller, så det alltid kan flyttes.
+       Negativ top + padding dekker kortets egen padding over overskrifta. */
+    position: sticky;
+    top: -14px;
+    margin-top: -14px;
+    padding-top: 14px;
+    background: var(--card);
+    z-index: 1;
+}
+.card-header button,
+.card-header input {
+    cursor: pointer;
 }
 .card-header h2 {
     flex: 1;
@@ -1501,23 +1539,6 @@ textarea[id^="notat-textarea"]:focus {
     color: var(--muted);
 }
 
-/* ===================== Drop indicator ===================== */
-main.drag-active::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 50;
-}
-/* Den blå streken som viser hvor et kort vil havne ved slipp. Negativ margin trekker
-   den inn i gapet mellom kort så den ikke dytter de andre kortene fra hverandre. */
-.drop-indikator {
-    height: 3px;
-    background: var(--primary);
-    border-radius: 2px;
-    pointer-events: none;
-    margin: -6px 0;
-}
 
 /* ===================== Action bar ===================== */
 #action-bar {
@@ -1552,23 +1573,6 @@ main.drag-active::before {
     font-size: 0.74rem;
     color: var(--muted);
     opacity: 0.7;
-}
-.kl-kol-stepper {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.74rem;
-    color: var(--muted);
-}
-.kl-kol-stepper #kol-antall {
-    min-width: 1.2ch;
-    text-align: center;
-    font-weight: 700;
-    color: var(--text);
-}
-.kl-kol-stepper button:disabled {
-    opacity: 0.35;
-    cursor: default;
 }
 
 /* ===================== Modals ===================== */
@@ -2193,6 +2197,26 @@ main.drag-active::before {
     font-variant-numeric: tabular-nums;
 }
 
+/* ===================== Guidekort for nye brukere ===================== */
+/* Vanlige kort med litt farge i kanten, så de leses som hjelp og ikke som et verktøy. */
+.kl-guide {
+    border-left: 4px solid var(--primary);
+    line-height: 1.45;
+}
+.kl-guide p {
+    margin: 0;
+}
+.kl-guide kbd {
+    background: var(--border);
+    border-radius: 4px;
+    padding: 0 5px;
+    font-family: inherit;
+}
+.kl-guide-fot {
+    color: var(--muted);
+    font-size: 0.8rem;
+}
+
 /* ===================== Klokke-widget ===================== */
 /* Urskiven er SVG i et kvadratisk felt som skalerer med kortbredden. Alle farger
    hentes fra temavariablene, så klokka følger temaet uten egne regler per tema.
@@ -2495,21 +2519,36 @@ main.drag-active::before {
 }
 
 /* ===================== Responsive ===================== */
-/* Tilpasninger for smale skjermer. MERK: grid-template-columns / grid-column under har
-   ingen effekt — `main` er display: flex, ikke grid (se Main layout). De er trolig
-   rester fra et tidligere grid-basert oppsett. Det som faktisk virker her er å skjule
-   dra-håndtak/resizere og hint på liten skjerm. Kolonnene smalner uansett via flex. */
+/* Under 960 px gir en fri flate ikke mening. Kortene stables i én kolonne, ovenfra
+   og ned og så fra venstre mot høyre (rekkefølgen settes med `order` fra JS), og
+   siden scroller som et vanlig dokument igjen. Ingen håndtak: finmotorisk dra passer
+   dårlig på en liten touchskjerm. */
 @media (max-width: 960px) {
-    main {
-        grid-template-columns: 1fr 1fr; /* uvirksom på flex-container (se note over) */
+    body {
+        height: auto;
+        min-height: 100vh;
+        overflow: visible;
     }
-    /* Skjul dra-håndtak og kolonne-resizere — finmotorisk dra-og-slipp passer dårlig på touch. */
-    main > .card {
-        grid-column: auto !important; /* uvirksom på flex-container (se note over) */
+    #flate {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .kl-plass {
+        position: static !important;
+        width: auto !important;
+        height: auto !important;
+    }
+    .kl-plass > .card {
+        overflow: visible;
+    }
+    .card-header {
+        cursor: default;
+        position: static;
     }
     .drag-handle,
     .dagsplan-handle,
-    .kl-col-resizer {
+    .kl-kant {
         display: none;
     }
     textarea[id^="notat-textarea"] {
@@ -2520,9 +2559,6 @@ main.drag-active::before {
     } /* hurtigtast-hintet er irrelevant uten tastatur */
 }
 @media (max-width: 620px) {
-    main {
-        grid-template-columns: 1fr;
-    } /* uvirksom på flex-container (se note over) */
     #action-bar {
         flex-wrap: wrap;
     }

@@ -26,7 +26,7 @@ Et digitalt klasseromsdashboard for lærere: navnetrekning, gruppeinndeling, tim
 ## Sider og tilpasning
 
 - **Én side per klasse:** hver side har egen elevliste, grupper, dagsplan og trekk-historikk. Gi fanene egne navn (f.eks. «1A», «Mattegruppe») og bytt fritt mellom dem.
-- **Fleksibel layout:** 1–4 kolonner med justerbar bredde, dra-og-slipp av kort, og en ⊞ Widgets-meny der du henter fram akkurat de kortene du trenger.
+- **Fri layout:** flytt kortene dit du vil og dra i kantene for å endre størrelse, med magnetiske kanter som holder det ryddig. Oppsettet ser likt ut på laptop og tavle, og ⊞ Widgets-menyen henter fram akkurat de kortene du trenger.
 - **Utseende:** ti temaer (blant dem lys, mørk, høy kontrast, Under vann, På fjellet og Twilight), noen med mønster i bakgrunnen, valgfri font og skriftstørrelse, og bokmål eller nynorsk.
 - **Hurtigtaster:** de vanligste handlingene har egne taster — se baren nederst i appen.
 
