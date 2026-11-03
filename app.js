@@ -262,6 +262,9 @@ function nySide(navn) {
     ulv_valgt:           null,
     ulv_navn:            'Klassebamse',
     gruppe_begrensninger: [],
+    // Dagens oppmøte (v2.36): { dato: 'ÅÅÅÅ-MM-DD', status: { navn: 'her' | 'borte' } }.
+    // null eller en annen dato betyr at ingen er markert i dag. Se «Oppmøte».
+    oppmøte:             null,
     // Posisjon og størrelse i prosent av flata (se «Fri flate»). Alle enkeltinstans-
     // widgets skal stå oppført, også de som er skjult fra start: applyLayout() tvinger
     // inn manglende, og widget_hidden styrer hva som vises. Et kort som slås på, får
@@ -395,6 +398,7 @@ function normaliserState(s) {
     side.gruppe_begrensninger = (Array.isArray(side.gruppe_begrensninger) ? side.gruppe_begrensninger : [])
       .filter(par => Array.isArray(par) && par.length === 2 && par.every(n => typeof n === 'string'))
       .map(par => par.map(n => n.slice(0, 60)));
+    side.oppmøte = normaliserOppmøte(side.oppmøte);
     side.widget_hidden = tekstliste(side.widget_hidden).filter(erGyldigKortId);
     side.widget_layout = side.widget_layout
       .filter(w => erObjekt(w) && erGyldigKortId(w.id))
@@ -1212,6 +1216,7 @@ function fjernElev(idx) {
   if (!navn) return;
   s.elever = s.elever.filter((_, i) => i !== idx);
   fjernFraGrupper(new Set([navn]));
+  fjernFraOppmøte(s, [navn]);
   saveState();
   renderElever();
   renderAlleTrekk();
@@ -1224,6 +1229,7 @@ function fjernEleverBatch(fjernSett) {
   const s = aktivSide();
   s.elever = s.elever.filter(e => !fjernSett.has(e));
   fjernFraGrupper(fjernSett);
+  fjernFraOppmøte(s, fjernSett);
   saveState();
   renderElever();
   renderAlleTrekk();
@@ -1254,6 +1260,81 @@ function ryddBackloger(fjernSett) {
   if (s.tilfeldig_valgt && fjernSett.has(s.tilfeldig_valgt)) s.tilfeldig_valgt = null;
 }
 
+// ===================== Oppmøte =====================
+// Hver elev kan markeres «her» eller «borte» for dagen. Bare «borte» har en virkning:
+// de elevene er ute av alle trekk og nye gruppeinndelinger. Umarkert og «her» teller
+// likt, så appen virker som før til læreren markerer noen som borte. Markeringene
+// lagres med dagens dato og gjelder bare den dagen: neste dag er alle umarkert igjen.
+// En ferdig gruppeinndeling røres ikke, men elever som er borte, vises nedtonet i den.
+
+// Dagens dato i lokal tid som 'ÅÅÅÅ-MM-DD'. Ikke toISOString(), som gir UTC og
+// dermed feil dag mellom midnatt og kl. 01/02 norsk tid.
+function dagensDato() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Vasker et lagret oppmøte-felt. Alt som ikke er gyldig, blir null (ingen markert).
+// Brukes av normaliserState(), så den må ikke lene seg på konstanter lenger ned.
+function normaliserOppmøte(o) {
+  if (!erObjekt(o) || typeof o.dato !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(o.dato) ||
+      !erObjekt(o.status)) return null;
+  const status = {};
+  for (const [navn, verdi] of Object.entries(o.status)) {
+    if (verdi === 'her' || verdi === 'borte') status[navn.slice(0, 60)] = verdi;
+  }
+  return { dato: o.dato, status };
+}
+
+// Dagens statusoppslag for siden (navn → 'her' | 'borte'). Er lagret oppmøte fra en
+// annen dag, starter vi blankt. Det skrives til lagring neste gang noe lagres.
+function oppmøteIdag(s) {
+  const idag = dagensDato();
+  if (!s.oppmøte || s.oppmøte.dato !== idag) s.oppmøte = { dato: idag, status: {} };
+  return s.oppmøte.status;
+}
+
+// Elevene som er med i trekk og nye grupper: alle som ikke er markert borte i dag.
+function tilStede(s) {
+  const status = oppmøteIdag(s);
+  return s.elever.filter(navn => status[navn] !== 'borte');
+}
+
+// Trykk på «her» eller «borte» for eleven ved idx. Trykker du på den som alt er
+// valgt, blir eleven umarkert igjen. Gruppene tegnes på nytt for nedtoningen.
+function settOppmøte(idx, verdi) {
+  const s = aktivSide();
+  const navn = s.elever[idx];
+  if (!navn || (verdi !== 'her' && verdi !== 'borte')) return;
+  const status = oppmøteIdag(s);
+  const varBorte = status[navn] === 'borte';
+  if (status[navn] === verdi) delete status[navn];
+  else status[navn] = verdi;
+  // Kommer en elev tilbake etter å ha vært borte da gruppene ble laget, står eleven
+  // utenfor alle grupper. Da plasseres eleven på samme måte som en ny elev: i den
+  // minste gruppa, uten å bryte «hold fra hverandre». Elever som var med i en gruppe
+  // fra før, blir bare der de er.
+  let gruppe = null;
+  if (varBorte && status[navn] !== 'borte' && s.grupper?.length &&
+      !s.grupper.some(g => g.includes(navn))) {
+    gruppe = plasserIGruppe(navn);
+  }
+  saveState();
+  renderElever();
+  renderGrupper();
+  if (gruppe === -1) {
+    notify(t('{navn} er her, men passer ikke i noen gruppe uten å bryte en begrensning. Del inn på nytt.', { navn }), 'warning');
+  } else if (gruppe !== null) {
+    notify(t('✓ {navn} er her og er lagt i gruppe {n}', { navn, n: gruppe + 1 }));
+  }
+}
+
+// Tar fjernede elever ut av dagens oppmøte. Lagrer ikke selv: kalleren gjør det.
+function fjernFraOppmøte(s, fjernSett) {
+  if (!s.oppmøte) return;
+  for (const navn of fjernSett) delete s.oppmøte.status[navn];
+}
+
 // Tegner elevlista på nytt: teller, tom-tilstand, og én rad per elev. Elever som
 // er fordelt i en gruppe får gruppens farge + en prikk, så listen og gruppe-kortene
 // matcher visuelt. Kalles etter enhver endring i roster eller grupper.
@@ -1262,8 +1343,13 @@ function renderElever() {
   const liste   = document.getElementById('elev-liste');
   const antall  = s.elever.length;
 
+  const status = oppmøteIdag(s);
+  const antallBorte = s.elever.filter(navn => status[navn] === 'borte').length;
   document.getElementById('elev-antall').textContent = antall;
   document.getElementById('elev-tekst').textContent  = antall === 1 ? t('elev inne') : t('elever inne');
+  const borteEl = document.getElementById('elev-borte');
+  borteEl.textContent = antallBorte ? t('· {antall} borte i dag', { antall: antallBorte }) : '';
+  borteEl.classList.toggle('hidden', !antallBorte);
 
   if (!antall) {
     liste.innerHTML = `<p class="tom-tekst">${t('Ingen elever inne ennå.')}<br>${t('Trykk "+ Legg til elev" for å starte.')}</p>`;
@@ -1286,11 +1372,20 @@ function renderElever() {
       ? `<input class="elev-rediger-input" type="text" maxlength="60" value="${esc(navn)}"
             data-rediger="elev" data-idx="${i}">`
       : `<span class="elev-navn${harGruppe ? ' gruppe-farget' : ''}"${harGruppe ? ` style="--gf:${farge}"` : ''} data-klikk="rediger-elev" data-idx="${i}" title="${t('Klikk for å redigere')}">${esc(navn)}</span>`;
+    // Oppmøteknappene: aria-pressed forteller skjermlesere og CSS hvilken som er valgt.
+    const st = status[navn];
+    const klasse = st === 'borte' ? ' er-borte' : st === 'her' ? ' er-her' : '';
     return `
-      <div class="elev-item">
+      <div class="elev-item${klasse}">
         <span class="elev-nr">${i + 1}.</span>
         ${harGruppe ? `<span class="elev-dot gruppe-farget" style="--gf:${farge}"></span>` : ''}
         ${navnHtml}
+        <span class="elev-oppmøte">
+          <button class="oppmøte-knapp oppmøte-her" data-klikk="oppmøte" data-status="her" data-idx="${i}"
+            aria-pressed="${st === 'her'}" title="${t('{navn} er her i dag', { navn: esc(navn) })}">✓</button>
+          <button class="oppmøte-knapp oppmøte-borte" data-klikk="oppmøte" data-status="borte" data-idx="${i}"
+            aria-pressed="${st === 'borte'}" title="${t('{navn} er borte i dag', { navn: esc(navn) })}">−</button>
+        </span>
         <button class="elev-slett" data-klikk="fjern-elev" data-idx="${i}" title="${t('Fjern {navn}', { navn: esc(navn) })}">✕</button>
       </div>`;
   }).join('');
@@ -1368,6 +1463,10 @@ function byttNavnOveralt(s, gammelt, nytt) {
   s.ulv_backlog          = (s.ulv_backlog          ?? []).map(bytt);
   if (s.ulv_valgt === gammelt) s.ulv_valgt = nytt;
   s.gruppe_begrensninger = (s.gruppe_begrensninger ?? []).map(par => par.map(bytt));
+  if (s.oppmøte?.status[gammelt]) {
+    s.oppmøte.status[nytt] = s.oppmøte.status[gammelt];
+    delete s.oppmøte.status[gammelt];
+  }
 }
 
 // Returnerer en stokket KOPI av arrayet (originalen røres ikke) med Fisher–Yates:
@@ -1382,15 +1481,32 @@ function shuffle(arr) {
 }
 
 // ===================== Draws =====================
+// Alle trekk velger bare blant elevene som er til stede (se «Oppmøte»). Er ingen
+// til stede, sier denne fra med riktig grunn og returnerer null.
+function trekkbareElever(s) {
+  const elever = tilStede(s);
+  if (elever.length) return elever;
+  notify(s.elever.length ? t('Alle elevene er markert borte i dag') : t('Ingen elever inne'), 'error');
+  return null;
+}
+
+// Melding når backlogen er brukt opp. Står noen som er borte i dag igjen, er det
+// verdt å si: de er ikke glemt, de venter til de er tilbake.
+function backlogTomMelding(s, backlog, tekstAlle) {
+  const borteIgjen = s.elever.some(e => !backlog.includes(e));
+  notify(borteIgjen ? t('Alle som er her i dag, er trukket. Nullstill for å starte på nytt.') : tekstAlle, 'warning');
+}
+
 // Enkelt tilfeldig trekk: velg én elev. Eneste regel er at man ikke trekker
 // samme elev to ganger på rad (med mindre det bare er én elev inne).
 function trekkTilfeldig() {
   const s = aktivSide();
-  if (!s.elever.length) { notify(t('Ingen elever inne'), 'error'); return; }
+  const elever = trekkbareElever(s);
+  if (!elever) return;
   // Utelat forrige trukne fra utvalget, så vi ikke får samme navn igjen umiddelbart.
-  const pool = s.elever.length > 1
-    ? s.elever.filter(e => e !== s.tilfeldig_valgt)
-    : s.elever;
+  const pool = elever.length > 1
+    ? elever.filter(e => e !== s.tilfeldig_valgt)
+    : elever;
   s.tilfeldig_valgt = pool[Math.floor(Math.random() * pool.length)];
   saveState();
   renderTilfeldig();
@@ -1401,11 +1517,12 @@ function trekkTilfeldig() {
 // læreren nullstille. Forskjellen fra trekkTilfeldig er nettopp denne sporingen.
 function trekkTilfeldigBacklog() {
   const s = aktivSide();
-  if (!s.elever.length) { notify(t('Ingen elever inne'), 'error'); return; }
+  const elever = trekkbareElever(s);
+  if (!elever) return;
   // Trekk kun blant elever som ikke alt står i backlogen.
-  const pool = s.elever.filter(e => !s.tilfeldig_backlog.includes(e));
+  const pool = elever.filter(e => !s.tilfeldig_backlog.includes(e));
   if (!pool.length) {
-    notify(t('Alle elever er trukket — nullstill for å starte på nytt'), 'warning');
+    backlogTomMelding(s, s.tilfeldig_backlog, t('Alle elever er trukket — nullstill for å starte på nytt'));
     return;
   }
   s.tilfeldig_valgt = pool[Math.floor(Math.random() * pool.length)];
@@ -1420,20 +1537,23 @@ function trekkTilfeldigBacklog() {
 // gjentas (samme backlog-prinsipp som tilfeldig-backlog, men i par).
 function trekkOrdenselev() {
   const s = aktivSide();
-  if (s.elever.length < 2) {
-    notify(t('Trenger minst 2 elever ({antall} inne)', { antall: s.elever.length }), 'error');
+  const elever = tilStede(s);
+  if (elever.length < 2) {
+    notify(elever.length < s.elever.length
+      ? t('Trenger minst 2 elever som er her i dag ({antall} her)', { antall: elever.length })
+      : t('Trenger minst 2 elever ({antall} inne)', { antall: s.elever.length }), 'error');
     return;
   }
-  let pool = s.elever.filter(e => !s.ordenselev_backlog.includes(e));
+  let pool = elever.filter(e => !s.ordenselev_backlog.includes(e));
   if (!pool.length) {
-    notify(t('Alle elever har vært ordenselev — nullstill for å starte på nytt'), 'warning');
+    backlogTomMelding(s, s.ordenselev_backlog, t('Alle elever har vært ordenselev — nullstill for å starte på nytt'));
     return;
   }
   if (pool.length === 1) {
     // Siste i backlog: velg den, nullstill backlog, trekk en til fra resten
     const siste  = pool[0];
     s.ordenselev_backlog = [];
-    const andre  = s.elever.filter(e => e !== siste);
+    const andre  = elever.filter(e => e !== siste);
     const valgt2 = andre[Math.floor(Math.random() * andre.length)];
     s.ordenselev_valgte = [siste, valgt2];
     s.ordenselev_backlog = [...s.ordenselev_valgte];
@@ -1452,10 +1572,11 @@ function trekkOrdenselev() {
 // får tur før noen gjentas. Navnet på bamsen kan endres per side (s.ulv_navn).
 function trekkUlv() {
   const s = aktivSide();
-  const pool = s.elever.filter(e => !s.ulv_backlog.includes(e));
+  const elever = trekkbareElever(s);
+  if (!elever) return;
+  const pool = elever.filter(e => !s.ulv_backlog.includes(e));
   if (!pool.length) {
-    if (s.elever.length) notify(t('Alle elever har hatt bamsen — nullstill for å starte på nytt'), 'warning');
-    else notify(t('Ingen elever inne'), 'error');
+    backlogTomMelding(s, s.ulv_backlog, t('Alle elever har hatt bamsen — nullstill for å starte på nytt'));
     return;
   }
   s.ulv_valgt = pool[Math.floor(Math.random() * pool.length)];
@@ -2006,15 +2127,22 @@ function setupDagsplanDrag() {
 // bryter noen begrensning. Klarer vi ikke det, sier vi fra i stedet for å bryte reglene.
 function lagGrupper(antall) {
   const s = aktivSide();
-  if (s.elever.length < 2) { notify(t('Trenger minst 2 elever'), 'warning'); return; }
-  if (antall > s.elever.length) {
-    notify(t('For mange grupper — bare {antall} elever inne', { antall: s.elever.length }), 'warning');
+  // Bare elever som er til stede, fordeles. De som er borte i dag, står utenfor.
+  const elever = tilStede(s);
+  if (elever.length < 2) {
+    notify(elever.length < s.elever.length
+      ? t('Trenger minst 2 elever som er her i dag ({antall} her)', { antall: elever.length })
+      : t('Trenger minst 2 elever'), 'warning');
+    return;
+  }
+  if (antall > elever.length) {
+    notify(t('For mange grupper — bare {antall} elever inne', { antall: elever.length }), 'warning');
     return;
   }
   const begrensninger = s.gruppe_begrensninger ?? [];
   let grupper = null;
   for (let forsøk = 0; forsøk < 200; forsøk++) {
-    const shufflet = shuffle(s.elever);
+    const shufflet = shuffle(elever);
     const kandidat = Array.from({ length: antall }, () => []);
     // Del ut elevene reihum (i % antall) — gir jevnest mulig gruppestørrelse.
     shufflet.forEach((e, i) => kandidat[i % antall].push(e));
@@ -2054,11 +2182,14 @@ function renderGrupper() {
     vis.innerHTML = `<p class="tom-tekst">${t('Ingen grupper aktive — trykk')} <kbd>${t('🎲 Del inn')}</kbd></p>`;
     return;
   }
+  const status = oppmøteIdag(aktivSide());
   vis.innerHTML = aktivSide().grupper.map((gruppe, gi) => {
     const f = GRUPPE_FARGER[gi % GRUPPE_FARGER.length];
     return `<div class="gruppe-kort gruppe-farget" style="--gf:${f}">
       <div class="gruppe-tittel">${t('Gruppe {n}', { n: gi + 1 })}</div>
-      <div class="gruppe-elever">${gruppe.map(esc).join(', ')}</div>
+      <div class="gruppe-elever">${gruppe.map(n => status[n] === 'borte'
+        ? `<span class="gruppe-borte" title="${t('Borte i dag')}">${esc(n)}</span>`
+        : esc(n)).join(', ')}</div>
     </div>`;
   }).join('');
 }
@@ -2085,6 +2216,7 @@ function lastListe(navn) {
   const s = aktivSide();
   s.elever  = [...elever]; // last den globale lista inn i denne sidens roster
   s.grupper = null;
+  s.oppmøte = null;        // markeringene hørte til den gamle lista
   saveState();
   renderElever();
   renderAlleTrekk();
@@ -3026,6 +3158,17 @@ const OPPDATERINGSLOGG_HTML = `
     </ul>
   </details>
   <div class="logg-entry">
+    <div class="logg-versjon">v2.36</div>
+    <div class="logg-dato">3. november 2026</div>
+    <ul>
+      <li><strong>Hvem er her i dag?</strong> Hver elev i lista har fått to små knapper: ✓ for her og − for borte</li>
+      <li><strong>Elever som er borte, er ute av trekkene og gruppeinndelingen.</strong> Tilfeldig elev, ordenselever og klassebamse trekker bare blant dem som er her, og 🎲 Del inn fordeler bare dem</li>
+      <li>Ferdige grupper blir stående, men den som er borte, vises nedtonet. Under elevlista står det hvor mange som er borte</li>
+      <li>Var en elev borte da gruppene ble laget og kommer senere, havner eleven i den minste gruppa når du fjerner borte-markeringen</li>
+      <li>Markeringene gjelder bare i dag. Neste dag starter alle umarkert</li>
+    </ul>
+  </div>
+  <div class="logg-entry">
     <div class="logg-versjon">v2.35</div>
     <div class="logg-dato">2. november 2026</div>
     <ul>
@@ -3458,6 +3601,13 @@ const BRUKERVEILEDNING_HTML = `
   <p><strong>Rette et navn:</strong> klikk rett på elevnavnet i lista — det blir til et lite skrivefelt. Rett opp og trykk <kbd>Enter</kbd> for å lagre, eller <kbd>Esc</kbd> for å avbryte. Endrer du navnet, oppdateres det automatisk overalt eleven er brukt — i grupper, trekk-backlogs og gruppebegrensninger. (Vil du fjerne eleven i stedet, bruk <strong>✕</strong> til høyre.)</p>
   <p><strong>Stor forbokstav kommer av seg selv:</strong> skriver du «kari nordmann», lagres det som «Kari Nordmann». Det samme gjelder etter bindestrek («Anne-Marie»), og navn med æ, ø og å behandles riktig.</p>
   <p>Vil du spare tid neste gang? Lagre elevlisten din under <strong>📋 Lister</strong>, og last den inn igjen med ett klikk.</p>
+
+  <h4>✓ Hvem er her i dag?</h4>
+  <p>Hver elev i lista har to små runde knapper: <strong>✓</strong> betyr at eleven er her, og <strong>−</strong> betyr at eleven er borte. Trykk på samme knapp en gang til for å fjerne markeringen.</p>
+  <p><strong>Elever som er borte, er ikke med i trekkene</strong> (tilfeldig elev, ordenselever og klassebamse) <strong>eller når du deler inn i grupper.</strong> Navnet blir grått og gjennomstreket i lista, og under lista står det hvor mange som er borte. Elever du ikke har markert, er med som vanlig, så du trenger bare å markere dem som mangler. ✓ er der for deg som vil krysse av hele klassen.</p>
+  <p><strong>Har du allerede laget grupper,</strong> blir de stående som de er. En elev som er borte, vises nedtonet i gruppa si, og er utelatt neste gang du trykker <strong>🎲 Del inn</strong>.</p>
+  <p><strong>Kommer en elev etter at gruppene er laget?</strong> Var eleven markert borte da du delte inn, står eleven utenfor gruppene. Trykk <strong>✓</strong> (eller − igjen for å fjerne borte-markeringen), så havner eleven i den minste gruppa, akkurat som en ny elev. Gruppebegrensningene følges.</p>
+  <p>Markeringene gjelder <strong>bare i dag</strong>. Neste dag er alle umarkert igjen, så ingen blir hengende som borte. Hver side har sitt eget oppmøte.</p>
 
   <h4>Trekke elever</h4>
   <p><strong>🎲 Tilfeldig elev</strong> — trykk <strong>Trekk</strong> for å velge en tilfeldig elev fra listen. Vanlig trekk unngår å velge samme elev to ganger på rad.</p>
@@ -5278,6 +5428,7 @@ const KLIKK_HANDLINGER = {
   'fjern-guide':          el => fjernGuide(el.dataset.widget),
   'rediger-elev':         el => startRedigerElev(Number(el.dataset.idx)),
   'fjern-elev':           el => fjernElev(Number(el.dataset.idx)),
+  'oppmøte':              el => settOppmøte(Number(el.dataset.idx), el.dataset.status),
   'rediger-dagsplan':     el => startRedigerDagsplan(Number(el.dataset.idx)),
   'dagsplan-ferdig':      el => toggleDagsplanFerdig(Number(el.dataset.idx)),
   'fjern-dagsplan':       el => fjernDagsplan(Number(el.dataset.idx)),

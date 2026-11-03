@@ -1198,6 +1198,74 @@ body.kl-endrer-storrelse {
 .elev-item:hover .elev-slett {
     opacity: 1;
 }
+/* Oppmøte: to små runde knapper per elev, ✓ (her) og − (borte). Alltid synlige, men
+   dempet til de er i bruk, så lista ikke blir urolig. Bare temavariabler, så de følger
+   alle temaene: --green/--red er allerede justert for kontrast i hvert tema. Størrelsen
+   er i rem og vokser derfor med skriftstørrelsen. */
+.elev-oppmøte {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+.oppmøte-knapp {
+    width: 1.3rem;
+    height: 1.3rem;
+    padding: 0;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.1s, background 0.1s, border-color 0.1s;
+}
+.elev-item:hover .oppmøte-knapp,
+.oppmøte-knapp:focus-visible {
+    opacity: 1;
+}
+.oppmøte-her:hover {
+    border-color: var(--green);
+    color: var(--green);
+}
+.oppmøte-borte:hover {
+    border-color: var(--red);
+    color: var(--red);
+}
+.oppmøte-her[aria-pressed="true"] {
+    opacity: 1;
+    background: var(--green);
+    border-color: var(--green);
+    color: var(--on-green);
+}
+.oppmøte-borte[aria-pressed="true"] {
+    opacity: 1;
+    background: var(--red);
+    border-color: var(--red);
+    color: var(--on-red);
+}
+/* Elev som er borte: navnet blir grått og gjennomstreket, gruppeprikken blekner.
+   Tre klasser i velgeren slår .elev-navn.gruppe-farget, så gruppefargen viker. */
+.elev-item.er-borte .elev-navn {
+    color: var(--muted);
+    text-decoration: line-through;
+    text-decoration-thickness: 1.5px;
+}
+.elev-item.er-borte .elev-dot {
+    opacity: 0.35;
+}
+.elev-borte-tekst {
+    color: var(--red);
+    font-weight: 600;
+}
+/* Navn i et gruppekort når eleven er borte i dag. Gruppa er urørt, bare nedtonet. */
+.gruppe-borte {
+    opacity: 0.5;
+    text-decoration: line-through;
+}
 .elev-count {
     font-size: 0.8rem;
     color: var(--muted);

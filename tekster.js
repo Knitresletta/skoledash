@@ -74,6 +74,11 @@ const NYNORSK = {
   'Endre navn': 'Endre namn',
   'Nytt navn…': 'Nytt namn…',
   'Skriv inn et navn': 'Skriv inn eit namn',
+  '{navn} er her, men passer ikke i noen gruppe uten å bryte en begrensning. Del inn på nytt.':
+    '{navn} er her, men passar ikkje i nokon gruppe utan å bryte ei avgrensing. Del inn på nytt.',
+  '✓ {navn} er her og er lagt i gruppe {n}': '✓ {navn} er her og er lagd i gruppe {n}',
+  'Alle elevene er markert borte i dag': 'Alle elevane er merkte borte i dag',
+  'Trenger minst 2 elever som er her i dag ({antall} her)': 'Treng minst 2 elevar som er her i dag ({antall} her)',
   'Klikk på en elev for å markere dem som allerede brukt. Grå = brukt, hvit = tilgjengelig.': 'Klikk på ein elev for å merke eleven som brukt. Grå = brukt, kvit = tilgjengeleg.',
 
   // ---------- Trekk ----------
@@ -90,6 +95,7 @@ const NYNORSK = {
   'Alle elever er trukket — nullstill for å starte på nytt': 'Alle elevane er trekte — nullstill for å starte på nytt',
   'Alle elever har vært ordenselev — nullstill for å starte på nytt': 'Alle elevane har vore ordenselev — nullstill for å starte på nytt',
   'Alle elever har hatt bamsen — nullstill for å starte på nytt': 'Alle elevane har hatt bamsen — nullstill for å starte på nytt',
+  'Alle som er her i dag, er trukket. Nullstill for å starte på nytt.': 'Alle som er her i dag, er trekte. Nullstill for å starte på nytt.',
   'Trenger minst 2 elever': 'Treng minst 2 elevar',
   'Trenger minst 2 elever ({antall} inne)': 'Treng minst 2 elevar ({antall} inne)',
   'Endre navn på klassebamsen': 'Endre namn på klassebamsen',
@@ -269,6 +275,13 @@ const BRUKERVEILEDNING_NN = `
   <p><strong>Rette eit namn:</strong> klikk rett på elevnamnet i lista, så blir det til eit lite skrivefelt. Rett opp og trykk <kbd>Enter</kbd> for å lagre, eller <kbd>Esc</kbd> for å avbryte. Endrar du namnet, blir det oppdatert automatisk overalt der eleven er brukt: i grupper, trekk-backlogar og gruppeavgrensingar. (Vil du heller fjerne eleven, bruk <strong>✕</strong> til høgre.)</p>
   <p><strong>Stor forbokstav kjem av seg sjølv:</strong> skriv du «kari nordmann», blir det lagra som «Kari Nordmann». Det same gjeld etter bindestrek («Anne-Marie»), og namn med æ, ø og å blir handsama rett.</p>
   <p>Vil du spare tid neste gong? Lagre elevlista di under <strong>📋 Lister</strong>, og last ho inn att med eitt klikk.</p>
+
+  <h4>✓ Kven er her i dag?</h4>
+  <p>Kvar elev i lista har to små runde knappar: <strong>✓</strong> tyder at eleven er her, og <strong>−</strong> tyder at eleven er borte. Trykk på same knapp ein gong til for å fjerne merket.</p>
+  <p><strong>Elevar som er borte, er ikkje med i trekka</strong> (tilfeldig elev, ordenselevar og klassebamse) <strong>eller når du deler inn i grupper.</strong> Namnet blir grått og gjennomstreka i lista, og under lista står det kor mange som er borte. Elevar du ikkje har merkt, er med som vanleg, så du treng berre å merke dei som manglar. ✓ er der for deg som vil krysse av heile klassen.</p>
+  <p><strong>Har du alt laga grupper,</strong> blir dei ståande som dei er. Ein elev som er borte, blir vist nedtona i gruppa si, og er utelaten neste gong du trykkjer <strong>🎲 Del inn</strong>.</p>
+  <p><strong>Kjem ein elev etter at gruppene er laga?</strong> Var eleven merkt borte då du delte inn, står eleven utanfor gruppene. Trykk <strong>✓</strong> (eller − ein gong til for å fjerne borte-merket), så hamnar eleven i den minste gruppa, akkurat som ein ny elev. Gruppeavgrensingane blir følgde.</p>
+  <p>Merka gjeld <strong>berre i dag</strong>. Neste dag er alle umerkte att, så ingen blir hengande som borte. Kvar side har sitt eige oppmøte.</p>
 
   <h4>Trekke elevar</h4>
   <p><strong>🎲 Tilfeldig elev</strong>: trykk <strong>Trekk</strong> for å velje ein tilfeldig elev frå lista. Vanleg trekk unngår å velje same elev to gonger på rad.</p>
