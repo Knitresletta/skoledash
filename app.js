@@ -5,7 +5,7 @@
 // gammel lagret data (den finner den ikke igjen) — så la den stå.
 // NB: nøkkelen heter fortsatt «klasserom» selv om appen nå heter Skoledash. Endres den,
 // finner ikke appen igjen dataene til eksisterende brukere.
-const STORAGE_KEY = 'klasserom_state_v1';
+const STORAGE_KEY = 'klasserom_state_v1'; // samme nøkkel står i tema-tidlig.js
 // Reservekopi av lagret tilstand som ikke kunne leses, så den ikke går tapt når appen
 // starter blank og lagrer på nytt.
 const RESERVE_KEY = 'klasserom_state_v1_reserve';
@@ -59,7 +59,7 @@ const WIDGET_NAVN = {
 const WIDGET_IKON = {
   'card-elever':     '👥',
   'card-grupper':    '🧩',
-  'card-tilfeldig':  '🎲',
+  'card-tilfeldig':  '🙋',
   'card-ordenselev': '⭐',
   'card-ulv':        '🧸',
   'card-timer':      '⏱️',
@@ -3151,7 +3151,7 @@ function fjernSide(idx) {
 // ===================== Reset =====================
 // Hver nullstill*-funksjon tømmer ett enkelt trekk/widget på aktiv side: tøm
 // valgt + backlog, lagre, tegn på nytt og varsle. Brukes fra Nullstill-modalen.
-function nullstillTilfeldig()   { const s = aktivSide(); s.tilfeldig_valgt = null; s.tilfeldig_backlog = []; saveState(); renderTilfeldig(); notify(t('🎲 Tilfeldig-trekk nullstilt')); }
+function nullstillTilfeldig()   { const s = aktivSide(); s.tilfeldig_valgt = null; s.tilfeldig_backlog = []; saveState(); renderTilfeldig(); notify(t('🙋 Tilfeldig-trekk nullstilt')); }
 function nullstillOrdenselev()  { const s = aktivSide(); s.ordenselev_valgte = []; s.ordenselev_backlog = []; saveState(); renderOrdenselev(); notify(t('⭐ Ordenselever-trekk nullstilt')); }
 function nullstillUlv()         { const s = aktivSide(); s.ulv_valgt = null; s.ulv_backlog = []; saveState(); renderUlv(); notify(t('🐺 Ulv-trekk nullstilt')); }
 // Tømmer teksten i ALLE notat-kort (ikke bare aktiv side, siden notater er globale).
@@ -3209,6 +3209,8 @@ const OPPDATERINGSLOGG_HTML = `
       <li>Markeringene gjelder bare i dag. Neste dag starter alle umarkert</li>
       <li><strong>«Widgets» heter nå «Kort»:</strong> menyknappen oppe til høyre heter <strong>⊞ Kort</strong>, og det samme ordet brukes i hele appen</li>
       <li><strong>⊞ Kort-menyen</strong> har fått ikon på alle kortene, og navnene står på linje</li>
+      <li>Tilfeldig elev har fått 🙋 i stedet for 🎲, så det ikke forveksles med terningen</li>
+      <li>Fikset: skjulte kort blinket fram et øyeblikk hver gang siden ble lastet, og mørke temaer blinket lyst</li>
       <li><strong>Timeren spretter fram:</strong> starter du timeren med tasten <kbd>t</kbd> mens timerkortet er skjult eller ligger bak andre kort, hentes det fram og legges øverst</li>
     </ul>
   </div>
@@ -3654,7 +3656,7 @@ const BRUKERVEILEDNING_HTML = `
   <p>Markeringene gjelder <strong>bare i dag</strong>. Neste dag er alle umarkert igjen, så ingen blir hengende som borte. Hver side har sitt eget oppmøte.</p>
 
   <h4>Trekke elever</h4>
-  <p><strong>🎲 Tilfeldig elev</strong> — trykk <strong>Trekk</strong> for å velge en tilfeldig elev fra listen. Vanlig trekk unngår å velge samme elev to ganger på rad.</p>
+  <p><strong>🙋 Tilfeldig elev</strong> — trykk <strong>Trekk</strong> for å velge en tilfeldig elev fra listen. Vanlig trekk unngår å velge samme elev to ganger på rad.</p>
   <p><strong>Trekk (bl)</strong> — trekker uten repetisjon (backlog). Hver elev trekkes én gang før noen trekkes på nytt. Antall trukket vises under knappen.</p>
   <p><strong>⭐ Ordenselever</strong> — velger to elever som har ordenselev-ansvar. Bruker også backlog, slik at alle rekker å ha vært ordenselev før noen gjentas.</p>
   <p><strong>Klassebamse</strong> — velger hvem som får bamsen (eller en annen gjenstand) med hjem. Også med backlog.</p>

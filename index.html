@@ -19,6 +19,8 @@
   <meta name="twitter:title" content="Skoledash: klasseromsdashboard for læreren">
   <meta name="twitter:description" content="Navnetrekking, grupper, timer og dagsplan i ett oversiktlig dashboard.">
   <meta name="twitter:image" content="https://skoledash.app/og-image.png?v=2">
+  <!-- Setter lagret tema før første tegning, så det ikke blinker lyst (se fila). -->
+  <script src="tema-tidlig.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -198,7 +200,7 @@
     <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-tilfeldig" title="Fjern fra siden">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
-      <h2>🎲 Tilfeldig elev</h2>
+      <h2>🙋 Tilfeldig elev</h2>
     </div>
     <div id="tilfeldig-vis" class="draw-placeholder">Trykk Trekk for å velge en tilfeldig elev</div>
     <div id="tilfeldig-backlog-count" class="backlog-count hidden"></div>
@@ -412,7 +414,7 @@
   <div id="modal-nullstill" class="modal hidden">
     <h3>Nullstill…</h3>
     <div class="modal-list" id="nullstill-liste">
-      <div class="modal-list-item" data-action="tilfeldig"><span>🎲 Tilfeldig-trekk</span></div>
+      <div class="modal-list-item" data-action="tilfeldig"><span>🙋 Tilfeldig-trekk</span></div>
       <div class="modal-list-item" data-action="ordenselev"><span>⭐ Ordenselever-trekk</span></div>
       <div class="modal-list-item" data-action="ulv"><span>Klassebamse-trekk</span></div>
       <div class="modal-list-item" data-action="grupper"><span>👥 Grupper</span></div>

@@ -839,6 +839,14 @@ main {
     min-width: 0;
     min-height: 0;
 }
+/* Kort som ennå ikke er pakket inn i en .kl-plass, er maler (direkte under <main>)
+   eller nettopp laget (direkte under #flate). Først applyLayout() vet om de skal
+   vises og hvor, så til da er de usynlige. Uten dette blinker alle skjulte kort
+   fram et øyeblikk hver gang siden lastes. */
+main > .card,
+#flate > .card {
+    display: none;
+}
 
 /* Plassen eier posisjon, lagrekkefølge (z-index) og håndtakene. Kortet inni fyller
    plassen og scroller selv, så håndtakene ikke scroller bort med innholdet. */

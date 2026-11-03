@@ -283,7 +283,7 @@ const BRUKERVEILEDNING_NN = `
   <p>Merka gjeld <strong>berre i dag</strong>. Neste dag er alle umerkte att, så ingen blir hengande som borte. Kvar side har sitt eige oppmøte.</p>
 
   <h4>Trekke elevar</h4>
-  <p><strong>🎲 Tilfeldig elev</strong>: trykk <strong>Trekk</strong> for å velje ein tilfeldig elev frå lista. Vanleg trekk unngår å velje same elev to gonger på rad.</p>
+  <p><strong>🙋 Tilfeldig elev</strong>: trykk <strong>Trekk</strong> for å velje ein tilfeldig elev frå lista. Vanleg trekk unngår å velje same elev to gonger på rad.</p>
   <p><strong>Trekk (bl)</strong> trekkjer utan repetisjon (backlog). Kvar elev blir trekt éin gong før nokon blir trekt på nytt. Talet på trekte står under knappen.</p>
   <p><strong>⭐ Ordenselevar</strong> vel to elevar som har ordenselev-ansvar. Bruker òg backlog, slik at alle rekk å ha vore ordenselev før nokon blir gjentekne.</p>
   <p><strong>Klassebamse</strong> vel kven som får bamsen (eller ein annan gjenstand) med heim. Òg med backlog.</p>
