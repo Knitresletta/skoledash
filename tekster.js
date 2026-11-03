@@ -12,28 +12,26 @@
 // stå med samme navn i den nynorske teksten.
 //
 // Nynorsken er skrevet etter beste evne og ikke lest korrektur av noen som bruker
-// nynorsk til daglig. Ordvalg som kan diskuteres: vêr, bilete, widgetar, Gruppeavgrensing,
+// nynorsk til daglig. Ordvalg som kan diskuteres: vêr, bilete, Gruppeavgrensing,
 // Brukarrettleiing. «Timer» (nedteljing) er beholdt, fordi «timar» betyr klokketimar.
 
 const NYNORSK = {
   // ---------- Toppfelt, menyer og knapper ----------
   'Bytt mellom begge, analog og digital': 'Byt mellom begge, analog og digital',
   // Guidekortene for nye brukere (index.html, data-t-html)
-  '↗ Widgets': '↗ Widgetar',
   '↘ Hurtigtaster': '↘ Snøggtastar',
   'Klikk på <strong>🏫 Skoledash</strong> oppe til venstre for å velge tema, font, skriftstørrelse og bokmål eller nynorsk.':
     'Klikk på <strong>🏫 Skoledash</strong> oppe til venstre for å velje tema, font, skriftstorleik og bokmål eller nynorsk.',
   'Der finner du også eksport og import av dataene dine, brukerveiledningen og hva som er nytt.':
     'Der finn du også eksport og import av dataa dine, brukarrettleiinga og kva som er nytt.',
-  'Bordet er tomt med vilje. Under <strong>⊞ Widgets</strong> oppe til høyre henter du fram det du trenger: klokke, elevliste, trekk, dagsplan, timer, notater og mer.':
-    'Bordet er tomt med vilje. Under <strong>⊞ Widgetar</strong> oppe til høgre hentar du fram det du treng: klokke, elevliste, trekk, dagsplan, timer, notat og meir.',
+  'Bordet er tomt med vilje. Under <strong>⊞ Kort</strong> oppe til høyre henter du fram det du trenger: klokke, elevliste, trekk, dagsplan, timer, notater og mer.':
+    'Bordet er tomt med vilje. Under <strong>⊞ Kort</strong> oppe til høgre hentar du fram det du treng: klokke, elevliste, trekk, dagsplan, timer, notat og meir.',
   'Dra i overskriften på et kort for å flytte det, og i kantene for å endre størrelsen.':
     'Dra i overskrifta på eit kort for å flytte det, og i kantane for å endre storleiken.',
   'Bokstavene nede til høyre styrer appen uten mus. <kbd>a</kbd> legger til en elev, <kbd>r</kbd> trekker en tilfeldig elev, <kbd>t</kbd> starter og pauser timeren, og <kbd>b</kbd> gjør skjermen svart.':
     'Bokstavane nede til høgre styrer appen utan mus. <kbd>a</kbd> legg til ein elev, <kbd>r</kbd> trekkjer ein tilfeldig elev, <kbd>t</kbd> startar og pausar timeren, og <kbd>b</kbd> gjer skjermen svart.',
   'Hold musa over en knapp for å se hvilken tast den har.': 'Hald musa over ein knapp for å sjå kva tast han har.',
-  '⊞ Widgets': '⊞ Widgetar',
-  'Vis/skjul widgets': 'Vis/skjul widgetar',
+  'Vis/skjul kort': 'Vis/skjul kort',
   'Lagres automatisk i nettleseren': 'Blir lagra automatisk i nettlesaren',
   '● Ueksporterte endringer': '● Ueksporterte endringar',
   'Du har endringer siden siste eksport — klikk for å eksportere nå': 'Du har endringar sidan siste eksport — klikk for å eksportere no',
@@ -43,9 +41,9 @@ const NYNORSK = {
   'Støtt utviklingen av Skoledash': 'Støtt utviklinga av Skoledash',
   '🖥 System standard': '🖥 Systemstandard',
   '📏 Skriftstørrelse': '📏 Skriftstorleik',
-  'Alle widgets': 'Alle widgetar',
-  '0 = samme som alle widgets. Negativt tall krymper, positivt forstørrer': '0 = same som alle widgetar. Negativt tal krympar, positivt forstørrar',
-  'Ingen widgets på denne siden': 'Ingen widgetar på denne sida',
+  'Alle kort': 'Alle kort',
+  '0 = samme som alle kort. Negativt tall krymper, positivt forstørrer': '0 = same som alle kort. Negativt tal krympar, positivt forstørrar',
+  'Ingen kort på denne siden': 'Ingen kort på denne sida',
   'Legg til flere': 'Legg til fleire',
   '+ 🖼 Bilde': '+ 🖼 Bilete',
   'Fjern fra siden': 'Fjern frå sida',
@@ -268,8 +266,8 @@ const BRUKERVEILEDNING_NN = `
   <p><strong>Per side</strong> (eiga for kvar klasse): elevlista, grupper, alle trekk og backlogar (tilfeldig, ordenselev og klassebamse), dagsplanen, gruppeavgrensingar, namnet på klassebamsen, og i tillegg oppsettet av korta, notat og bilete.</p>
   <p><strong>Felles for alle sider:</strong> lagra klasselister (📋 Lister, eit felles bibliotek du kan laste inn på kva side som helst), tema, font, skriftstorleik, målform og timeren.</p>
   <p>Timeren er felles og held fram med å gå sjølv om du byter side. Vil du til dømes vise eit bilete på ei eiga side medan nedteljinga går, går det heilt fint. Timeren tel vidare i bakgrunnen.</p>
-  <p>Ei <strong>ny side startar heilt tom</strong>, utan synlege kort. Du hentar sjølv fram akkurat dei korta du vil ha via <strong>⊞ Widgetar</strong>-menyen, så kvar side blir nøyaktig slik du vil ha ho.</p>
-  <p><strong>Side 1 startar med eit lite utval</strong> første gongen du opnar appen: klokke og tilfeldig elev til venstre, dagsplan og notat i midten, og elevlista til høgre. Det er med vilje få kort, så heile sida får plass på skjermen med ein gong. Ordenselevar, klassebamse, terning, timer og grupper ligg klare i <strong>⊞ Widgetar</strong> og dukkar opp på den faste plassen sin når du kryssar dei av.</p>
+  <p>Ei <strong>ny side startar heilt tom</strong>, utan synlege kort. Du hentar sjølv fram akkurat dei korta du vil ha via <strong>⊞ Kort</strong>-menyen, så kvar side blir nøyaktig slik du vil ha ho.</p>
+  <p><strong>Side 1 startar med eit lite utval</strong> første gongen du opnar appen: klokke og tilfeldig elev til venstre, dagsplan og notat i midten, og elevlista til høgre. Det er med vilje få kort, så heile sida får plass på skjermen med ein gong. Ordenselevar, klassebamse, terning, timer og grupper ligg klare i <strong>⊞ Kort</strong> og dukkar opp på den faste plassen sin når du kryssar dei av.</p>
 
   <h4>Kom i gang</h4>
   <p>Trykk <strong>+ Legg til elev</strong> (eller tasten <kbd>a</kbd>) for å leggje inn elevane i klassen din. Du kan ha opptil 35 elevar inne samtidig.</p>
@@ -326,10 +324,11 @@ const BRUKERVEILEDNING_NN = `
 
   <h4>Timer</h4>
   <p>Standard er 5 minutt. Trykk <strong>Set tid</strong> (eller <kbd>s</kbd>) for å velje ei anna lengd (1–60 min). Start og stopp med <strong>▶ Start</strong> (eller <kbd>t</kbd>). Det kjem ein lyd når tida er ute.</p>
+  <p>Startar du timeren med <kbd>t</kbd> medan timerkortet ikkje er framme, blir kortet henta fram av seg sjølv og lagt øvst, så klassen ser nedteljinga.</p>
 
   <h4>Notat</h4>
   <p>Eit felt for fritekst som veks automatisk med innhaldet. Det blir lagra automatisk i nettlesaren, så du mistar ikkje notatet når sida blir lasta på nytt.</p>
-  <p>Du kan ha <strong>fleire notatkort</strong>: opne <strong>⊞ Widgetar</strong>-menyen og klikk <strong>+ Notat</strong>. Kvart notat kan flyttast uavhengig av dei andre. Slett eit notat med <strong>✕</strong> øvst til høgre i kortet. Notat er per side, så side 1 og side 2 har heilt ulike notatkort.</p>
+  <p>Du kan ha <strong>fleire notatkort</strong>: opne <strong>⊞ Kort</strong>-menyen og klikk <strong>+ Notat</strong>. Kvart notat kan flyttast uavhengig av dei andre. Slett eit notat med <strong>✕</strong> øvst til høgre i kortet. Notat er per side, så side 1 og side 2 har heilt ulike notatkort.</p>
 
   <h4>Dagsplan</h4>
   <p>Legg til punkt med <strong>+ Legg til punkt</strong> (eller <kbd>d</kbd>). Fjern einskildpunkt med <strong>✕</strong> ved sida av kvart punkt.</p>
@@ -337,14 +336,14 @@ const BRUKERVEILEDNING_NN = `
   <p><strong>Endre rekkjefølgja:</strong> hald inne drahandtaket <strong>⠿</strong> heilt til høgre på punktet (det kjem fram når du held musa over rada), og dra det opp eller ned. Ein blå strek viser kvar punktet hamnar når du slepper.</p>
 
   <h4>🖼 Bilete</h4>
-  <p>Biletkortet er ikkje med frå start. Legg det til via <strong>⊞ Widgetar → + 🖼 Bilete</strong>. Du kan ha så mange biletkort du vil.</p>
+  <p>Biletkortet er ikkje med frå start. Legg det til via <strong>⊞ Kort → + 🖼 Bilete</strong>. Du kan ha så mange biletkort du vil.</p>
   <p>Klikk på biletkortet for å velje ei biletfil frå datamaskina (maks 50 MB). Du kan òg lime inn eit bilete direkte med <kbd>Ctrl+V</kbd> (t.d. eit skjermbilete). Klikk først på kortet du vil lime inn i. Biletet blir lagra i nettlesaren (IndexedDB) og vist att ved neste besøk. Trykk <strong>Fjern biletet</strong> for å slette innhaldet.</p>
   <p>Slett eit biletkort med <strong>✕</strong> øvst til høgre i kortet. Biletkort er per side, så ulike sider har ulike bilete.</p>
 
   <h4>▶️ YouTube</h4>
-  <p>Legg til eit YouTube-kort via <strong>⊞ Widgetar</strong>-menyen og <strong>+ ▶️ YouTube</strong>. Lim inn ei YouTube-lenke (vanleg lenke, <em>youtu.be</em> og <em>Shorts</em> fungerer alle) og trykk <strong>Vis</strong>. Videoen blir spelt rett i kortet.</p>
+  <p>Legg til eit YouTube-kort via <strong>⊞ Kort</strong>-menyen og <strong>+ ▶️ YouTube</strong>. Lim inn ei YouTube-lenke (vanleg lenke, <em>youtu.be</em> og <em>Shorts</em> fungerer alle) og trykk <strong>Vis</strong>. Videoen blir spelt rett i kortet.</p>
   <p><strong>🎵 Berre lyd:</strong> byt mellom <strong>▶ Video</strong> og <strong>🎵 Berre lyd</strong> øvst i kortet. Med berre lyd blir biletet skjult, og du får ei lita linje for spel og pause med ein <strong>volumglidar</strong> (🔊) til høgre. Fint for bakgrunnsmusikk eller eit lydklipp utan at videoen tek plass. Volumet du stiller inn, blir hugsa til neste gong. Lyden held fram utan avbrot når du byter modus. Trykk <strong>↻</strong> for å byte til ei anna lenke, og <strong>✕</strong> for å slette kortet.</p>
-  <p>Du kan ha <strong>fleire YouTube-kort</strong>, og dei er per side som dei andre widgetane.</p>
+  <p>Du kan ha <strong>fleire YouTube-kort</strong>, og dei er per side som dei andre korta.</p>
 
   <h4>Tilpasse oppsettet</h4>
   <p><strong>Flytte eit kort:</strong> ta tak i overskrifta på kortet og dra det dit du vil. Korta kan liggje kvar som helst på skjermen, også delvis oppå kvarandre. Kortet du tek i, legg seg øvst.</p>
@@ -353,8 +352,8 @@ const BRUKERVEILEDNING_NN = `
   <p><strong>Kort som veks sjølv:</strong> elevar, dagsplan, grupper og notat blir høgare når innhaldet veks og lågare når det krympar. Dei veks nedover, og er det stopp under (eit anna kort eller botnen av skjermen), veks dei oppover så langt det er plass. Er det ikkje meir plass, kan du rulle i dei. Drar du eit slikt kort større sjølv, blir den høgda ei minstehøgd: kortet krympar ikkje under henne, men veks framleis når innhaldet ikkje får plass.</p>
   <p><strong>Magnetiske kantar:</strong> når ein kant kjem nær kanten av skjermen eller eit anna kort, smell han på plass, og ei blå linje viser kva han festa seg til. Då blir det lett å få korta på rad. Hald <kbd>Alt</kbd> medan du drar om du vil plassere heilt fritt.</p>
   <p><strong>Same oppsett på tavla:</strong> plassering og storleik blir hugsa som delar av skjermen, ikkje i pikslar. Lagar du oppsettet på den berbare maskina, ser det likt ut på tavla, berre større. Oppsettet blir lagra per side.</p>
-  <p><strong>Fjerne eit kort:</strong> hald musa over kortet og klikk <strong>✕</strong> øvst i høgre hjørne. Faste widgetar (elevar, grupper, trekk, timer, dagsplan) blir berre skjulte, og du hentar dei att i <strong>⊞ Widgetar</strong>-menyen. Notat- og biletkort blir sletta heilt.</p>
-  <p><strong>⊞ Widgetar-menyen</strong> (øvst til høgre) viser dei faste widgetane med avkryssing for på og av per side. Notat, bilete og YouTube har i staden ein <strong>«+»</strong>. Trykk for å leggje til så mange du vil. Kvart nytt kort høyrer til sida du står på.</p>
+  <p><strong>Fjerne eit kort:</strong> hald musa over kortet og klikk <strong>✕</strong> øvst i høgre hjørne. Faste kort (elevar, grupper, trekk, timer, dagsplan) blir berre skjulte, og du hentar dei att i <strong>⊞ Kort</strong>-menyen. Notat- og biletkort blir sletta heilt.</p>
+  <p><strong>⊞ Kort-menyen</strong> (øvst til høgre) viser dei faste korta med avkryssing for på og av per side. Notat, bilete og YouTube har i staden ein <strong>«+»</strong>. Trykk for å leggje til så mange du vil. Kvart nytt kort høyrer til sida du står på.</p>
   <p><strong>Kvar hamnar eit nytt kort?</strong> På første ledige plass, rekna ovanfrå og frå venstre, anten du kryssar det av i menyen eller trykkjer «+». Er skjermen full, blir det lagt litt forskove oppå dei andre, så du ser det med ein gong. Eit kort du slår av og på att, kjem tilbake der det stod om plassen er ledig. Elles held det på storleiken sin og hamnar på første ledige plass.</p>
   <p><strong>Liten skjerm:</strong> på smale skjermar (nettbrett på høgkant, mobil) blir korta stabla under kvarandre, ovanfrå og ned i same rekkjefølgje som på den store skjermen.</p>
 
@@ -369,9 +368,9 @@ const BRUKERVEILEDNING_NN = `
   <p>Hald musa over <strong>🗣 Målform</strong> i Skoledash-menyen og vel <strong>Bokmål</strong> eller <strong>Nynorsk</strong>. Sida blir lasta på nytt med den nye målforma, og valet blir hugsa. Alt du har lagt inn, som elevnamn og notat, blir ståande slik du skreiv det.</p>
 
   <h4>Skriftstorleik</h4>
-  <p>Hald musa over <strong>📏 Skriftstorleik</strong> i Skoledash-menyen. Under <strong>Alle widgetar</strong> skalerer du heile skjermbiletet (Liten → Ekstra stor), der Normal er standardstorleiken. Under <strong>Enkelt widget</strong> står kvar widget som er på sida, med eit tal i prosent. <strong>0</strong> betyr same storleik som alle dei andre. Skriv til dømes <strong>-20</strong> for å gjere kortet 20 % mindre, eller <strong>30</strong> for å gjere det 30 % større. Du kan òg bruke piltastane. Talet kan vere frå -50 til 100.</p>
+  <p>Hald musa over <strong>📏 Skriftstorleik</strong> i Skoledash-menyen. Under <strong>Alle kort</strong> skalerer du heile skjermbiletet (Liten → Ekstra stor), der Normal er standardstorleiken. Under <strong>Enkelt kort</strong> står kvart kort som er på sida, med eit tal i prosent. <strong>0</strong> betyr same storleik som alle dei andre. Skriv til dømes <strong>-20</strong> for å gjere kortet 20 % mindre, eller <strong>30</strong> for å gjere det 30 % større. Du kan òg bruke piltastane. Talet kan vere frå -50 til 100.</p>
   <p><strong>Klokke, timer, tilfeldig elev, ordenselevar, klassebamse og terning</strong> står ikkje i lista. Så lenge du ikkje har endra storleiken sjølv, er kortet akkurat så høgt som innhaldet treng, og det veks om det dukkar opp meir (til dømes backlog-teljaren i trekket). Drar du kortet større, blir tal, urskive og knappar større. Gjer du det mindre enn innhaldet treng, krympar innhaldet så alt framleis får plass.</p>
-  <p>Storleiken blir hugsa sjølv om du tek bort widgeten. Slår du han på att seinare, har han same storleik som før.</p>
+  <p>Storleiken blir hugsa sjølv om du tek bort kortet. Slår du det på att seinare, har det same storleik som før.</p>
 
   <h4>Tekststorleik og kursiv i notat</h4>
   <p>Trykk <strong>A−</strong> og <strong>A+</strong> øvst i Notat-kortet for å gjere teksten mindre eller større, frå 75 % opp til fire gonger standardstorleiken. Kvart notat hugsar sin eigen storleik, og kortet veks med teksten.</p>

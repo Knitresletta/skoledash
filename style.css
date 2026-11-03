@@ -2247,6 +2247,21 @@ textarea[id^="notat-textarea"]:focus {
     }
 }
 
+/* Lite sprett når et kort hentes fram av seg selv (timeren startet med t). */
+.kort-sprett {
+    animation: kort-sprett 0.4s ease-out;
+}
+@keyframes kort-sprett {
+    0%   { transform: scale(0.92); }
+    60%  { transform: scale(1.03); }
+    100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .kort-sprett {
+        animation: none;
+    }
+}
+
 .terning-sum {
     text-align: center;
     font-size: 0.95rem;

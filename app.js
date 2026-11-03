@@ -1696,8 +1696,33 @@ function timerToggle() {
   } else {
     timerRunning  = true;
     timerInterval = setInterval(timerTick, 1000);
+    visTimerKort();
   }
   renderTimer();
+}
+
+// Starter timeren med hurtigtasten t mens timerkortet er skjult eller ligger under
+// andre kort, ville nedtellingen gått uten at noen så den. Da hentes kortet fram og
+// legges øverst, med et lite sprett så blikket finner det.
+function visTimerKort() {
+  const id = 'card-timer';
+  const side = aktivSide();
+  if ((side.widget_hidden ?? []).includes(id)) {
+    toggleWidgetSynlighet(id, true); // finner ledig plass, legger øverst og lagrer
+  } else {
+    const w = side.widget_layout.find(x => x.id === id);
+    if (w && w.z < høyesteZ()) {
+      w.z = høyesteZ() + 1;
+      saveState();
+      applyLayout();
+    }
+  }
+  const kort = document.getElementById(id);
+  if (!kort) return;
+  kort.classList.remove('kort-sprett');
+  void kort.offsetWidth; // tving ny layout, så animasjonen starter på nytt
+  kort.classList.add('kort-sprett');
+  kort.addEventListener('animationend', () => kort.classList.remove('kort-sprett'), { once: true });
 }
 
 // Kjøres én gang i sekundet mens timeren går. Teller ned, og når den treffer 0:
@@ -3182,7 +3207,9 @@ const OPPDATERINGSLOGG_HTML = `
       <li>Ferdige grupper blir stående, men den som er borte, vises nedtonet. Under elevlista står det hvor mange som er borte</li>
       <li>Var en elev borte da gruppene ble laget og kommer senere, havner eleven i den minste gruppa når du fjerner borte-markeringen</li>
       <li>Markeringene gjelder bare i dag. Neste dag starter alle umarkert</li>
-      <li><strong>⊞ Widgets-menyen</strong> har fått ikon på alle kortene, og navnene står på linje</li>
+      <li><strong>«Widgets» heter nå «Kort»:</strong> menyknappen oppe til høyre heter <strong>⊞ Kort</strong>, og det samme ordet brukes i hele appen</li>
+      <li><strong>⊞ Kort-menyen</strong> har fått ikon på alle kortene, og navnene står på linje</li>
+      <li><strong>Timeren spretter fram:</strong> starter du timeren med tasten <kbd>t</kbd> mens timerkortet er skjult eller ligger bak andre kort, hentes det fram og legges øverst</li>
     </ul>
   </div>
   <div class="logg-entry">
@@ -3610,8 +3637,8 @@ const BRUKERVEILEDNING_HTML = `
   <p><strong>Per side</strong> (egen for hver klasse): elevlisten, grupper, alle trekk og backlogs (tilfeldig/ordenselev/klassebamse), dagsplanen, gruppebegrensninger, klassebamsens navn, pluss oppsettet av kortene, notater og bilder.</p>
   <p><strong>Delt mellom alle sider:</strong> lagrede klasselister (📋 Lister — et felles bibliotek du kan laste inn i hvilken som helst side), tema, font, skriftstørrelse og timeren.</p>
   <p>Timeren er felles og fortsetter å gå selv om du bytter side. Vil du f.eks. vise et bilde på en egen side mens nedtellingen ruller, går det helt fint — timeren teller videre i bakgrunnen.</p>
-  <p>En <strong>ny side starter helt tom</strong> — ingen kort er synlige ennå. Du henter selv fram akkurat de kortene du vil ha via <strong>⊞ Widgets</strong>-menyen, så hver side blir nøyaktig slik du ønsker den.</p>
-  <p><strong>Side 1 starter med et lite utvalg</strong> første gang du åpner appen: klokke og tilfeldig elev til venstre, dagsplan og notat i midten, og elevlisten til høyre. Det er med vilje få kort — da får hele siden plass på skjermen med én gang. Ordenselever, klassebamse, terning, timer og grupper ligger klare i <strong>⊞ Widgets</strong> og dukker opp på sin faste plass når du krysser dem av.</p>
+  <p>En <strong>ny side starter helt tom</strong> — ingen kort er synlige ennå. Du henter selv fram akkurat de kortene du vil ha via <strong>⊞ Kort</strong>-menyen, så hver side blir nøyaktig slik du ønsker den.</p>
+  <p><strong>Side 1 starter med et lite utvalg</strong> første gang du åpner appen: klokke og tilfeldig elev til venstre, dagsplan og notat i midten, og elevlisten til høyre. Det er med vilje få kort — da får hele siden plass på skjermen med én gang. Ordenselever, klassebamse, terning, timer og grupper ligger klare i <strong>⊞ Kort</strong> og dukker opp på sin faste plass når du krysser dem av.</p>
 
   <h4>Kom i gang</h4>
   <p>Trykk <strong>+ Legg til elev</strong> (eller tasten <kbd>a</kbd>) for å legge inn elevene i klassen din. Du kan ha opptil 35 elever inne samtidig.</p>
@@ -3668,25 +3695,26 @@ const BRUKERVEILEDNING_HTML = `
 
   <h4>Timer</h4>
   <p>Standard er 5 minutter. Trykk <strong>Sett tid</strong> (eller <kbd>s</kbd>) for å velge en annen varighet (1–60 min). Start og stopp med <strong>▶ Start</strong> (eller <kbd>t</kbd>). En lyd spilles av når tiden er ute.</p>
+  <p>Starter du timeren med <kbd>t</kbd> mens timerkortet ikke er framme, hentes kortet fram av seg selv og legges øverst, så klassen ser nedtellingen.</p>
 
   <h4>Notat</h4>
   <p>Et fritekst-felt som vokser automatisk med innholdet. Lagres automatisk i nettleseren — du mister ikke notatet ved omlasting.</p>
-  <p>Du kan ha <strong>flere notatkort</strong>: åpne <strong>⊞ Widgets</strong>-menyen og klikk <strong>+ Notat</strong>. Hvert notat kan flyttes uavhengig av de andre. Slett et notat med <strong>✕</strong> i kortets øverste høyre hjørne. Notater er per side — side 1 og side 2 har helt forskjellige notatkort.</p>
+  <p>Du kan ha <strong>flere notatkort</strong>: åpne <strong>⊞ Kort</strong>-menyen og klikk <strong>+ Notat</strong>. Hvert notat kan flyttes uavhengig av de andre. Slett et notat med <strong>✕</strong> i kortets øverste høyre hjørne. Notater er per side — side 1 og side 2 har helt forskjellige notatkort.</p>
 
   <h4>Dagsplan</h4>
   <p>Legg til punkter med <strong>+ Legg til punkt</strong> (eller <kbd>d</kbd>). Fjern enkeltpunkter med <strong>✕</strong> ved siden av hvert punkt.</p>
   <p>Hvert punkt har tre klikkmål: <strong>prikken</strong> (●) markerer punktet ferdig — den blir grønn og teksten får en strek over (klikk igjen for å angre). <strong>Teksten</strong> åpner redigering — klikk på den, rett opp og trykk <kbd>Enter</kbd> for å lagre eller <kbd>Esc</kbd> for å avbryte. <strong>✕</strong> fjerner punktet.</p>
   <p><strong>Endre rekkefølge:</strong> hold inne dra-håndtaket <strong>⠿</strong> helt til høyre på punktet (vises når du holder musa over raden) og dra det opp eller ned. En blå strek viser hvor punktet havner når du slipper.</p>
 
-  <h4>🖼 Bilde-widget</h4>
-  <p>Bildekortet er ikke med fra start. Legg det til via <strong>⊞ Widgets → + 🖼 Bilde</strong> — du kan ha så mange bildekort du vil.</p>
+  <h4>🖼 Bildekort</h4>
+  <p>Bildekortet er ikke med fra start. Legg det til via <strong>⊞ Kort → + 🖼 Bilde</strong> — du kan ha så mange bildekort du vil.</p>
   <p>Klikk på bilde-kortet for å velge en bildefil fra datamaskinen (maks 50 MB). Du kan også lime inn et bilde direkte med <kbd>Ctrl+V</kbd> (f.eks. et skjermbilde) — klikk først på kortet du vil lime inn i. Bildet lagres i nettleseren (IndexedDB) og vises igjen ved neste besøk. Trykk <strong>Fjern bilde</strong> for å slette bildeinnholdet.</p>
-  <p>Du kan ha <strong>flere bildekort</strong>: åpne <strong>⊞ Widgets</strong>-menyen og klikk <strong>+ Bilde</strong>. Slett et bildekort med <strong>✕</strong> i kortets øverste høyre hjørne. Bildekort er per side — forskjellige sider har forskjellige bilder.</p>
+  <p>Du kan ha <strong>flere bildekort</strong>: åpne <strong>⊞ Kort</strong>-menyen og klikk <strong>+ Bilde</strong>. Slett et bildekort med <strong>✕</strong> i kortets øverste høyre hjørne. Bildekort er per side — forskjellige sider har forskjellige bilder.</p>
 
-  <h4>▶️ YouTube-widget</h4>
-  <p>Legg til et YouTube-kort via <strong>⊞ Widgets</strong>-menyen og <strong>+ ▶️ YouTube</strong>. Lim inn en YouTube-lenke (vanlig lenke, <em>youtu.be</em> eller <em>Shorts</em> funker alle) og trykk <strong>Vis</strong> — videoen spilles rett i kortet.</p>
+  <h4>▶️ YouTube-kort</h4>
+  <p>Legg til et YouTube-kort via <strong>⊞ Kort</strong>-menyen og <strong>+ ▶️ YouTube</strong>. Lim inn en YouTube-lenke (vanlig lenke, <em>youtu.be</em> eller <em>Shorts</em> funker alle) og trykk <strong>Vis</strong> — videoen spilles rett i kortet.</p>
   <p><strong>🎵 Kun lyd:</strong> bytt mellom <strong>▶ Video</strong> og <strong>🎵 Kun lyd</strong> øverst i kortet. I lyd-modus skjules bildet og du får en liten play/pause-linje med en <strong>volum­glider</strong> (🔊) til høyre — fint for bakgrunnsmusikk eller et lydklipp uten at videoen tar plass. Volumet du stiller inn huskes til neste gang. Lyden spiller videre uavbrutt når du bytter modus. Trykk <strong>↻</strong> for å bytte til en annen lenke, og <strong>✕</strong> for å slette kortet.</p>
-  <p>Du kan ha <strong>flere YouTube-kort</strong>, og de er per side som de andre widgetene.</p>
+  <p>Du kan ha <strong>flere YouTube-kort</strong>, og de er per side som de andre kortene.</p>
 
   <h4>Tilpasse layouten</h4>
   <p><strong>Flytte et kort:</strong> ta tak i overskriften på kortet og dra det dit du vil. Kortene kan ligge hvor som helst på skjermen, også delvis oppå hverandre. Kortet du tar i, legger seg øverst.</p>
@@ -3695,8 +3723,8 @@ const BRUKERVEILEDNING_HTML = `
   <p><strong>Kort som vokser selv:</strong> elever, dagsplan, grupper og notat blir høyere når innholdet vokser og lavere når det krymper. De vokser nedover, og er det stopp under (et annet kort eller bunnen av skjermen), vokser de oppover så langt det er plass. Er det ikke mer plass, scroller de. Drar du et slikt kort større selv, blir den høyden en minstehøyde: kortet krymper ikke under den, men vokser fortsatt når innholdet ikke får plass.</p>
   <p><strong>Magnetiske kanter:</strong> når en kant kommer nær kanten av skjermen eller et annet kort, smekker den på plass, og en blå linje viser hva den festet seg til. Da blir det lett å få kortene på rad. Hold <kbd>Alt</kbd> mens du drar hvis du vil plassere helt fritt.</p>
   <p><strong>Samme oppsett på tavla:</strong> plassering og størrelse huskes som andeler av skjermen, ikke i piksler. Lager du oppsettet på laptopen, ser det likt ut på tavla, bare større. Oppsettet lagres per side.</p>
-  <p><strong>Fjerne et kort:</strong> hold musen over kortet og klikk <strong>✕</strong> øverst i høyre hjørne. Faste widgets (elever, grupper, trekk, timer, dagsplan) blir bare skjult — du henter dem tilbake i <strong>⊞ Widgets</strong>-menyen. Notat- og bildekort slettes helt.</p>
-  <p><strong>⊞ Widgets-menyen</strong> (øverst til høyre) viser de faste widgetene med av/på-avkryssing per side. Notat, bilde og YouTube har i stedet en <strong>«+»</strong> — trykk for å legge til så mange du vil. Hvert nytt kort er eget for den siden du står på.</p>
+  <p><strong>Fjerne et kort:</strong> hold musen over kortet og klikk <strong>✕</strong> øverst i høyre hjørne. Faste kort (elever, grupper, trekk, timer, dagsplan) blir bare skjult — du henter dem tilbake i <strong>⊞ Kort</strong>-menyen. Notat- og bildekort slettes helt.</p>
+  <p><strong>⊞ Kort-menyen</strong> (øverst til høyre) viser de faste kortene med av/på-avkryssing per side. Notat, bilde og YouTube har i stedet en <strong>«+»</strong> — trykk for å legge til så mange du vil. Hvert nytt kort er eget for den siden du står på.</p>
   <p><strong>Hvor havner et nytt kort?</strong> På første ledige plass, regnet ovenfra og fra venstre, enten du krysser det av i menyen eller trykker «+». Er skjermen full, legges det litt forskjøvet oppå de andre, så du ser det med en gang. Et kort du skrur av og på igjen, kommer tilbake der det sto hvis plassen er ledig. Ellers beholder det størrelsen sin og havner på første ledige plass.</p>
   <p><strong>Liten skjerm:</strong> på smale skjermer (nettbrett på høykant, mobil) stables kortene under hverandre, ovenfra og ned i samme rekkefølge som på den store skjermen.</p>
 
@@ -3711,9 +3739,9 @@ const BRUKERVEILEDNING_HTML = `
   <p>Hold musen over <strong>🗣 Målform</strong> i Skoledash-menyen og velg <strong>Bokmål</strong> eller <strong>Nynorsk</strong>. Siden lastes på nytt med den nye målformen, og valget huskes. Alt du har lagt inn, som elevnavn og notater, blir stående som du skrev det.</p>
 
   <h4>Skriftstørrelse</h4>
-  <p>Hold musen over <strong>📏 Skriftstørrelse</strong> i Skoledash-menyen. Under <strong>Alle widgets</strong> skalerer du hele grensesnittet (Liten → Ekstra stor), der Normal er standardstørrelsen. Under <strong>Enkelt widget</strong> står hver widget som er på siden, med et tall i prosent. <strong>0</strong> betyr samme størrelse som alle de andre. Skriv for eksempel <strong>-20</strong> for å gjøre kortet 20 % mindre, eller <strong>30</strong> for å gjøre det 30 % større. Du kan også bruke piltastene. Tallet kan være fra -50 til 100.</p>
+  <p>Hold musen over <strong>📏 Skriftstørrelse</strong> i Skoledash-menyen. Under <strong>Alle kort</strong> skalerer du hele grensesnittet (Liten → Ekstra stor), der Normal er standardstørrelsen. Under <strong>Enkelt kort</strong> står hvert kort som er på siden, med et tall i prosent. <strong>0</strong> betyr samme størrelse som alle de andre. Skriv for eksempel <strong>-20</strong> for å gjøre kortet 20 % mindre, eller <strong>30</strong> for å gjøre det 30 % større. Du kan også bruke piltastene. Tallet kan være fra -50 til 100.</p>
   <p><strong>Klokke, timer, tilfeldig elev, ordenselever, klassebamse og terning</strong> står ikke i lista. Så lenge du ikke har endret størrelsen selv, er kortet akkurat så høyt som innholdet trenger, og det vokser hvis det dukker opp mer (for eksempel backlog-telleren i trekket). Drar du kortet større, blir tall, urskive og knapper større. Gjør du det mindre enn innholdet trenger, krymper innholdet så alt fortsatt får plass.</p>
-  <p>Størrelsen huskes selv om du tar bort widgeten. Slår du den på igjen senere, har den samme størrelse som før.</p>
+  <p>Størrelsen huskes selv om du tar bort kortet. Slår du det på igjen senere, har det samme størrelse som før.</p>
 
   <h4>Tekststørrelse og kursiv i Notat</h4>
   <p>Trykk <strong>A−</strong> og <strong>A+</strong> øverst i Notat-kortet for å gjøre teksten mindre eller større, fra 75 % opp til fire ganger standardstørrelsen. Hvert notat husker sin egen størrelse, og kortet vokser med teksten.</p>
@@ -3751,7 +3779,7 @@ const BRUKERVEILEDNING_HTML = `
     <li><strong>Selve appen</strong> lastes fra skoledash.app. Fontene ligger også der, og hentes ikke fra Google eller andre fonttjenester.</li>
     <li><strong>Vær og pollen</strong> hentes når appen starter og hvert tiende minutt. Koordinatene til stedet sendes til Meteorologisk institutt (api.met.no) og open-meteo.com. Søker du opp et sted, sendes stedsnavnet til open-meteo.com.</li>
     <li><strong>Posisjon</strong> brukes bare når du ber om det, med <strong>📍 Vis været der du er</strong> eller <strong>📍 Bruk min posisjon</strong>. Koordinatene rundes av til omtrent en kilometer, sendes én gang til bigdatacloud.net for å finne stedsnavnet, og lagres. Deretter er det disse avrundede koordinatene som brukes til været.</li>
-    <li><strong>YouTube-widgeten</strong> viser videoer fra youtube-nocookie.com i en egen ramme. Rammen er adskilt fra resten av appen, så YouTube kan ikke lese elevdataene dine. Spilleren lastes når appen åpnes, så lenge et YouTube-kort har en video, også om kortet ligger på en annen side. YouTube ser at videoen vises på skoledash.app, og kan sette egne informasjonskapsler inne i spilleren.</li>
+    <li><strong>YouTube-kortet</strong> viser videoer fra youtube-nocookie.com i en egen ramme. Rammen er adskilt fra resten av appen, så YouTube kan ikke lese elevdataene dine. Spilleren lastes når appen åpnes, så lenge et YouTube-kort har en video, også om kortet ligger på en annen side. YouTube ser at videoen vises på skoledash.app, og kan sette egne informasjonskapsler inne i spilleren.</li>
   </ul>
   <p><strong>Delte maskiner:</strong> elevdataene blir liggende i nettleseren til du sletter dem. Bruker andre den samme maskinen og nettleseren, kan de se klasselistene dine. Når du er ferdig på en slik maskin, velg <strong>Nullstill… → 🗑 Slett alle data på denne maskinen</strong>. Ta gjerne en backup først.</p>
   <p>Backupfila du eksporterer, inneholder alt, også notater og bilder. Ta vare på den like trygt som en klasseliste.</p>
@@ -4025,7 +4053,7 @@ function renderWidgetStørrelseMeny() {
   // Forklarer hvorfor klokka og de andre ikke står i lista.
   const skalerHint = `<div class="widget-str-tom">${t('Klokke, timer, trekk, klassebamse og terning blir større når du drar kortet større.')}</div>`;
   if (!synlige.length) {
-    liste.innerHTML = `<div class="widget-str-tom">${t('Ingen widgets på denne siden')}</div>${skalerHint}`;
+    liste.innerHTML = `<div class="widget-str-tom">${t('Ingen kort på denne siden')}</div>${skalerHint}`;
     return;
   }
   liste.innerHTML = synlige.map(id => {
@@ -4040,7 +4068,7 @@ function renderWidgetStørrelseMeny() {
         <span class="widget-str-felt">
           <input type="number" id="str-${id}" data-widget="${id}" value="${pst}"
                  min="${WIDGET_PROSENT_MIN}" max="${WIDGET_PROSENT_MAKS}" step="5"
-                 title="${t('0 = samme som alle widgets. Negativt tall krymper, positivt forstørrer')}">
+                 title="${t('0 = samme som alle kort. Negativt tall krymper, positivt forstørrer')}">
           %
         </span>
       </label>`;
