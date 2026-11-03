@@ -272,6 +272,7 @@ const BRUKERVEILEDNING_NN = `
   <h4>Kom i gang</h4>
   <p>Trykk <strong>+ Legg til elev</strong> (eller tasten <kbd>a</kbd>) for å leggje inn elevane i klassen din. Du kan ha opptil 35 elevar inne samtidig.</p>
   <p><strong>Rette eit namn:</strong> klikk rett på elevnamnet i lista, så blir det til eit lite skrivefelt. Rett opp og trykk <kbd>Enter</kbd> for å lagre, eller <kbd>Esc</kbd> for å avbryte. Endrar du namnet, blir det oppdatert automatisk overalt der eleven er brukt: i grupper, trekk-backlogar og gruppeavgrensingar. (Vil du heller fjerne eleven, bruk <strong>✕</strong> til høgre.)</p>
+  <p><strong>Fjerne ein elev:</strong> trykk <strong>✕</strong> til høgre for namnet (blir vist når du held musa over), eller <strong>👤 Fjern elevar…</strong> for å fjerne fleire. Eleven forsvinn då òg frå gruppene, trekk-backlogane og gruppeavgrensingane.</p>
   <p><strong>Stor forbokstav kjem av seg sjølv:</strong> skriv du «kari nordmann», blir det lagra som «Kari Nordmann». Det same gjeld etter bindestrek («Anne-Marie»), og namn med æ, ø og å blir handsama rett.</p>
   <p>Vil du spare tid neste gong? Lagre elevlista di under <strong>📋 Lister</strong>, og last ho inn att med eitt klikk.</p>
 
