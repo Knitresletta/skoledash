@@ -83,6 +83,7 @@ const NYNORSK = {
 
   // ---------- Trekk ----------
   '⭐ Ordenselever': '⭐ Ordenselevar',
+  'Ordenselever': 'Ordenselevar',
   'Trekk ordenselever': 'Trekk ordenselevar',
   'Trekk ordenselever (o)': 'Trekk ordenselevar (o)',
   'Trekk uten repetisjon (R)': 'Trekk utan repetisjon (R)',

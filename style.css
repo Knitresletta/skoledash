@@ -1623,6 +1623,13 @@ textarea[id^="notat-textarea"]:focus {
     accent-color: var(--primary);
     flex-shrink: 0;
 }
+/* Ikonkolonne med fast bredde, så navnene står på linje selv om emojiene har ulik bredde. */
+.widget-meny-ikon {
+    width: 1.4em;
+    flex-shrink: 0;
+    text-align: center;
+    margin-right: -4px;
+}
 .widget-meny-sep {
     height: 1px;
     background: var(--border);

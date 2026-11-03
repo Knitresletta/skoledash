@@ -41,16 +41,31 @@ const GRUPPE_FARGER = [
 
 // Visningsnavn for enkeltinstans-widgetene (de som har av/på-avkrysning i ⊞ Widgets).
 // Flerinstans-widgetene (notat/bilde) står IKKE her — de håndteres for seg.
+// Navnet står uten emoji: ikonet ligger i WIDGET_IKON og får en egen kolonne i menyen,
+// så teksten begynner på samme sted uansett hvor bred emojien er.
 const WIDGET_NAVN = {
   'card-elever':     'Elever',
   'card-grupper':    'Grupper',
-  'card-tilfeldig':  '🎲 Tilfeldig elev',
-  'card-ordenselev': '⭐ Ordenselever',
+  'card-tilfeldig':  'Tilfeldig elev',
+  'card-ordenselev': 'Ordenselever',
   'card-ulv':        'Klassebamse',
-  'card-timer':      '⏱ Timer',
-  'card-dagsplan':   '📋 Dagsplan',
-  'card-klokke':     '🕐 Klokke',
-  'card-terning':    '🎲 Terning',
+  'card-timer':      'Timer',
+  'card-dagsplan':   'Dagsplan',
+  'card-klokke':     'Klokke',
+  'card-terning':    'Terning',
+};
+// ⏱️ har variasjonstegnet U+FE0F med vilje: uten det tegner flere nettlesere symbolet
+// som smal tekst i stedet for som emoji.
+const WIDGET_IKON = {
+  'card-elever':     '👥',
+  'card-grupper':    '🧩',
+  'card-tilfeldig':  '🎲',
+  'card-ordenselev': '⭐',
+  'card-ulv':        '🧸',
+  'card-timer':      '⏱️',
+  'card-dagsplan':   '📋',
+  'card-klokke':     '🕐',
+  'card-terning':    '🎲',
 };
 
 // Fri flate: magneter, minstestørrelser og standardstørrelser. Står her oppe fordi
@@ -2915,7 +2930,8 @@ function renderWidgetMeny() {
     <label class="widget-meny-rad">
       <input type="checkbox" ${skjult.includes(id) ? '' : 'checked'}
              data-endring="widget-synlig" data-widget="${id}">
-      ${t(navn)}
+      <span class="widget-meny-ikon" aria-hidden="true">${WIDGET_IKON[id]}</span>
+      <span>${t(navn)}</span>
     </label>`).join('');
 
   // Fler-instans widgets: ingen checkbox, bare "+". Tell hvor mange siden har.
@@ -3166,6 +3182,7 @@ const OPPDATERINGSLOGG_HTML = `
       <li>Ferdige grupper blir stående, men den som er borte, vises nedtonet. Under elevlista står det hvor mange som er borte</li>
       <li>Var en elev borte da gruppene ble laget og kommer senere, havner eleven i den minste gruppa når du fjerner borte-markeringen</li>
       <li>Markeringene gjelder bare i dag. Neste dag starter alle umarkert</li>
+      <li><strong>⊞ Widgets-menyen</strong> har fått ikon på alle kortene, og navnene står på linje</li>
     </ul>
   </div>
   <div class="logg-entry">
@@ -4012,10 +4029,10 @@ function renderWidgetStørrelseMeny() {
     return;
   }
   liste.innerHTML = synlige.map(id => {
-    // Klassebamse kan ha fått eget navn på siden. Ellers navnet uten ledende emoji.
+    // Klassebamse kan ha fått eget navn på siden.
     const navn = id === 'card-ulv'
       ? (aktivSide().ulv_navn || WIDGET_NAVN[id])
-      : t(WIDGET_NAVN[id]).replace(/^[^\p{L}]+/u, '');
+      : t(WIDGET_NAVN[id]);
     const pst = state.widget_størrelser?.[id] ?? 0;
     return `
       <label class="widget-str-rad" for="str-${id}">
