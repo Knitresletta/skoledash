@@ -44,7 +44,8 @@
       <div class="kl-dropdown-item" id="btn-åpne-logg">📋 Oppdateringslogg</div>
       <div class="kl-dropdown-item" id="btn-åpne-guide">❓ Brukerveiledning</div>
       <div class="kl-dropdown-item" data-klikk="tilbakemelding">💬 Tilbakemelding</div>
-      <div class="kl-dropdown-item" data-klikk="begrensning">⛔ Gruppebegrensning</div>
+      <div class="kl-dropdown-sep"></div>
+      <div class="kl-dropdown-item" data-klikk="lister">📋 Klasselister</div>
       <div class="kl-dropdown-sep"></div>
       <div class="kl-dropdown-item" id="btn-eksporter">📤 Eksporter data</div>
       <div class="kl-dropdown-item" id="btn-importer">📥 Importer data</div>
@@ -176,6 +177,7 @@
     <div class="flex gap-2">
       <button class="btn btn-primary btn-sm flex-1" id="btn-legg-til">+ Legg til elev</button>
       <button class="btn btn-ghost btn-sm" id="btn-lister" title="Klasselister (l)">📋 Lister</button>
+      <button class="btn btn-ghost btn-sm" id="btn-tom-elever" title="Tøm elevlista og start en ny. Lagrede lister røres ikke.">🧹 Tøm</button>
     </div>
   </div>
 
@@ -201,6 +203,9 @@
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
       <h2>🙋 Tilfeldig elev</h2>
+      <div class="card-controls">
+        <button class="btn btn-ghost btn-sm btn-icon" id="btn-tilfeldig-tom" title="Tøm backlog: alle kan trekkes igjen">🔄</button>
+      </div>
     </div>
     <div id="tilfeldig-vis" class="draw-placeholder">Trykk Trekk for å velge en tilfeldig elev</div>
     <div id="tilfeldig-backlog-count" class="backlog-count hidden"></div>
@@ -217,6 +222,7 @@
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
       <h2>⭐ Ordenselever</h2>
       <div class="card-controls">
+        <button class="btn btn-ghost btn-sm btn-icon" id="btn-ordenselev-antall" title="To ordenselever per trekk. Trykk for én.">👥</button>
         <button class="btn btn-ghost btn-sm btn-icon" id="btn-rediger-ordenselev" title="Rediger backlog">📝</button>
       </div>
     </div>
@@ -398,6 +404,7 @@
     <div id="lister-innhold"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost flex-1" id="btn-lister-lagre">💾 Lagre nåværende</button>
+      <button class="btn btn-ghost" id="btn-lister-importer" title="Hent en liste fra en fil, f.eks. fra en kollega">📥 Importer liste</button>
       <button class="btn btn-primary" id="btn-lister-lukk">Lukk</button>
     </div>
   </div>
@@ -492,6 +499,8 @@
 
 <!-- Skjult fil-input for import -->
 <input type="file" id="import-fil" accept="application/json,.json" style="display:none">
+<!-- Egen filvelger for «📥 Importer liste» i Lister-menyen: fletter bare inn lister. -->
+<input type="file" id="importer-liste-fil" accept="application/json,.json" style="display:none">
 
 <!-- Blackboard overlay -->
 <div id="blackboard-overlay" class="hidden">
@@ -518,7 +527,8 @@
 <div id="begrensning-modal" class="modal-overlay" style="display:none">
   <div class="modal-boks begrensning-boks" role="dialog" aria-labelledby="begrensning-tittel">
     <h3 id="begrensning-tittel">⛔ Gruppebegrensning</h3>
-    <p class="begrensning-forklaring">Velg to elever som ikke skal havne i samme gruppe når du trykker <strong>Del inn</strong>. Gjelder siden du står på.</p>
+    <!-- Teksten settes av renderBegrensninger(): den sier hvilken liste parene lagres i. -->
+    <p class="begrensning-forklaring" id="begrensning-forklaring"></p>
     <div class="begrensning-input">
       <label class="visuelt-skjult" for="begr-navn1">Første elev</label>
       <select id="begr-navn1"></select>

@@ -221,6 +221,12 @@ function defaultState() {
   return {
     // Globalt scope — deles av alle sider
     lister:              {},
+    // «Hold fra hverandre»-par per lagret liste (v2.38): listenavn → [[id, id], ...].
+    // Står ved siden av lister, ikke inni, så lagringsformatet for listene er uendret.
+    liste_begrensninger: {},
+    // Trekkene per lagret liste (v2.39): listenavn → backlogs og hvem som er trukket
+    // (se «Trekk per liste»). Delt av alle sider som bruker lista.
+    liste_trekk:         {},
     timer_varighet:      300,
     tema: 'lyst',
     font: 'system',
@@ -277,10 +283,19 @@ function nySide(navn) {
     tilfeldig_valgt:     null,
     ordenselev_backlog:  [],
     ordenselev_valgte:   [],
+    // Elever som var borte da en runde tok slutt, uten å ha hatt tur. De trekkes
+    // først når de er tilbake (se trekkRunde).
+    ordenselev_skyldig:  [],
+    ordenselev_antall:   2,      // 1 eller 2 per trekk; følger lista via trekk(s)
     ulv_backlog:         [],
     ulv_valgt:           null,
+    ulv_skyldig:         [],
     ulv_navn:            'Klassebamse',
+    // Par fra før v2.38, da parene hørte til siden. Nye par lagres i lista (se
+    // «Gruppebegrensning»). Gamle par virker til de flyttes inn i en liste.
     gruppe_begrensninger: [],
+    // Navnet på lista siden sist ble lastet fra eller lagret som, eller null.
+    liste:               null,
     // Dagens oppmøte (v2.36): { dato: 'ÅÅÅÅ-MM-DD', status: { navn: 'her' | 'borte' } }.
     // null eller en annen dato betyr at ingen er markert i dag. Se «Oppmøte».
     oppmøte:             null,
@@ -385,6 +400,56 @@ function nyElevId(brukt) {
   return id;
 }
 
+// ===================== Trekk per liste =====================
+// Backlogene og hvem som er trukket (tilfeldig, ordenselev, klassebamse) hører til
+// klassen, ikke til siden. En side som er koblet til en lagret liste (s.liste), bruker
+// listas trekk i state.liste_trekk, og alle sider med samme liste deler dem. Bytter
+// siden til en annen liste og tilbake, er trekkene der fortsatt. En side uten liste
+// har trekkene på seg selv, slik alle sider hadde før v2.39.
+// Bruk alltid trekk(s) for å lese og skrive dem, aldri s.tilfeldig_backlog direkte.
+const TREKK_LISTER = ['tilfeldig_backlog', 'ordenselev_backlog', 'ordenselev_valgte',
+  'ordenselev_skyldig', 'ulv_backlog', 'ulv_skyldig'];
+const TREKK_ENKLE  = ['tilfeldig_valgt', 'ulv_valgt'];
+
+// ordenselev_antall: 2 som standard, 1 for klasser med bare én ordenselev.
+function tomtTrekk() {
+  return { ...Object.fromEntries([...TREKK_LISTER.map(f => [f, []]), ...TREKK_ENKLE.map(f => [f, null])]),
+    ordenselev_antall: 2 };
+}
+
+// Trekkene som gjelder for siden: listas hvis siden er koblet til en liste, ellers
+// sidens egne.
+function trekk(s = aktivSide()) {
+  const liste = sidensListe(s);
+  return liste ? (state.liste_trekk[liste] ??= tomtTrekk()) : s;
+}
+
+// Kopi av trekkene (fra en liste eller en side) med bare elevene `behold` godtar, og
+// id-ene byttet via `bytt`. Brukes når trekkene flyttes mellom side og liste.
+function kopierTrekk(fra, behold = () => true, bytt = id => id) {
+  const ut = tomtTrekk();
+  for (const f of TREKK_LISTER) ut[f] = [...new Set((fra[f] ?? []).map(bytt))].filter(behold);
+  for (const f of TREKK_ENKLE) ut[f] = fra[f] && behold(bytt(fra[f])) ? bytt(fra[f]) : null;
+  ut.ordenselev_antall = fra.ordenselev_antall === 1 ? 1 : 2;
+  return ut;
+}
+
+// Setter sidens egne trekkfelt til tomme. Brukes når trekkene flyttes inn i en liste.
+function tømSidensTrekk(s) {
+  Object.assign(s, tomtTrekk());
+}
+
+// Gyldige trekk fra lagringen eller en importert fil: bare id-er med riktig form.
+function normaliserTrekk(r) {
+  const id = v => (typeof v === 'string' && ELEV_ID.test(v) ? v : null);
+  const ut = tomtTrekk();
+  for (const f of TREKK_LISTER) ut[f] = [...new Set((Array.isArray(r[f]) ? r[f] : []).map(id).filter(Boolean))];
+  ut.ordenselev_valgte = ut.ordenselev_valgte.slice(0, 2);
+  for (const f of TREKK_ENKLE) ut[f] = id(r[f]);
+  ut.ordenselev_antall = r.ordenselev_antall === 1 ? 1 : 2;
+  return ut;
+}
+
 // Gjør en lagret elevliste om til gyldige { id, navn }-objekter. Tåler både gammelt
 // format (bare navn) og nytt. Tomme navn forkastes, og like navn (uten hensyn til
 // store og små bokstaver) slås sammen, fordi appen aldri tillater to like navn i samme
@@ -440,7 +505,7 @@ function rensRåState(raw) {
       if ('dagsplan' in side && !Array.isArray(side.dagsplan)) side.dagsplan = [];
     }
   }
-  for (const felt of ['notater', 'bilder', 'youtube', 'lister', 'widget_størrelser']) {
+  for (const felt of ['notater', 'bilder', 'youtube', 'lister', 'liste_begrensninger', 'liste_trekk', 'widget_størrelser']) {
     if (felt in raw && !erObjekt(raw[felt])) delete raw[felt];
   }
   if ('widget_layout' in raw && !Array.isArray(raw.widget_layout)) delete raw.widget_layout;
@@ -475,6 +540,9 @@ function normaliserState(s) {
     side.ordenselev_backlog = idListe(side.ordenselev_backlog);
     side.ordenselev_valgte  = idListe(side.ordenselev_valgte).slice(0, 2);
     side.ulv_backlog        = idListe(side.ulv_backlog);
+    side.ordenselev_skyldig = idListe(side.ordenselev_skyldig);
+    side.ulv_skyldig        = idListe(side.ulv_skyldig);
+    side.ordenselev_antall  = side.ordenselev_antall === 1 ? 1 : 2;
     side.tilfeldig_valgt    = tilId(side.tilfeldig_valgt);
     side.ulv_valgt          = tilId(side.ulv_valgt);
     side.ulv_navn           = tekstEllerNull(side.ulv_navn, 40) || 'Klassebamse';
@@ -505,6 +573,30 @@ function normaliserState(s) {
     if (Array.isArray(elever)) lister[navn.slice(0, 60)] = normaliserElever(elever);
   }
   s.lister = lister;
+
+  // --- Par per liste: bare lister som finnes, og bare elever som står i lista ---
+  const listePar = {};
+  for (const [navn, par] of Object.entries(erObjekt(s.liste_begrensninger) ? s.liste_begrensninger : {})) {
+    const elever = lister[navn];
+    if (!elever) continue;
+    const ider = new Set(elever.map(e => e.id));
+    listePar[navn] = slåSammenPar((Array.isArray(par) ? par : [])
+      .filter(p => Array.isArray(p) && p.length === 2 && p.every(id => ider.has(id))));
+  }
+  s.liste_begrensninger = listePar;
+
+  // --- Trekk per liste: bare lister som finnes. Id-ene sjekkes bare for form, ikke
+  // mot lista: en elev som er lagt til på siden etter at lista ble lagret, kan stå i
+  // backlogen uten å stå i lista. ---
+  const listeTrekk = {};
+  for (const [navn, r] of Object.entries(erObjekt(s.liste_trekk) ? s.liste_trekk : {})) {
+    if (lister[navn] && erObjekt(r)) listeTrekk[navn] = normaliserTrekk(r);
+  }
+  s.liste_trekk = listeTrekk;
+  // Sidens kobling til en liste gjelder bare hvis lista finnes.
+  for (const side of s.sider) {
+    side.liste = typeof side.liste === 'string' && lister[side.liste] ? side.liste : null;
+  }
 
   // --- Flerinstans-widgets. Bare gyldige ID-er overlever ---
   const notater = {};
@@ -652,6 +744,8 @@ function loadState() {
         side.ordenselev_valgte   ??= [];
         side.ulv_backlog         ??= [];
         side.ulv_valgt           ??= null;
+        side.ordenselev_skyldig  ??= [];
+        side.ulv_skyldig         ??= [];
         side.ulv_navn            ??= 'Klassebamse';
         side.gruppe_begrensninger ??= [];
         // Migrer dagsplan-strenger til { tekst, ferdig }-objekter
@@ -1294,7 +1388,7 @@ function leggTilElev(navn) {
 function plasserIGruppe(id) {
   const s = aktivSide();
   if (!s.grupper?.length) return null;
-  const sperret = new Set((s.gruppe_begrensninger ?? [])
+  const sperret = new Set(aktivePar(s)
     .filter(par => par.includes(id))
     .map(([a, b]) => (a === id ? b : a)));
   const lovlige = s.grupper
@@ -1306,6 +1400,35 @@ function plasserIGruppe(id) {
   const valgt = kandidater[Math.floor(Math.random() * kandidater.length)].i;
   s.grupper[valgt] = [...s.grupper[valgt], id];
   return valgt;
+}
+
+// «🧹 Tøm» i elevkortet: tømmer siden for elever så læreren kan starte en ny klasse.
+// Grupper, oppmøte og koblingen til lista forsvinner med elevene. Den lagrede lista
+// røres ikke, og trekkene dens blir liggende i den til den lastes igjen. Elever som
+// ikke er lagret i en liste, er borte etterpå: derfor sier bekreftelsen fra om det.
+function tømElevlista() {
+  const s = aktivSide();
+  s.elever  = [];
+  s.grupper = null;
+  s.oppmøte = null;
+  s.gruppe_begrensninger = [];
+  s.liste   = null;
+  tømSidensTrekk(s);
+  saveState();
+  renderElever();
+  renderAlleTrekk();
+  renderGrupper();
+  renderBegrensninger();
+  notify(t('🧹 Elevlista er tømt'));
+}
+
+// Er elevene på siden lagret akkurat slik i lista siden er koblet til?
+function elevlistaErLagret(s = aktivSide()) {
+  const liste = sidensListe(s);
+  if (!liste) return false;
+  const lagret = state.lister[liste];
+  return lagret.length === s.elever.length &&
+    lagret.every((e, i) => e.id === s.elever[i].id && e.navn === s.elever[i].navn);
 }
 
 // Fjerner én elev ved listeindeks fra aktiv side og oppdaterer visningen.
@@ -1331,18 +1454,16 @@ function fjernEleverBatch(fjernSett) {
 // «hold fra hverandre»-par og dagens oppmøte. Grupper som blir tomme, forsvinner, og
 // er det ingen grupper igjen, er inndelingen borte. De andre elevene blir der de er.
 // Lagrer ikke selv: kalleren gjør det.
-function fjernElevReferanser(s, fjernSett) {
+function fjernElevReferanser(s, fjernSett, { medTrekk = true } = {}) {
   const behold = id => !fjernSett.has(id);
   if (s.grupper) {
     const igjen = s.grupper.map(g => g.filter(behold)).filter(g => g.length);
     s.grupper = igjen.length ? igjen : null;
   }
-  s.tilfeldig_backlog  = s.tilfeldig_backlog.filter(behold);
-  s.ordenselev_backlog = s.ordenselev_backlog.filter(behold);
-  s.ordenselev_valgte  = s.ordenselev_valgte.filter(behold);
-  s.ulv_backlog        = s.ulv_backlog.filter(behold);
-  if (s.tilfeldig_valgt && !behold(s.tilfeldig_valgt)) s.tilfeldig_valgt = null;
-  if (s.ulv_valgt && !behold(s.ulv_valgt)) s.ulv_valgt = null;
+  if (medTrekk) {
+    const r = trekk(s);
+    Object.assign(r, kopierTrekk(r, behold));
+  }
   s.gruppe_begrensninger = (s.gruppe_begrensninger ?? []).filter(par => par.every(behold));
   if (s.oppmøte) for (const id of fjernSett) delete s.oppmøte.status[id];
 }
@@ -1350,17 +1471,11 @@ function fjernElevReferanser(s, fjernSett) {
 // Bytter id-er i alt på siden som peker på elever, etter et kart gammel id → ny id.
 // Brukes når en lagret liste lastes inn: samme elev kan ha en annen id i lista enn på
 // siden (lista og siden ble gjort om hver for seg i v2.37, eller eleven ble lagt til
-// for hånd på begge). Da skal backlogen og parene følge eleven, slik de gjorde da
-// navnet var nøkkelen. Lagrer ikke selv.
+// for hånd på begge). Da skal gruppene og parene følge eleven, slik de gjorde da
+// navnet var nøkkelen. Trekkene byttes av lastListe selv. Lagrer ikke selv.
 function byttElevIder(s, kart) {
   const bytt = id => kart.get(id) ?? id;
   if (s.grupper) s.grupper = s.grupper.map(g => g.map(bytt));
-  s.tilfeldig_backlog  = s.tilfeldig_backlog.map(bytt);
-  s.ordenselev_backlog = s.ordenselev_backlog.map(bytt);
-  s.ordenselev_valgte  = s.ordenselev_valgte.map(bytt);
-  s.ulv_backlog        = s.ulv_backlog.map(bytt);
-  if (s.tilfeldig_valgt) s.tilfeldig_valgt = bytt(s.tilfeldig_valgt);
-  if (s.ulv_valgt) s.ulv_valgt = bytt(s.ulv_valgt);
   s.gruppe_begrensninger = (s.gruppe_begrensninger ?? []).map(par => par.map(bytt));
 }
 
@@ -1572,100 +1687,165 @@ function trekkbareElever(s) {
   return null;
 }
 
-// Melding når backlogen er brukt opp. Står noen som er borte i dag igjen, er det
+// Melding når backlogen til «Trekk (bl)» er brukt opp. Står noen som er borte i dag igjen, er det
 // verdt å si: de er ikke glemt, de venter til de er tilbake.
 function backlogTomMelding(s, backlog, tekstAlle) {
   const borteIgjen = s.elever.some(e => !backlog.includes(e.id));
-  notify(borteIgjen ? t('Alle som er her i dag, er trukket. Nullstill for å starte på nytt.') : tekstAlle, 'warning');
+  notify(borteIgjen ? t('Alle som er her i dag, er trukket. Trykk 🔄 på kortet for å starte på nytt.') : tekstAlle, 'warning');
 }
 
 // Enkelt tilfeldig trekk: velg én elev. Eneste regel er at man ikke trekker
 // samme elev to ganger på rad (med mindre det bare er én elev inne).
 function trekkTilfeldig() {
   const s = aktivSide();
+  const r = trekk(s);
   const elever = trekkbareElever(s);
   if (!elever) return;
   // Utelat forrige trukne fra utvalget, så vi ikke får samme navn igjen umiddelbart.
   const pool = elever.length > 1
-    ? elever.filter(e => e !== s.tilfeldig_valgt)
+    ? elever.filter(e => e !== r.tilfeldig_valgt)
     : elever;
-  s.tilfeldig_valgt = pool[Math.floor(Math.random() * pool.length)];
+  r.tilfeldig_valgt = pool[Math.floor(Math.random() * pool.length)];
   saveState();
   renderTilfeldig();
 }
 
 // «Rettferdig» tilfeldig trekk: hver elev trekkes nøyaktig én gang før noen
 // gjentas. Backlogen husker hvem som alt er trukket; når alle er brukt opp må
-// læreren nullstille. Forskjellen fra trekkTilfeldig er nettopp denne sporingen.
+// læreren tømme den (🔄 på kortet). Forskjellen fra trekkTilfeldig er nettopp denne
+// sporingen.
 function trekkTilfeldigBacklog() {
   const s = aktivSide();
+  const r = trekk(s);
   const elever = trekkbareElever(s);
   if (!elever) return;
   // Trekk kun blant elever som ikke alt står i backlogen.
-  const pool = elever.filter(e => !s.tilfeldig_backlog.includes(e));
+  const pool = elever.filter(e => !r.tilfeldig_backlog.includes(e));
   if (!pool.length) {
-    backlogTomMelding(s, s.tilfeldig_backlog, t('Alle elever er trukket — nullstill for å starte på nytt'));
+    backlogTomMelding(s, r.tilfeldig_backlog, t('Alle elever er trukket. Trykk 🔄 på kortet for å starte på nytt.'));
     return;
   }
-  s.tilfeldig_valgt = pool[Math.floor(Math.random() * pool.length)];
-  if (!s.tilfeldig_backlog.includes(s.tilfeldig_valgt)) {
-    s.tilfeldig_backlog.push(s.tilfeldig_valgt);
+  r.tilfeldig_valgt = pool[Math.floor(Math.random() * pool.length)];
+  if (!r.tilfeldig_backlog.includes(r.tilfeldig_valgt)) {
+    r.tilfeldig_backlog.push(r.tilfeldig_valgt);
   }
   saveState();
   renderTilfeldig();
 }
 
-// Trekker TO ordenselever, og sørger for at alle har vært ordenselev før noen
-// gjentas (samme backlog-prinsipp som tilfeldig-backlog, men i par).
+// Trekker `antall` elever blant dem som er her (`elever`), i runder: alle får tur før
+// noen får igjen. Brukes av ordenselev og klassebamsen, som aldri stopper:
+//  1. Elever som skylder en tur, trekkes først.
+//  2. Så elever som ikke har hatt tur i denne runden (ikke i backlogen).
+//  3. Mangler det fortsatt elever, er runden ferdig. Backlogen tømmes, og resten
+//     trekkes blant alle som er her. Den eller de som nettopp ble trukket som de siste
+//     i den gamle runden, telles med i den nye, så de ikke får to turer på rad.
+//     Elever som ikke rakk å få tur i den gamle runden (de var borte, eller de var
+//     sperret av et par), settes på «skylder»-lista, så de ikke mister turen.
+// `passer(valgte, id)` sier om id kan trekkes sammen med de som alt er valgt (brukes
+// for «hold fra hverandre»-par). Går det ikke å oppfylle, trekkes det uten den
+// regelen, så trekket aldri stopper.
+// Endrer r (trekkene) og returnerer { valgt, nyRunde }.
+function trekkRunde(r, s, backlogFelt, skyldFelt, antall, elever, passer = () => true) {
+  const valgt = [];
+  const ta = (kandidater, n, regel = passer) => {
+    const ut = [];
+    for (const id of shuffle(kandidater)) {
+      if (ut.length >= n) break;
+      if (regel([...valgt, ...ut], id)) ut.push(id);
+    }
+    return ut;
+  };
+  const skyldige = ta(elever.filter(id => r[skyldFelt].includes(id)), antall);
+  r[skyldFelt] = r[skyldFelt].filter(id => !skyldige.includes(id));
+  valgt.push(...skyldige);
+  const fraRunden = ta(elever.filter(id => !r[backlogFelt].includes(id) && !valgt.includes(id)),
+    antall - valgt.length);
+  valgt.push(...fraRunden);
+  r[backlogFelt].push(...fraRunden);
+  if (valgt.length >= antall) return { valgt, nyRunde: false };
+
+  const utenTur = s.elever.map(e => e.id).filter(id =>
+    !valgt.includes(id) && !r[backlogFelt].includes(id) && !r[skyldFelt].includes(id));
+  r[skyldFelt].push(...utenTur);
+  // Var det én elev igjen i runden (ingen sperret), telles den med i den nye runden,
+  // så den ikke blir ordenselev to ganger på rad. Ble noen sperret av et par, telles
+  // den ikke med: da får den sperrede en ekstra tur som skyldig, og den andre ville
+  // mistet en tur hver gang det skjer.
+  const sperret = utenTur.some(id => elever.includes(id));
+  r[backlogFelt] = sperret ? [] : [...fraRunden];
+  let resten = ta(elever.filter(id => !valgt.includes(id) && !utenTur.includes(id)), antall - valgt.length);
+  if (valgt.length + resten.length < antall) {
+    // Bare elever som skylder eller er sperret er igjen: ta dem heller enn å stoppe.
+    resten = [...resten, ...ta(elever.filter(id => !valgt.includes(id) && !resten.includes(id)),
+      antall - valgt.length - resten.length)];
+    r[skyldFelt] = r[skyldFelt].filter(id => !resten.includes(id));
+  }
+  if (valgt.length + resten.length < antall) {
+    resten = [...resten, ...ta(elever.filter(id => !valgt.includes(id) && !resten.includes(id)),
+      antall - valgt.length - resten.length, () => true)];
+    r[skyldFelt] = r[skyldFelt].filter(id => !resten.includes(id));
+  }
+  valgt.push(...resten);
+  r[backlogFelt].push(...resten.filter(id => !r[backlogFelt].includes(id)));
+  return { valgt, nyRunde: true };
+}
+
+// Trekker én eller to ordenselever (r.ordenselev_antall, valgt per liste), og sørger
+// for at alle har vært ordenselev før noen gjentas. Når alle har hatt tur, starter en
+// ny runde av seg selv (se trekkRunde). To elever som skal holdes fra hverandre i
+// grupper (aktivePar), blir heller ikke ordenselever sammen.
 function trekkOrdenselev() {
   const s = aktivSide();
+  const r = trekk(s);
   const elever = tilStede(s);
-  if (elever.length < 2) {
+  const antall = r.ordenselev_antall;
+  if (!elever.length && antall === 1) {
+    notify(s.elever.length ? t('Alle elevene er markert borte i dag') : t('Ingen elever inne'), 'error');
+    return;
+  }
+  if (elever.length < antall) {
     notify(elever.length < s.elever.length
       ? t('Trenger minst 2 elever som er her i dag ({antall} her)', { antall: elever.length })
       : t('Trenger minst 2 elever ({antall} inne)', { antall: s.elever.length }), 'error');
     return;
   }
-  let pool = elever.filter(e => !s.ordenselev_backlog.includes(e));
-  if (!pool.length) {
-    backlogTomMelding(s, s.ordenselev_backlog, t('Alle elever har vært ordenselev — nullstill for å starte på nytt'));
-    return;
-  }
-  if (pool.length === 1) {
-    // Siste i backlog: velg den, nullstill backlog, trekk en til fra resten
-    const siste  = pool[0];
-    s.ordenselev_backlog = [];
-    const andre  = elever.filter(e => e !== siste);
-    const valgt2 = andre[Math.floor(Math.random() * andre.length)];
-    s.ordenselev_valgte = [siste, valgt2];
-    s.ordenselev_backlog = [...s.ordenselev_valgte];
-  } else {
-    const shufflet = shuffle(pool);
-    s.ordenselev_valgte = shufflet.slice(0, 2);
-    s.ordenselev_valgte.forEach(e => {
-      if (!s.ordenselev_backlog.includes(e)) s.ordenselev_backlog.push(e);
-    });
-  }
+  const par = aktivePar(s);
+  const passer = (valgte, id) => !valgte.some(v => par.some(([a, b]) => (a === v && b === id) || (a === id && b === v)));
+  const { valgt, nyRunde } = trekkRunde(r, s, 'ordenselev_backlog', 'ordenselev_skyldig', antall, elever, passer);
+  r.ordenselev_valgte = valgt;
   saveState();
   renderOrdenselev();
+  if (nyRunde) notify(t('⭐ Alle har vært ordenselev. Ny runde!'));
 }
 
-// Trekker hvem som får ta med klassebamsen («ulv») hjem. Backlog sikrer at alle
-// får tur før noen gjentas. Navnet på bamsen kan endres per side (s.ulv_navn).
+// 👥/👤 i Ordenselever-kortet: bytter mellom to og én ordenselev per trekk. Valget
+// hører til lista (som trekkene), så 7A kan ha én og 8B to.
+function byttOrdenselevAntall() {
+  const r = trekk();
+  r.ordenselev_antall = r.ordenselev_antall === 1 ? 2 : 1;
+  saveState();
+  renderOrdenselev();
+  notify(r.ordenselev_antall === 1 ? t('⭐ Én ordenselev per trekk') : t('⭐ To ordenselever per trekk'));
+}
+
+// Trekker hvem som får ta med klassebamsen («ulv») hjem. Alle får tur før noen
+// gjentas, og en ny runde starter av seg selv (se trekkRunde). Navnet på bamsen kan
+// endres per side (s.ulv_navn).
 function trekkUlv() {
   const s = aktivSide();
+  const r = trekk(s);
   const elever = trekkbareElever(s);
   if (!elever) return;
-  const pool = elever.filter(e => !s.ulv_backlog.includes(e));
-  if (!pool.length) {
-    backlogTomMelding(s, s.ulv_backlog, t('Alle elever har hatt bamsen — nullstill for å starte på nytt'));
-    return;
-  }
-  s.ulv_valgt = pool[Math.floor(Math.random() * pool.length)];
-  if (!s.ulv_backlog.includes(s.ulv_valgt)) s.ulv_backlog.push(s.ulv_valgt);
+  const { valgt, nyRunde } = trekkRunde(r, s, 'ulv_backlog', 'ulv_skyldig', 1, elever);
+  r.ulv_valgt = valgt[0];
   saveState();
   renderUlv();
-  notify(t('{elev} tar med {bamse} hjem!', { elev: elevNavn(s.ulv_valgt, s), bamse: s.ulv_navn.toLowerCase() }));
+  const bamse = s.ulv_navn.toLowerCase();
+  const elev  = elevNavn(r.ulv_valgt, s);
+  notify(nyRunde
+    ? t('Alle har hatt {bamse}. Ny runde: {elev} tar med {bamse} hjem!', { elev, bamse })
+    : t('{elev} tar med {bamse} hjem!', { elev, bamse }));
 }
 
 // Viser resultatet av tilfeldig-trekket (eller en oppfordring hvis ingen er trukket),
@@ -1674,16 +1854,18 @@ function renderTilfeldig() {
   const s = aktivSide();
   const vis = document.getElementById('tilfeldig-vis');
   const bl  = document.getElementById('tilfeldig-backlog-count');
-  if (s.tilfeldig_valgt) {
+  const r   = trekk(s);
+  document.getElementById('btn-tilfeldig-tom').disabled = !r.tilfeldig_backlog.length && !r.tilfeldig_valgt;
+  if (r.tilfeldig_valgt) {
     vis.className   = 'draw-result';
-    vis.innerHTML   = `<div class="drawn-name">🙋 ${esc(elevNavn(s.tilfeldig_valgt, s))}</div>`;
+    vis.innerHTML   = `<div class="drawn-name">🙋 ${esc(elevNavn(r.tilfeldig_valgt, s))}</div>`;
   } else {
     vis.className   = 'draw-placeholder';
     vis.textContent = t('Trykk Trekk for å velge en tilfeldig elev');
   }
-  if (s.tilfeldig_backlog.length) {
+  if (r.tilfeldig_backlog.length) {
     bl.className    = 'backlog-count';
-    bl.textContent  = t('{antall} trukket (backlog)', { antall: s.tilfeldig_backlog.length });
+    bl.textContent  = t('{antall} trukket (backlog)', { antall: r.tilfeldig_backlog.length });
   } else {
     bl.className    = 'backlog-count hidden';
   }
@@ -1694,18 +1876,26 @@ function renderOrdenselev() {
   const s = aktivSide();
   const vis = document.getElementById('ordenselev-vis');
   const bl  = document.getElementById('ordenselev-backlog-count');
-  if (s.ordenselev_valgte.length) {
+  const r   = trekk(s);
+  const én  = r.ordenselev_antall === 1;
+  const antallKnapp = document.getElementById('btn-ordenselev-antall');
+  antallKnapp.textContent = én ? '👤' : '👥';
+  antallKnapp.title = én ? t('Én ordenselev per trekk. Trykk for to.') : t('To ordenselever per trekk. Trykk for én.');
+  document.getElementById('btn-ordenselev').textContent = én ? t('Trekk ordenselev') : t('Trekk ordenselever');
+  if (r.ordenselev_valgte.length) {
     vis.className = 'draw-result';
     vis.innerHTML = `<div class="draw-pair">
-      ${s.ordenselev_valgte.map(id => `<div class="draw-pair-item">⭐ ${esc(elevNavn(id, s))}</div>`).join('')}
+      ${r.ordenselev_valgte.map(id => `<div class="draw-pair-item">⭐ ${esc(elevNavn(id, s))}</div>`).join('')}
     </div>`;
   } else {
     vis.className   = 'draw-placeholder';
-    vis.textContent = t('Trykk Trekk for å velge to ordenselever');
+    vis.textContent = r.ordenselev_antall === 1
+      ? t('Trykk Trekk for å velge en ordenselev')
+      : t('Trykk Trekk for å velge to ordenselever');
   }
-  if (s.ordenselev_backlog.length) {
+  if (r.ordenselev_backlog.length) {
     bl.className   = 'backlog-count';
-    bl.textContent = t('{antall} i backlog', { antall: s.ordenselev_backlog.length });
+    bl.textContent = t('{antall} i backlog', { antall: r.ordenselev_backlog.length });
   } else {
     bl.className   = 'backlog-count hidden';
   }
@@ -1718,18 +1908,19 @@ function renderUlv() {
   const vis  = document.getElementById('ulv-vis');
   const bl   = document.getElementById('ulv-backlog-count');
   const navn = s.ulv_navn || 'Klassebamse';
+  const r    = trekk(s);
   document.querySelector('#card-ulv h2').textContent = navn;
   document.getElementById('btn-ulv').textContent = t('Trekk {bamse}', { bamse: navn.toLowerCase() });
-  if (s.ulv_valgt) {
+  if (r.ulv_valgt) {
     vis.className = 'draw-result ulv-result';
-    vis.innerHTML = `<div class="drawn-name">${esc(elevNavn(s.ulv_valgt, s))}</div>`;
+    vis.innerHTML = `<div class="drawn-name">${esc(elevNavn(r.ulv_valgt, s))}</div>`;
   } else {
     vis.className   = 'draw-placeholder';
     vis.textContent = t('Trykk Trekk for å velge hvem som tar med {bamse} hjem', { bamse: navn.toLowerCase() });
   }
-  if (s.ulv_backlog.length) {
+  if (r.ulv_backlog.length) {
     bl.className   = 'backlog-count';
-    bl.textContent = t('{antall} i backlog', { antall: s.ulv_backlog.length });
+    bl.textContent = t('{antall} i backlog', { antall: r.ulv_backlog.length });
   } else {
     bl.className   = 'backlog-count hidden';
   }
@@ -2246,7 +2437,7 @@ function lagGrupper(antall) {
     notify(t('For mange grupper — bare {antall} elever inne', { antall: elever.length }), 'warning');
     return;
   }
-  const begrensninger = s.gruppe_begrensninger ?? [];
+  const begrensninger = aktivePar(s);
   let grupper = null;
   for (let forsøk = 0; forsøk < 200; forsøk++) {
     const shufflet = shuffle(elever);
@@ -2302,14 +2493,36 @@ function renderGrupper() {
 }
 
 // ===================== Lister =====================
-// Lagrer aktiv sides roster som en navngitt liste. Listene er GLOBALE (deles av alle
-// sider), mens selve rosteren er per side, derfor kopierer vi elevene ut hit. Id-ene
-// følger med, så lista kan lastes inn igjen uten at backlogs og par mister eleven.
+// Lagrede klasselister er GLOBALE (deles av alle sider), mens elevlista er per side.
+// Å laste eller lagre en liste kopierer elevene; lista og siden endres hver for seg
+// etterpå. Id-ene følger med, så backlogs og par finner eleven igjen. «Hold fra
+// hverandre»-parene bor i lista (state.liste_begrensninger), og siden husker lista
+// den kom fra (s.liste). Se «Gruppebegrensning».
+
+// Lagrer aktiv sides elevliste som en navngitt liste, og kobler siden til den.
+// Parene siden bruker nå, blir med inn i lista og slås sammen med listas egne.
 function lagreListe(navn) {
   const s = aktivSide();
   if (!s.elever.length) { notify(t('Ingen elever inne å lagre'), 'warning'); return false; }
+  navn = navn.slice(0, 60);
   const erNy = !state.lister[navn];
+  const ider = new Set(s.elever.map(e => e.id));
+  // Listas gamle par peker på listas gamle id-er. Samme elev kan ha en annen id på
+  // siden, så de oversettes via navnet før de slås sammen.
+  const fraNavn = new Map(s.elever.map(e => [e.navn.toLowerCase(), e.id]));
+  const gammelId = new Map((state.lister[navn] ?? []).map(e => [e.id, fraNavn.get(e.navn.toLowerCase())]));
+  const gamlePar = (state.liste_begrensninger[navn] ?? []).map(par => par.map(id => gammelId.get(id)));
+  const innenfor = par => par.filter(p => p.every(id => ider.has(id)));
+  const nyePar = slåSammenPar(innenfor(gamlePar), innenfor(aktivePar(s)));
+  // Trekkene siden bruker nå (sine egne eller lista den kom fra), blir listas trekk.
+  // Lagres siden over en annen liste, erstattes den listas trekk, akkurat som elevene.
+  const nyeTrekk = kopierTrekk(trekk(s), id => ider.has(id));
   state.lister[navn] = s.elever.map(e => ({ ...e })); // kopi: lista og siden endres hver for seg
+  state.liste_begrensninger[navn] = nyePar;
+  state.liste_trekk[navn] = nyeTrekk;
+  s.liste = navn;
+  s.gruppe_begrensninger = [];
+  tømSidensTrekk(s);
   saveState();
   notify((erNy ? t("📋 '{navn}' lagret ({antall} elever)", { navn, antall: s.elever.length })
         : t("📋 '{navn}' oppdatert ({antall} elever)", { navn, antall: s.elever.length })));
@@ -2318,10 +2531,12 @@ function lagreListe(navn) {
 
 // Laster en lagret liste inn i aktiv sides roster. Overskriver dagens roster og
 // nullstiller grupper og oppmøte (de hører til den gamle elevsammensetningen).
-// Backlogs, trukne og «hold fra hverandre»-par beholdes for elever som også står i
-// den nye lista, slik det var da navnet var nøkkelen: laster læreren samme klasse inn
-// igjen, husker trekkene hvem som har vært ordenselev. Samme elev kan ha en annen id
-// i lista enn på siden, så de matches på navn. Resten ryddes bort.
+// Siden husker lista etterpå, så listas trekk og «hold fra hverandre»-par gjelder.
+// Trekkene til lista siden kom fra, blir liggende i den lista til den lastes igjen
+// (se «Trekk per liste»). Har den nye lista ingen trekk ennå, starter den tom, med
+// ett unntak: en side uten liste gir trekkene sine til lista for elever som også står
+// i den, så ingen mister backlogen ved overgangen til v2.39. Samme elev kan
+// ha en annen id i lista enn på siden, så de matches på navn.
 function lastListe(navn) {
   const elever = state.lister[navn];
   if (!elever) return;
@@ -2333,12 +2548,28 @@ function lastListe(navn) {
     const nyId = fraNavn.get(e.navn.toLowerCase());
     if (nyId && nyId !== e.id) kart.set(e.id, nyId);
   }
-  byttElevIder(s, kart);
   const nyeIder = new Set(nye.map(e => e.id));
-  fjernElevReferanser(s, new Set([
-    ...s.elever.map(e => kart.get(e.id) ?? e.id),
-    ...s.tilfeldig_backlog, ...s.ordenselev_backlog, ...s.ulv_backlog,
-  ].filter(id => !nyeIder.has(id))));
+  const gamleTrekk = trekk(s); // før koblingen byttes
+  if (!state.liste_trekk[navn]) {
+    // Bare en side uten liste gir trekkene sine videre (overgangen fra før v2.39).
+    // Kommer siden fra en annen liste, hører trekkene til den, og den nye lista
+    // starter tom: ellers ville bamsen og ordenselevene fulgt siden, ikke lista.
+    state.liste_trekk[navn] = sidensListe(s)
+      ? tomtTrekk()
+      : kopierTrekk(gamleTrekk, id => nyeIder.has(id), id => kart.get(id) ?? id);
+  }
+  byttElevIder(s, kart);
+  // Trekkene røres ikke her: de gamle hører til den forrige lista (eller er tatt med
+  // over), og en delt liste skal ikke miste elever fordi en side bytter liste.
+  fjernElevReferanser(s, new Set(s.elever.map(e => kart.get(e.id) ?? e.id).filter(id => !nyeIder.has(id))),
+    { medTrekk: false });
+  // Sidens egne par (fra før parene hørte til lista) flyttes inn i lista, så de ikke
+  // forsvinner. fjernElevReferanser har allerede tatt bort par med elever som ikke
+  // står i lista.
+  state.liste_begrensninger[navn] = slåSammenPar(state.liste_begrensninger[navn] ?? [], s.gruppe_begrensninger ?? []);
+  s.gruppe_begrensninger = [];
+  tømSidensTrekk(s);       // sidens egne trekk er tatt med inn i lista over
+  s.liste   = navn;
   s.elever  = nye;
   s.grupper = null;
   s.oppmøte = null;        // markeringene hørte til den gamle lista
@@ -2350,16 +2581,140 @@ function lastListe(navn) {
   notify(t("📋 '{navn}' lastet ({antall} elever)", { navn, antall: elever.length }));
 }
 
-// Sletter en lagret liste (påvirker ikke rosteren som allerede er lastet inn).
+// Sletter en lagret liste. Elevene på sidene røres ikke. Sider som var koblet til
+// lista, beholder parene og trekkene som sine egne, så Del inn og trekkene virker
+// som før.
 function slettListe(navn) {
+  const par = state.liste_begrensninger[navn] ?? [];
+  const listeTrekk = state.liste_trekk[navn] ?? tomtTrekk();
+  for (const side of state.sider) {
+    if (side.liste !== navn) continue;
+    const ider = new Set(side.elever.map(e => e.id));
+    side.gruppe_begrensninger = slåSammenPar(side.gruppe_begrensninger ?? [],
+      par.filter(p => p.every(id => ider.has(id))));
+    Object.assign(side, kopierTrekk(listeTrekk, id => ider.has(id)));
+    side.liste = null;
+  }
   delete state.lister[navn];
+  delete state.liste_begrensninger[navn];
+  delete state.liste_trekk[navn];
   saveState();
   notify(t("🗑️ '{navn}' slettet", { navn }));
   renderListerModal();
 }
 
-// Tegner innholdet i «Lagrede lister»-modalen: én rad per liste med antall elever
-// og en slett-knapp. Klikk på raden laster lista; slett-knappen stopper propagering.
+// Gir en lagret liste nytt navn. Rekkefølgen i menyen beholdes, parene følger med,
+// og sider som er koblet til lista, får det nye navnet. Returnerer true ved suksess.
+function endreListenavn(gammelt, nytt) {
+  nytt = (nytt ?? '').trim().slice(0, 60);
+  if (!nytt || nytt === gammelt || !state.lister[gammelt]) return false;
+  if (FARLIGE_NØKLER.has(nytt) ||
+      Object.keys(state.lister).some(n => n !== gammelt && n.toLowerCase() === nytt.toLowerCase())) {
+    notify(t('Det finnes allerede en liste som heter {navn}', { navn: nytt }), 'warning');
+    return false;
+  }
+  const bytt = obj => Object.fromEntries(Object.entries(obj).map(([k, v]) => [k === gammelt ? nytt : k, v]));
+  state.lister = bytt(state.lister);
+  state.liste_begrensninger = bytt(state.liste_begrensninger);
+  state.liste_trekk = bytt(state.liste_trekk);
+  for (const side of state.sider) if (side.liste === gammelt) side.liste = nytt;
+  saveState();
+  notify(t('✓ Lista heter nå {navn}', { navn: nytt }));
+  return true;
+}
+
+// Laster ned én liste med parene sine som en fil. Formatet er det samme som en full
+// backup, bare med én liste og uten resten, så fila kan importeres både med
+// «📥 Importer liste» her og med «Flett inn bare klasselister» i den vanlige importen.
+// Fila inneholder elevnavn: det er læreren som bestemmer hvem den gis til.
+function eksporterListe(navn) {
+  const elever = state.lister[navn];
+  if (!elever) return;
+  const data = {
+    app: 'klasserom-dashboard',
+    format_versjon: EKSPORT_FORMAT_VERSJON,
+    eksportert: new Date().toISOString(),
+    innhold: {
+      klasselister: { [navn]: elever },
+      klasseliste_begrensninger: { [navn]: state.liste_begrensninger[navn] ?? [] },
+    },
+  };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  // Filnavnet får bare trygge tegn; æøå beholdes.
+  const filnavn = navn.replace(/[^\p{L}\p{N} _-]/gu, '').trim().replace(/\s+/g, '-') || 'liste';
+  a.download = `skoledash-liste-${filnavn}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  notify(t("📤 '{navn}' lastet ned", { navn }));
+}
+
+// Leser en liste- eller backupfil og fletter listene inn (se flettInnLister). Rører
+// verken sider, kort eller innstillinger.
+function importerListeFil(input) {
+  const fil = input.files?.[0];
+  input.value = ''; // tillat å velge samme fil igjen
+  if (!fil) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    let data;
+    try {
+      data = trygtJsonParse(e.target.result);
+    } catch (_) {
+      notify(t('Kunne ikke lese fila — er det en gyldig JSON-fil?'), 'error');
+      return;
+    }
+    if (!data || data.app !== 'klasserom-dashboard' || !data.innhold) {
+      notify(t('Dette ser ikke ut som en Skoledash-backup'), 'error');
+      return;
+    }
+    if (data.format_versjon > EKSPORT_FORMAT_VERSJON) {
+      notify(t('Fila er laget av en nyere versjon av Skoledash. Last siden på nytt og prøv igjen.'), 'error');
+      return;
+    }
+    const n = flettInnLister(data.innhold);
+    if (!n) { notify(t('Fant ingen lister i fila'), 'warning'); return; }
+    saveState();
+    renderListerModal();
+    notify(t('📥 {antall} liste(r) flettet inn', { antall: n }));
+  };
+  reader.readAsText(fil);
+}
+
+// Lista som står med skrivefelt i menyen akkurat nå (nytt navn), eller null.
+let redigerListeNavn = null;
+
+// Tegner innholdet i Lister-menyen: én rad per liste med antall elever og par, og
+// knapper for nytt navn, par, eksport og sletting. Klikk på selve raden laster lista.
+// Listenavnet ligger i data-navn (escapet) og leses av lyttere; det settes aldri inn
+// i en onclick, der et navn fra en delt fil kunne blitt til kode.
+// Knapp som må trykkes to ganger. Første trykk viser spørsmålet (klassen «bekreft»),
+// andre trykk utfører. spørsmål og tittel kan være funksjoner, så teksten kan avhenge
+// av situasjonen når knappen trykkes. Etter 3 sekunder uten nytt trykk går knappen tilbake.
+function toTrykk(knapp, { spørsmål, tittel, utfør }) {
+  const tekst = knapp.textContent;
+  const vanligTittel = knapp.title;
+  let tidtaker = null;
+  // Tilbake til vanlig knapp. Skjer etter 3 sekunder, og rett etter at handlingen er
+  // utført: knapper som står fast på kortet (🧹 Tøm), skal spørre igjen neste gang.
+  const tilbake = () => {
+    clearTimeout(tidtaker);
+    knapp.classList.remove('bekreft');
+    knapp.textContent = tekst;
+    knapp.title = vanligTittel;
+  };
+  knapp.addEventListener('click', () => {
+    if (knapp.classList.contains('bekreft')) { tilbake(); utfør(); return; }
+    knapp.classList.add('bekreft');
+    knapp.textContent = typeof spørsmål === 'function' ? spørsmål() : spørsmål;
+    knapp.title = tittel();
+    tidtaker = setTimeout(() => { if (knapp.isConnected) tilbake(); }, 3000);
+  });
+}
+
 function renderListerModal() {
   const innhold = document.getElementById('lister-innhold');
   const poster  = Object.entries(state.lister);
@@ -2367,27 +2722,78 @@ function renderListerModal() {
     innhold.innerHTML = `<p class="tom-tekst" style="padding:12px">${t('Ingen lagrede lister ennå.')}</p>`;
     return;
   }
-  // Listenavnet ligger i data-navn (escapet) og leses av en lytter. Det settes aldri
-  // inn i en onclick, der et navn fra en delt fil kunne blitt til kode.
+  const denne = sidensListe();
   innhold.innerHTML = `<div class="modal-list">
-    ${poster.map(([navn, elever]) => `
-      <div class="modal-list-item" data-navn="${esc(navn)}">
-        <span>📋 ${esc(navn)}</span>
-        <div class="flex gap-2" style="align-items:center">
-          <span class="item-meta">${t('{antall} elever', { antall: elever.length })}</span>
-          <button class="btn btn-sm liste-slett" style="background:var(--red-l);color:var(--red);padding:3px 8px"
-            title="${t('Slett lista')}">✕</button>
+    ${poster.map(([navn, elever]) => {
+      const antPar = (state.liste_begrensninger[navn] ?? []).length;
+      const navnHtml = navn === redigerListeNavn
+        ? `<input class="liste-navn-input" type="text" maxlength="60" value="${esc(navn)}" aria-label="${t('Nytt navn på lista')}">`
+        : `<span class="liste-navn">📋 ${esc(navn)}${navn === denne ? ` <span class="liste-denne">${t('(denne siden)')}</span>` : ''}</span>`;
+      return `
+      <div class="modal-list-item liste-rad" data-navn="${esc(navn)}">
+        ${navnHtml}
+        <div class="liste-handlinger">
+          <span class="item-meta">${t('{antall} elever', { antall: elever.length })}${antPar ? ` · ${t('{antall} par', { antall: antPar })}` : ''}</span>
+          <button class="liste-knapp" data-liste="endre" title="${t('Gi nytt navn')}" aria-label="${t('Gi nytt navn')}">✏️</button>
+          <button class="liste-knapp" data-liste="par" title="${t('Par som ikke skal i samme gruppe')}" aria-label="${t('Par som ikke skal i samme gruppe')}">⛔</button>
+          <button class="liste-knapp" data-liste="eksport" title="${t('Last ned lista som fil')}" aria-label="${t('Last ned lista som fil')}">📤</button>
+          <button class="liste-knapp liste-oppdater" data-liste="oppdater" title="${t('Erstatt elevene i lista med elevene på siden')}" aria-label="${t('Erstatt elevene i lista med elevene på siden')}">🔄</button>
+          <button class="liste-knapp liste-slett" data-liste="slett" title="${t('Slett lista')}" aria-label="${t('Slett lista')}">✕</button>
         </div>
-      </div>`).join('')}
+      </div>`;
+    }).join('')}
   </div>`;
-  innhold.querySelectorAll('.modal-list-item[data-navn]').forEach(el => {
-    const navn = el.dataset.navn;
-    el.addEventListener('click', () => { lastListe(navn); lukkModal(); });
-    el.querySelector('.liste-slett').addEventListener('click', e => {
-      e.stopPropagation();
-      slettListe(navn);
+
+  innhold.querySelectorAll('.liste-rad').forEach(rad => {
+    const navn = rad.dataset.navn;
+    rad.addEventListener('click', e => {
+      if (e.target.closest('.liste-knapp, .liste-navn-input')) return;
+      lastListe(navn);
+      lukkModal();
+    });
+    rad.querySelector('[data-liste="endre"]').addEventListener('click', () => {
+      redigerListeNavn = navn;
+      renderListerModal();
+    });
+    rad.querySelector('[data-liste="par"]').addEventListener('click', () => {
+      lukkModal();
+      åpneBegrensningModal(navn);
+    });
+    rad.querySelector('[data-liste="eksport"]').addEventListener('click', () => eksporterListe(navn));
+    // Oppdater og slett krever to trykk: det første gjør knappen om til et spørsmål,
+    // og den går tilbake av seg selv etter noen sekunder hvis du ikke trykker igjen.
+    toTrykk(rad.querySelector('[data-liste="oppdater"]'), {
+      spørsmål: t('Overskriv?'),
+      tittel: () => t('Trykk igjen for å erstatte elevene i {navn} med de {antall} elevene på siden', { navn, antall: aktivSide().elever.length }),
+      utfør: () => { if (lagreListe(navn)) renderListerModal(); },
+    });
+    toTrykk(rad.querySelector('[data-liste="slett"]'), {
+      spørsmål: t('Slett?'),
+      tittel: () => t('Trykk igjen for å slette {navn}', { navn }),
+      utfør: () => slettListe(navn),
     });
   });
+
+  // Skrivefeltet for nytt navn: Enter og «mistet fokus» lagrer, Esc avbryter.
+  const inp = innhold.querySelector('.liste-navn-input');
+  if (inp) {
+    const gammelt = redigerListeNavn;
+    let ferdig = false;
+    const avslutt = lagre => {
+      if (ferdig) return;
+      ferdig = true;
+      if (lagre) endreListenavn(gammelt, inp.value);
+      redigerListeNavn = null;
+      renderListerModal();
+    };
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); avslutt(true); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); avslutt(false); }
+    });
+    inp.addEventListener('blur', () => avslutt(true));
+    inp.focus();
+    inp.select();
+  }
 }
 
 // ===================== Fri flate (layout) =====================
@@ -2708,6 +3114,22 @@ function planleggHøyde(card) {
     if (endret) saveState();
   });
 }
+
+// Høyden lagres i prosent av flata. Blir flata lavere (backup-stripa nederst dukker
+// opp, eller vinduet blir mindre), blir kortet like mange prosent, men færre piksler,
+// og innholdet får ikke plass. Barna i kortet endrer ikke størrelse, så observeren
+// over merker ingenting. Derfor følger vi også med på flata selv og måler alle
+// voksende kort på nytt når høyden endrer seg. Første måling ved oppstart retter
+// kort som ble lagret for lave før denne observeren fantes.
+let sistFlateH = 0;
+const flateObserver = new ResizeObserver(([o]) => {
+  const h = o.contentRect.height;
+  if (!h || Math.abs(h - sistFlateH) < 1) return;
+  sistFlateH = h;
+  document.querySelectorAll('#flate .card').forEach(card => {
+    if (FØLGER_INNHOLD.includes(kortType(card.id))) planleggHøyde(card);
+  });
+});
 
 // Starter observasjonen for et kort med voksende innhold (én gang per kort).
 function følgInnhold(card) {
@@ -3237,9 +3659,9 @@ function fjernSide(idx) {
 // ===================== Reset =====================
 // Hver nullstill*-funksjon tømmer ett enkelt trekk/widget på aktiv side: tøm
 // valgt + backlog, lagre, tegn på nytt og varsle. Brukes fra Nullstill-modalen.
-function nullstillTilfeldig()   { const s = aktivSide(); s.tilfeldig_valgt = null; s.tilfeldig_backlog = []; saveState(); renderTilfeldig(); notify(t('🙋 Tilfeldig-trekk nullstilt')); }
-function nullstillOrdenselev()  { const s = aktivSide(); s.ordenselev_valgte = []; s.ordenselev_backlog = []; saveState(); renderOrdenselev(); notify(t('⭐ Ordenselever-trekk nullstilt')); }
-function nullstillUlv()         { const s = aktivSide(); s.ulv_valgt = null; s.ulv_backlog = []; saveState(); renderUlv(); notify(t('🐺 Ulv-trekk nullstilt')); }
+function nullstillTilfeldig()   { const r = trekk(); r.tilfeldig_valgt = null; r.tilfeldig_backlog = []; saveState(); renderTilfeldig(); notify(t('🙋 Tilfeldig-trekk nullstilt')); }
+function nullstillOrdenselev()  { const r = trekk(); r.ordenselev_valgte = []; r.ordenselev_backlog = []; r.ordenselev_skyldig = []; saveState(); renderOrdenselev(); notify(t('⭐ Ordenselever-trekk nullstilt')); }
+function nullstillUlv()         { const r = trekk(); r.ulv_valgt = null; r.ulv_backlog = []; r.ulv_skyldig = []; saveState(); renderUlv(); notify(t('🐺 Ulv-trekk nullstilt')); }
 // Tømmer teksten i ALLE notat-kort (ikke bare aktiv side, siden notater er globale).
 // Må også nullstille de synlige tekstfeltene + krympe dem, ikke bare state.
 function nullstillNotat() {
@@ -3284,6 +3706,33 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.39</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>Trekkene huskes per klasseliste.</strong> Hvem som har vært ordenselev, hatt klassebamsen og blitt trukket, følger lista. Bytter du til en annen liste og tilbake, er alt der fortsatt, og to sider med samme liste deler trekkene</li>
+      <li><strong>Ordenselever og klassebamsen går i runder av seg selv.</strong> Når alle har hatt tur, starter en ny runde, og du får beskjed. Er det én ordenselev igjen, kommer den eleven med i første trekk i den nye runden</li>
+      <li><strong>Par som ikke skal i samme gruppe, blir heller ikke ordenselever sammen.</strong> Blir en elev sperret på slutten av en runde, får eleven turen sin i neste trekk</li>
+      <li><strong>Én eller to ordenselever:</strong> 👥 øverst i Ordenselever-kortet bytter til 👤 for én ordenselev per trekk. Valget følger lista</li>
+      <li><strong>Ingen mister turen sin ved fravær:</strong> er en elev borte når runden er ferdig, trekkes eleven først når hen er tilbake</li>
+      <li><strong>🔄 på Tilfeldig elev</strong> tømmer backlogen rett fra kortet</li>
+      <li><strong>🧹 Tøm i elevkortet</strong> tømmer siden for elever, så du kan starte en ny klasse. Lagrede lister røres ikke, og knappen sier fra hvis elevene ikke er lagret</li>
+    </ul>
+  </div>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.38</div>
+    <div class="logg-dato">3. november 2026</div>
+    <ul>
+      <li><strong>📋 Klasselister har fått egen plass i 🏫 Skoledash-menyen,</strong> i tillegg til knappen i elevkortet. ⛔ Gruppebegrensning er tatt ut av menyen, den finner du nå ved hver liste</li>
+      <li><strong>Gi en liste nytt navn</strong> med ✏️</li>
+      <li><strong>Oppdater en liste</strong> med 🔄: elevene på siden erstatter elevene i lista, så nye og fjernede elever blir husket. Knappen må trykkes to ganger</li>
+      <li><strong>Sletting krever to trykk:</strong> ✕ blir til «Slett?», så en liste ikke forsvinner ved et uhell</li>
+      <li><strong>Del én liste med en vikar:</strong> 📤 laster ned lista som en fil, og 📥 Importer liste henter den inn hos mottakeren</li>
+      <li><strong>Parene som ikke skal i samme gruppe, lagres nå i klasselista,</strong> så de følger lista til vikaren og til hver side lista lastes inn på. Par du har fra før, flyttes inn i lista neste gang du lagrer eller laster den</li>
+      <li>Fikset: menyvalg som åpner et vindu (som 💬 Tilbakemelding), lot menyen stå åpen bak vinduet</li>
+      <li>Fikset: når backup-varselet dukket opp nederst (for eksempel etter at du lagret en liste), ble elevkortet og de andre voksende kortene for lave, og de nederste knappene ble kuttet. Kortene måles nå på nytt når plassen endrer seg, også når du endrer størrelse på vinduet</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.37</div>
     <div class="logg-dato">3. november 2026</div>
@@ -3732,8 +4181,8 @@ const BRUKERVEILEDNING_HTML = `
   <h4>Sider — ett arbeidsbord per klasse</h4>
   <p>Klikk <strong>+</strong> i midten av headeren for å legge til en ny side, klikk på et sidenavn for å bytte, og <strong>✕</strong> på en fane for å slette. Tanken er at <strong>hver side er sin egen klasse</strong>: lag side 1 for 1A og side 2 for 1B, og bytt fritt mellom dem gjennom dagen uten at noe blandes.</p>
   <p><strong>Gi en side nytt navn</strong> ved å dobbeltklikke på fanen. Da blir den til et lite skrivefelt — skriv inn navnet (f.eks. «1A» eller «Mattegruppe») og trykk <kbd>Enter</kbd> for å lagre. <kbd>Esc</kbd> avbryter uten å endre navnet.</p>
-  <p><strong>Per side</strong> (egen for hver klasse): elevlisten, grupper, alle trekk og backlogs (tilfeldig/ordenselev/klassebamse), dagsplanen, gruppebegrensninger, klassebamsens navn, pluss oppsettet av kortene, notater og bilder.</p>
-  <p><strong>Delt mellom alle sider:</strong> lagrede klasselister (📋 Lister — et felles bibliotek du kan laste inn i hvilken som helst side), tema, font, skriftstørrelse og timeren.</p>
+  <p><strong>Per side</strong> (egen for hver klasse): elevlisten, grupper, dagsplanen, klassebamsens navn, pluss oppsettet av kortene, notater og bilder.</p>
+  <p><strong>Delt mellom alle sider:</strong> lagrede klasselister (📋 Lister — et felles bibliotek du kan laste inn i hvilken som helst side) med sine trekk, tema, font, skriftstørrelse og timeren.</p>
   <p>Timeren er felles og fortsetter å gå selv om du bytter side. Vil du f.eks. vise et bilde på en egen side mens nedtellingen ruller, går det helt fint — timeren teller videre i bakgrunnen.</p>
   <p>En <strong>ny side starter helt tom</strong> — ingen kort er synlige ennå. Du henter selv fram akkurat de kortene du vil ha via <strong>⊞ Kort</strong>-menyen, så hver side blir nøyaktig slik du ønsker den.</p>
   <p><strong>Side 1 starter med et lite utvalg</strong> første gang du åpner appen: klokke og tilfeldig elev til venstre, dagsplan og notat i midten, og elevlisten til høyre. Det er med vilje få kort — da får hele siden plass på skjermen med én gang. Ordenselever, klassebamse, terning, timer og grupper ligger klare i <strong>⊞ Kort</strong> og dukker opp på sin faste plass når du krysser dem av.</p>
@@ -3744,6 +4193,14 @@ const BRUKERVEILEDNING_HTML = `
   <p><strong>Fjerne en elev:</strong> trykk <strong>✕</strong> til høyre for navnet (vises når du holder musa over), eller <strong>👤 Fjern elever…</strong> for å fjerne flere. Eleven forsvinner da også fra gruppene, trekk-backlogene og gruppebegrensningene.</p>
   <p><strong>Stor forbokstav kommer av seg selv:</strong> skriver du «kari nordmann», lagres det som «Kari Nordmann». Det samme gjelder etter bindestrek («Anne-Marie»), og navn med æ, ø og å behandles riktig.</p>
   <p>Vil du spare tid neste gang? Lagre elevlisten din under <strong>📋 Lister</strong>, og last den inn igjen med ett klikk.</p>
+  <p><strong>Starte en ny klasse:</strong> trykk <strong>🧹 Tøm</strong> nederst i elevkortet, og trykk igjen når knappen spør. Elevene, gruppene og oppmøtet forsvinner fra siden, og <strong>+ Legg til elev</strong> åpnes. Lagrede lister røres ikke. Står det <strong>Ikke lagret. Tøm?</strong> på knappen, er elevene ikke lagret i en liste og blir borte.</p>
+
+  <h4>📋 Klasselister</h4>
+  <p>Åpne <strong>📋 Lister</strong> i elevkortet, eller <strong>📋 Klasselister</strong> i 🏫 Skoledash-menyen. <strong>💾 Lagre nåværende</strong> lagrer elevlista på siden du står på. Klikk på en liste for å laste den inn. Lagrede lister deles av alle sidene dine.</p>
+  <p>Hver liste har fem knapper: <strong>✏️</strong> gir lista nytt navn (<kbd>Enter</kbd> lagrer, <kbd>Esc</kbd> avbryter), <strong>⛔</strong> åpner parene som ikke skal i samme gruppe, <strong>📤</strong> laster ned lista som en fil, <strong>🔄</strong> erstatter elevene i lista med elevene på siden, og <strong>✕</strong> sletter den. 🔄 bruker du når du har lagt til eller fjernet elever og vil at lista skal huske det. Både 🔄 og ✕ må trykkes to ganger: første trykk gjør knappen om til <strong>Overskriv?</strong> eller <strong>Slett?</strong>.</p>
+  <p><strong>Del en liste med en vikar eller kollega:</strong> trykk <strong>📤</strong> og send fila. Mottakeren trykker <strong>📥 Importer liste</strong> nederst i Klasselister. Parene følger med. Fila inneholder elevnavn, så tenk over hvem du gir den til. Har mottakeren en liste med samme navn fra før, blir den erstattet.</p>
+  <p>Står det <em>(denne siden)</em> bak en liste, er det den lista siden sist ble lastet fra eller lagret som. Lista og siden er ellers hver sin kopi: endrer du elever på siden, havner det i lista først når du lagrer den på nytt.</p>
+  <p><strong>Trekkene følger lista.</strong> Hvem som har vært ordenselev, hatt bamsen og blitt trukket, huskes per liste. Bytter du til en annen liste og tilbake, er trekkene der fortsatt. Bruker to sider samme liste, deler de trekkene.</p>
 
   <h4>✓ Hvem er her i dag?</h4>
   <p>Hver elev i lista har to små runde knapper: <strong>✓</strong> betyr at eleven er her, og <strong>−</strong> betyr at eleven er borte. Trykk på samme knapp en gang til for å fjerne markeringen.</p>
@@ -3754,10 +4211,11 @@ const BRUKERVEILEDNING_HTML = `
 
   <h4>Trekke elever</h4>
   <p><strong>🙋 Tilfeldig elev</strong> — trykk <strong>Trekk</strong> for å velge en tilfeldig elev fra listen. Vanlig trekk unngår å velge samme elev to ganger på rad.</p>
-  <p><strong>Trekk (bl)</strong> — trekker uten repetisjon (backlog). Hver elev trekkes én gang før noen trekkes på nytt. Antall trukket vises under knappen.</p>
-  <p><strong>⭐ Ordenselever</strong> — velger to elever som har ordenselev-ansvar. Bruker også backlog, slik at alle rekker å ha vært ordenselev før noen gjentas.</p>
-  <p><strong>Klassebamse</strong> — velger hvem som får bamsen (eller en annen gjenstand) med hjem. Også med backlog.</p>
-  <p>Vil du nullstille en backlog? Trykk <strong>⚙️ Nullstill…</strong> nederst til venstre.</p>
+  <p><strong>Trekk (bl)</strong> — trekker uten repetisjon (backlog). Hver elev trekkes én gang før noen trekkes på nytt. Antall trukket vises under knappen. Når alle er trukket, trykker du <strong>🔄</strong> øverst i kortet (vises når du holder musa over) for å starte på nytt.</p>
+  <p><strong>⭐ Ordenselever</strong> — velger to elever som har ordenselev-ansvar. Alle får tur før noen gjentas, og når alle har vært ordenselev, starter en ny runde av seg selv, med en melding om det. Er det én elev igjen, kommer den eleven med i første trekk i den nye runden. To elever som ikke skal i samme gruppe (⛔), blir heller aldri ordenselever sammen. Vil du bare ha én ordenselev, trykker du <strong>👥</strong> øverst i kortet, så blir den til <strong>👤</strong>. Valget gjelder lista, som trekkene.</p>
+  <p><strong>Klassebamse</strong> — velger hvem som får bamsen (eller en annen gjenstand) med hjem. Går også i runder av seg selv.</p>
+  <p><strong>Borte når runden er ferdig?</strong> En elev som er markert borte og ikke har hatt tur, mister den ikke: eleven trekkes først når hen er tilbake.</p>
+  <p>Vil du nullstille en backlog for hånd? Trykk <strong>⚙️ Nullstill…</strong> nederst til venstre.</p>
 
   <h4>📝 Redigere backlog for ordenselev / klassebamse</h4>
   <p>Trykk på blyant-ikonet (📝) i kortets hjørne. Du ser alle elevene som chips — grå chips er allerede «brukt». Trykk på en elev for å sette eller fjerne «brukt»-markeringen. Nyttig hvis du har mistet lokal data og trenger å rekonstruere hvem som har vært ordenselev eller hatt med bamsen.</p>
@@ -3770,7 +4228,8 @@ const BRUKERVEILEDNING_HTML = `
   <p><strong>Ny elev når gruppene er laget:</strong> eleven havner i den minste gruppen, og de andre blir der de er. Er flere grupper like små, velges en av dem tilfeldig. Gruppebegrensninger følges: passer eleven ikke i noen gruppe uten å bryte en, står eleven utenfor til du deler inn på nytt.</p>
 
   <h4>⛔ Gruppebegrensning</h4>
-  <p>Klikk <strong>⛔ Par</strong> i Grupper-kortets hjørne for å åpne begrensningslisten. Velg to elever fra nedtrekksmenyene og klikk <strong>Legg til</strong>. Paret vil aldri havne i samme gruppe. Du kan legge til så mange par du vil. Fjern et par ved å klikke <strong>✕</strong> ved siden av det.</p>
+  <p>Klikk <strong>⛔</strong> ved en liste i <strong>📋 Klasselister</strong>, eller <strong>⛔ Par</strong> i Grupper-kortets hjørne. Velg to elever fra nedtrekksmenyene og klikk <strong>Legg til</strong>. Paret vil aldri havne i samme gruppe. Du kan legge til så mange par du vil. Fjern et par ved å klikke <strong>✕</strong> ved siden av det.</p>
+  <p><strong>Parene lagres i klasselista,</strong> ikke på siden. Da blir de med når du deler lista med en vikar, og de gjelder på hver side du laster lista inn på. Har siden ingen lagret liste ennå, ber ⛔ deg lagre lista først. Par du laget før dette, virker som før og flyttes inn i lista neste gang du lagrer eller laster den.</p>
 
   <h4>🎲 Terning</h4>
   <p>Trykk <strong>🎲 Kast</strong> (eller tasten <kbd>k</kbd>) for å kaste. Terningen triller et lite øyeblikk før den lander, så klassen rekker å bli spent.</p>
@@ -4189,6 +4648,20 @@ function settOppHendelser() {
     if (leggTilElev(navn)) lukkModal();
   };
   document.getElementById('btn-legg-til-bekreft').onclick = bekreftLeggTil;
+  // 🧹 Tøm: to trykk. Er ikke elevene lagret i en liste, sier spørsmålet fra om det.
+  // Etterpå åpnes «Legg til elev», så læreren kan skrive inn den nye klassen.
+  toTrykk(document.getElementById('btn-tom-elever'), {
+    spørsmål: () => elevlistaErLagret() || !aktivSide().elever.length ? t('Tøm?') : t('Ikke lagret. Tøm?'),
+    tittel: () => elevlistaErLagret()
+      ? t('Trykk igjen for å tømme. Lista {navn} er lagret og røres ikke.', { navn: sidensListe() })
+      : t('Trykk igjen for å tømme. Elevene er ikke lagret i en liste og blir borte.'),
+    utfør: () => {
+      tømElevlista();
+      document.getElementById('btn-legg-til').click();
+    },
+  });
+  document.getElementById('btn-tilfeldig-tom').onclick = nullstillTilfeldig;
+  document.getElementById('btn-ordenselev-antall').onclick = byttOrdenselevAntall;
   document.getElementById('btn-legg-til-avbryt').onclick  = lukkModal;
   inputEnter('input-elev-navn', bekreftLeggTil);
 
@@ -4253,6 +4726,8 @@ function settOppHendelser() {
     åpneModal('modal-lister');
   };
   document.getElementById('btn-lister-lukk').onclick = lukkModal;
+  document.getElementById('btn-lister-importer').onclick = () => document.getElementById('importer-liste-fil').click();
+  document.getElementById('importer-liste-fil').addEventListener('change', e => importerListeFil(e.target));
   document.getElementById('btn-lister-lagre').onclick = () => {
     if (!aktivSide().elever.length) { notify(t('Ingen elever inne å lagre'), 'warning'); return; }
     lukkModal();
@@ -4343,7 +4818,13 @@ function settOppHendelser() {
     e.stopPropagation();
     klasseromDrop.classList.toggle('hidden');
   };
-  klasseromDrop.addEventListener('click', e => e.stopPropagation());
+  klasseromDrop.addEventListener('click', e => {
+    e.stopPropagation();
+    // Valg som går via data-klikk (Tilbakemelding, Klasselister) åpner et vindu.
+    // Menyen lukkes, så den ikke blir hengende åpen bak vinduet. Selve handlingen
+    // kjøres av den felles data-klikk-lytteren.
+    if (e.target.closest('[data-klikk]')) klasseromDrop.classList.add('hidden');
+  });
   document.getElementById('btn-åpne-logg').onclick  = () => {
     klasseromDrop.classList.add('hidden');
     åpneInfoModal(t('📋 Oppdateringslogg'), oppdateringsloggHtml());
@@ -4521,16 +5002,17 @@ function åpneRedigerBacklog(type) {
   const chips = document.getElementById('rediger-backlog-chips');
   chips.innerHTML = '';
   (s.elever || []).forEach(({ id, navn }) => {
-    const erBrukt = s[backlogKey].includes(id);
+    const r = trekk(s);
+    const erBrukt = r[backlogKey].includes(id);
     const chip = document.createElement('div');
     chip.className = 'chip' + (erBrukt ? ' brukt' : '');
     chip.textContent = navn;
     chip.onclick = () => {
-      if (s[backlogKey].includes(id)) {
-        s[backlogKey] = s[backlogKey].filter(n => n !== id);
+      if (r[backlogKey].includes(id)) {
+        r[backlogKey] = r[backlogKey].filter(n => n !== id);
         chip.classList.remove('brukt');
       } else {
-        s[backlogKey].push(id);
+        r[backlogKey].push(id);
         chip.classList.add('brukt');
       }
       saveState();
@@ -5117,40 +5599,93 @@ function fjernYoutubeWidget(instansId) {
 }
 
 // ===================== Gruppebegrensning =====================
-// Legger til et «hold fra hverandre»-par på aktiv side, som lagGrupper respekterer.
-// Hopper over tomt/likt par og duplikater (par er retningsløse: A+B == B+A).
-// navn1 og navn2 er elev-id-er (verdiene i nedtrekkslistene), ikke navn.
-function leggTilBegrensning(navn1, navn2) {
-  if (!navn1 || !navn2) return;
-  if (navn1 === navn2) { notify(t('Velg to forskjellige elever'), 'warning'); return; }
-  const s = aktivSide();
-  const allerede = (s.gruppe_begrensninger ?? []).some(
-    ([a, b]) => (a === navn1 && b === navn2) || (a === navn2 && b === navn1)
-  );
-  if (allerede) { notify(t('Dette paret er allerede lagt til'), 'warning'); return; }
-  s.gruppe_begrensninger = [...(s.gruppe_begrensninger ?? []), [navn1, navn2]];
+// «Hold fra hverandre»-par lagres i den lagrede klasselista (state.liste_begrensninger:
+// listenavn → par av elev-id-er), så de følger med når lista eksporteres til en vikar
+// eller en kollega. En side husker lista den kom fra (s.liste), og da gjelder listas
+// par når siden deler inn i grupper.
+// Sider kunne ha egne par før v2.38 (s.gruppe_begrensninger). De virker fortsatt, men
+// det kan ikke legges til nye. De flyttes inn i lista når siden lagres som liste, eller
+// når en liste lastes inn på siden.
+
+// Lista siden er koblet til, hvis den fortsatt finnes. Ellers null.
+function sidensListe(s = aktivSide()) {
+  return s.liste && state.lister[s.liste] ? s.liste : null;
+}
+
+// Parene som gjelder for Del inn og for nye elever på siden.
+function aktivePar(s = aktivSide()) {
+  const liste = sidensListe(s);
+  return liste ? (state.liste_begrensninger[liste] ?? []) : (s.gruppe_begrensninger ?? []);
+}
+
+// Slår sammen lister med par til én, uten like par (A+B er det samme som B+A) og uten
+// par der begge er samme elev. Brukes også av normaliserState(), så den må ikke lene
+// seg på konstanter lenger ned.
+function slåSammenPar(...lister) {
+  const sett = new Set();
+  const ut = [];
+  for (const [a, b] of lister.flat()) {
+    if (typeof a !== 'string' || typeof b !== 'string' || a === b) continue;
+    const nøkkel = [a, b].sort().join('|');
+    if (sett.has(nøkkel)) continue;
+    sett.add(nøkkel);
+    ut.push([a, b]);
+  }
+  return ut;
+}
+
+// Lista par-dialogen redigerer akkurat nå, eller null: da viser den sidens gamle par
+// (bare for å fjerne dem) og ber læreren lagre en liste først.
+let parDialogListe = null;
+
+// Parene og elevene dialogen jobber med.
+function parIDialog() {
+  if (!parDialogListe) return aktivSide().gruppe_begrensninger ?? [];
+  return (state.liste_begrensninger[parDialogListe] ??= []);
+}
+function eleverIDialog() {
+  return parDialogListe ? (state.lister[parDialogListe] ?? []) : aktivSide().elever;
+}
+
+// Legger til et par i lista dialogen gjelder. a og b er elev-id-er (verdiene i
+// nedtrekkslistene). Hopper over tomt/likt par og duplikater.
+function leggTilBegrensning(a, b) {
+  if (!parDialogListe || !a || !b) return;
+  if (a === b) { notify(t('Velg to forskjellige elever'), 'warning'); return; }
+  const par = parIDialog();
+  if (slåSammenPar(par, [[a, b]]).length === par.length) {
+    notify(t('Dette paret er allerede lagt til'), 'warning');
+    return;
+  }
+  par.push([a, b]);
   saveState();
   renderBegrensninger();
 }
 
-// Fjerner et begrensnings-par ved indeks.
+// Fjerner et par ved indeks fra det dialogen viser.
 function fjernBegrensning(idx) {
-  aktivSide().gruppe_begrensninger.splice(idx, 1);
+  parIDialog().splice(idx, 1);
   saveState();
   renderBegrensninger();
 }
 
-// Tegner lista over begrensnings-par med en slett-knapp per par. Navnene settes med
-// textContent, aldri som HTML. Viser en forklaring når lista er tom, og slår av
-// «Legg til» hvis siden har færre enn to elever.
+// Tegner par-dialogen: forklaring, skrivefeltene og lista over par med en slett-knapp
+// per par. Navnene settes med textContent, aldri som HTML.
 function renderBegrensninger() {
   const liste = document.getElementById('begrensning-liste');
   if (!liste) return;
-  const s = aktivSide();
-  const par = s.gruppe_begrensninger ?? [];
+  const elever = eleverIDialog();
+  const navnPå = id => elever.find(e => e.id === id)?.navn ?? '';
+  const par = parIDialog();
+  const forklaring = document.getElementById('begrensning-forklaring');
+  forklaring.innerHTML = parDialogListe
+    ? t('Velg to elever som ikke skal havne i samme gruppe når du trykker <strong>Del inn</strong>. Parene lagres i lista <strong>{liste}</strong>, så de blir med når lista deles.', { liste: esc(parDialogListe) })
+    : t('Parene lagres i en klasseliste, så de blir med når lista deles med en vikar. Lagre elevlista under <strong>📋 Lister</strong> først, så kan du legge til par her.');
+  document.querySelector('.begrensning-input').classList.toggle('hidden', !parDialogListe);
+
   liste.replaceChildren(...par.map(([idA, idB], i) => {
-    const a = elevNavn(idA, s);
-    const b = elevNavn(idB, s);
+    const a = navnPå(idA);
+    const b = navnPå(idB);
     const li = document.createElement('li');
     const navn = document.createElement('span');
     navn.className = 'begrensning-par';
@@ -5170,10 +5705,11 @@ function renderBegrensninger() {
     return li;
   }));
 
-  const forFå = s.elever.length < 2;
-  document.getElementById('btn-begr-legg-til').disabled = forFå;
+  const forFå = elever.length < 2;
+  document.getElementById('btn-begr-legg-til').disabled = forFå || !parDialogListe;
   document.getElementById('begrensning-tom').textContent =
-    forFå ? t('Legg til minst to elever i elevlista først.') :
+    !parDialogListe ? '' :
+    forFå ? t('Lista har færre enn to elever.') :
     par.length ? '' : t('Ingen par ennå.');
 }
 
@@ -5190,9 +5726,12 @@ function settOppBegrensning() {
   });
 }
 
-// Åpner begrensnings-modalen og tegner gjeldende par.
-function åpneBegrensningModal() {
+// Åpner par-dialogen for en lagret liste. Uten navn gjelder den lista siden er
+// koblet til (⛔ i Grupper-kortet), eller sidens gamle par hvis siden ikke har liste.
+function åpneBegrensningModal(listenavn = sidensListe()) {
+  parDialogListe = listenavn && state.lister[listenavn] ? listenavn : null;
   document.getElementById('begrensning-modal').style.display = 'flex';
+  oppdaterBegrensningSelecter();
   renderBegrensninger();
 }
 
@@ -5203,7 +5742,7 @@ function oppdaterBegrensningSelecter() {
     const sel = document.getElementById(id);
     if (!sel) return;
     const val = sel.value;
-    const elever = aktivSide().elever;
+    const elever = eleverIDialog();
     // new Option() setter navnet som ren tekst. Bygget som HTML-tekst ville et elevnavn
     // med f.eks. «<img onerror=...>» blitt til kode. Verdien er elevens id.
     sel.replaceChildren(...elever.map(e => new Option(e.navn, e.id)));
@@ -5229,6 +5768,8 @@ const EKSPORT_FORMAT_VERSJON = 2;
 function beregnEksportSignatur(s = state) {
   return JSON.stringify({
     lister: s.lister ?? {},
+    par: s.liste_begrensninger ?? {},
+    trekk: s.liste_trekk ?? {},
     backlogs: (s.sider ?? []).map(side => [
       side.tilfeldig_backlog, side.ordenselev_backlog, side.ulv_backlog,
     ]),
@@ -5241,8 +5782,8 @@ function oppdaterEksportVarsel() {
   const el = document.getElementById('eksport-varsel');
   if (!el) return;
   const harData = Object.keys(state.lister ?? {}).length > 0 ||
-    (state.sider ?? []).some(s =>
-      s.tilfeldig_backlog.length || s.ordenselev_backlog.length || s.ulv_backlog.length);
+    [...(state.sider ?? []), ...Object.values(state.liste_trekk ?? {})].some(r =>
+      r.tilfeldig_backlog.length || r.ordenselev_backlog.length || r.ulv_backlog.length);
   const endret = state.eksport_signatur !== beregnEksportSignatur();
   el.classList.toggle('hidden', !(harData && endret));
 }
@@ -5275,6 +5816,8 @@ async function eksporterData() {
         timer_varighet:    state.timer_varighet,
       },
       klasselister: state.lister,
+      klasseliste_begrensninger: state.liste_begrensninger,
+      klasseliste_trekk: state.liste_trekk,
       sider:        state.sider,
       aktiv_side:   state.aktiv_side,
       widgetinnhold: {
@@ -5341,6 +5884,29 @@ function håndterImportFil(input) {
   reader.readAsText(fil);
 }
 
+// Legger listene (og parene deres) fra en backup- eller listefil inn i de lagrede
+// listene. Alt annet røres ikke. En liste med samme navn som en du har, blir erstattet.
+// Fila kan komme fra en kollega, så alt vaskes med samme regler som normaliserState().
+// Returnerer antall lister. Lagrer ikke selv.
+function flettInnLister(innhold) {
+  const innkommende = erObjekt(innhold?.klasselister) ? innhold.klasselister : {};
+  const alleP = erObjekt(innhold?.klasseliste_begrensninger) ? innhold.klasseliste_begrensninger : {};
+  let n = 0;
+  for (const [navn, elever] of Object.entries(innkommende)) {
+    if (!Array.isArray(elever) || FARLIGE_NØKLER.has(navn)) continue;
+    const listenavn = navn.slice(0, 60);
+    state.lister[listenavn] = normaliserElever(elever);
+    // Parene følger lista, så en vikar som får lista, får parene også. Bare par
+    // mellom elever som faktisk står i lista, slipper inn.
+    const ider = new Set(state.lister[listenavn].map(e => e.id));
+    const par = alleP[navn];
+    state.liste_begrensninger[listenavn] = slåSammenPar((Array.isArray(par) ? par : [])
+      .filter(p => Array.isArray(p) && p.length === 2 && p.every(id => ider.has(id))));
+    n++;
+  }
+  return n;
+}
+
 // Steg 2 av import: utfør den etter at brukeren har valgt modus.
 //  - «flett_lister»: behold alt nåværende, bare legg til/oppdater lagrede lister.
 //  - «erstatt»: bygg en helt ny tilstand fra fila (tolerant — manglende felt får
@@ -5352,16 +5918,7 @@ async function bekreftImport() {
   const innhold = data.innhold ?? {};
 
   if (modus === 'flett_lister') {
-    // Behold alt nåværende; legg til/oppdater kun de lagrede listene. Fila kan komme
-    // fra en kollega, så bare lister med tekst slippes inn, med samme grenser som
-    // normaliserState() bruker for lagret data.
-    const innkommende = erObjekt(innhold.klasselister) ? innhold.klasselister : {};
-    let n = 0;
-    for (const [navn, elever] of Object.entries(innkommende)) {
-      if (!Array.isArray(elever) || FARLIGE_NØKLER.has(navn)) continue;
-      state.lister[navn.slice(0, 60)] = normaliserElever(elever);
-      n++;
-    }
+    const n = flettInnLister(innhold);
     saveState();
     lukkModal();
     ventendeImport = null;
@@ -5379,6 +5936,8 @@ async function bekreftImport() {
   if (pref.widget_størrelser !== undefined) ny.widget_størrelser = pref.widget_størrelser;
   if (pref.timer_varighet    !== undefined) ny.timer_varighet = pref.timer_varighet;
   if (innhold.klasselister   !== undefined) ny.lister = innhold.klasselister;
+  if (innhold.klasseliste_begrensninger !== undefined) ny.liste_begrensninger = innhold.klasseliste_begrensninger;
+  if (innhold.klasseliste_trekk !== undefined) ny.liste_trekk = innhold.klasseliste_trekk;
   if (Array.isArray(innhold.sider) && innhold.sider.length) ny.sider = innhold.sider;
   const wi = innhold.widgetinnhold ?? {};
   if (wi.notater        !== undefined) ny.notater = wi.notater;
@@ -5509,6 +6068,7 @@ function init() {
   });
 
   applyLayout();
+  flateObserver.observe(document.getElementById('flate'));
   settTema(state.tema ?? 'lyst');
   settFont(state.font ?? 'system');
   settSkriftstørrelse(state.skrift_størrelse ?? 'normal');
@@ -5577,6 +6137,7 @@ const KLIKK_HANDLINGER = {
   'tilbakemelding':       () => åpneTilbakemeldingModal(),
   'lukk-tilbakemelding':  () => { document.getElementById('feedback-modal').style.display = 'none'; },
   'begrensning':          () => åpneBegrensningModal(),
+  'lister':               () => { renderListerModal(); åpneModal('modal-lister'); },
   'skjul-widget':         el => toggleWidgetSynlighet(el.dataset.widget, false),
   'klokke-visning':       () => byttKlokkeVisning(),
   'fjern-guide':          el => fjernGuide(el.dataset.widget),

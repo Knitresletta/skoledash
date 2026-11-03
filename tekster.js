@@ -87,14 +87,25 @@ const NYNORSK = {
   'Trekk uten repetisjon (R)': 'Trekk utan repetisjon (R)',
   'Trykk Trekk for å velge en tilfeldig elev': 'Trykk Trekk for å velje ein tilfeldig elev',
   'Trykk Trekk for å velge to ordenselever': 'Trykk Trekk for å velje to ordenselevar',
+  'Trykk Trekk for å velge en ordenselev': 'Trykk Trekk for å velje ein ordenselev',
+  '⭐ Én ordenselev per trekk': '⭐ Éin ordenselev per trekk',
+  '⭐ To ordenselever per trekk': '⭐ To ordenselevar per trekk',
+  'Én ordenselev per trekk. Trykk for to.': 'Éin ordenselev per trekk. Trykk for to.',
+  'To ordenselever per trekk. Trykk for én.': 'To ordenselevar per trekk. Trykk for éin.',
   'Trykk Trekk for å velge hvem som tar med klassebamse hjem': 'Trykk Trekk for å velje kven som tek med klassebamse heim',
   'Trykk Trekk for å velge hvem som tar med {bamse} hjem': 'Trykk Trekk for å velje kven som tek med {bamse} heim',
   '{elev} tar med {bamse} hjem!': '{elev} tek med {bamse} heim!',
   '{antall} trukket (backlog)': '{antall} trekte (backlog)',
-  'Alle elever er trukket — nullstill for å starte på nytt': 'Alle elevane er trekte — nullstill for å starte på nytt',
-  'Alle elever har vært ordenselev — nullstill for å starte på nytt': 'Alle elevane har vore ordenselev — nullstill for å starte på nytt',
-  'Alle elever har hatt bamsen — nullstill for å starte på nytt': 'Alle elevane har hatt bamsen — nullstill for å starte på nytt',
-  'Alle som er her i dag, er trukket. Nullstill for å starte på nytt.': 'Alle som er her i dag, er trekte. Nullstill for å starte på nytt.',
+  'Alle elever er trukket. Trykk 🔄 på kortet for å starte på nytt.': 'Alle elevane er trekte. Trykk 🔄 på kortet for å starte på nytt.',
+  '⭐ Alle har vært ordenselev. Ny runde!': '⭐ Alle har vore ordenselev. Ny runde!',
+  'Alle har hatt {bamse}. Ny runde: {elev} tar med {bamse} hjem!': 'Alle har hatt {bamse}. Ny runde: {elev} tek med {bamse} heim!',
+  'Tøm backlog: alle kan trekkes igjen': 'Tøm backloggen: alle kan trekkjast igjen',
+  'Tøm elevlista og start en ny. Lagrede lister røres ikke.': 'Tøm elevlista og start ei ny. Lagra lister blir ikkje rørte.',
+  '🧹 Elevlista er tømt': '🧹 Elevlista er tømd',
+  'Ikke lagret. Tøm?': 'Ikkje lagra. Tøm?',
+  'Trykk igjen for å tømme. Lista {navn} er lagret og røres ikke.': 'Trykk ein gong til for å tømme. Lista {navn} er lagra og blir ikkje rørt.',
+  'Trykk igjen for å tømme. Elevene er ikke lagret i en liste og blir borte.': 'Trykk ein gong til for å tømme. Elevane er ikkje lagra i ei liste og blir borte.',
+  'Alle som er her i dag, er trukket. Trykk 🔄 på kortet for å starte på nytt.': 'Alle som er her i dag, er trekte. Trykk 🔄 på kortet for å starte på nytt.',
   'Trenger minst 2 elever': 'Treng minst 2 elevar',
   'Trenger minst 2 elever ({antall} inne)': 'Treng minst 2 elevar ({antall} inne)',
   'Endre navn på klassebamsen': 'Endre namn på klassebamsen',
@@ -107,8 +118,6 @@ const NYNORSK = {
   'For mange grupper — bare {antall} elever inne': 'For mange grupper — berre {antall} elevar inne',
   'Klarte ikke lage grupper uten å bryte begrensningene — prøv færre par eller flere grupper': 'Klarte ikkje å lage grupper utan å bryte avgrensingane — prøv færre par eller fleire grupper',
   '🎲 {antall} grupper ({min}–{maks} elever)': '🎲 {antall} grupper ({min}–{maks} elevar)',
-  'Velg to elever som ikke skal havne i samme gruppe når du trykker': 'Vel to elevar som ikkje skal hamne i same gruppe når du trykkjer',
-  '. Gjelder siden du står på.': '. Gjeld sida du står på.',
   'Velg to forskjellige elever': 'Vel to ulike elevar',
   'Dette paret er allerede lagt til': 'Dette paret er alt lagt til',
   '{navn} er lagt til, men passer ikke i noen gruppe uten å bryte en begrensning. Del inn på nytt.':
@@ -119,6 +128,26 @@ const NYNORSK = {
   // ---------- Lister ----------
   'Ingen elever inne å lagre': 'Ingen elevar inne å lagre',
   'Ingen lagrede lister ennå.': 'Ingen lagra lister enno.',
+  'Hent en liste fra en fil, f.eks. fra en kollega': 'Hent ei liste frå ei fil, til dømes frå ein kollega',
+  '(denne siden)': '(denne sida)',
+  'Nytt navn på lista': 'Nytt namn på lista',
+  'Gi nytt navn': 'Gi nytt namn',
+  'Par som ikke skal i samme gruppe': 'Par som ikkje skal i same gruppe',
+  'Slett?': 'Slette?',
+  'Overskriv?': 'Skrive over?',
+  'Erstatt elevene i lista med elevene på siden': 'Byt ut elevane i lista med elevane på sida',
+  'Trykk igjen for å erstatte elevene i {navn} med de {antall} elevene på siden': 'Trykk ein gong til for å byte ut elevane i {navn} med dei {antall} elevane på sida',
+  'Trykk igjen for å slette {navn}': 'Trykk ein gong til for å slette {navn}',
+  'Det finnes allerede en liste som heter {navn}': 'Det finst alt ei liste som heiter {navn}',
+  '✓ Lista heter nå {navn}': '✓ Lista heiter no {navn}',
+  "📤 '{navn}' lastet ned": "📤 '{navn}' lasta ned",
+  'Fila er laget av en nyere versjon av Skoledash. Last siden på nytt og prøv igjen.': 'Fila er laga av ein nyare versjon av Skoledash. Last sida på nytt og prøv igjen.',
+  'Fant ingen lister i fila': 'Fann ingen lister i fila',
+  'Velg to elever som ikke skal havne i samme gruppe når du trykker <strong>Del inn</strong>. Parene lagres i lista <strong>{liste}</strong>, så de blir med når lista deles.':
+    'Vel to elevar som ikkje skal hamne i same gruppe når du trykkjer <strong>Del inn</strong>. Para blir lagra i lista <strong>{liste}</strong>, så dei blir med når lista blir delt.',
+  'Parene lagres i en klasseliste, så de blir med når lista deles med en vikar. Lagre elevlista under <strong>📋 Lister</strong> først, så kan du legge til par her.':
+    'Para blir lagra i ei klasseliste, så dei blir med når lista blir delt med ein vikar. Lagre elevlista under <strong>📋 Lister</strong> først, så kan du leggje til par her.',
+  'Lista har færre enn to elever.': 'Lista har færre enn to elevar.',
   '{antall} elever': '{antall} elevar',
   "📋 '{navn}' lagret ({antall} elever)": "📋 '{navn}' lagra ({antall} elevar)",
   "📋 '{navn}' oppdatert ({antall} elever)": "📋 '{navn}' oppdatert ({antall} elevar)",
@@ -263,8 +292,8 @@ const BRUKERVEILEDNING_NN = `
   <h4>Sider: eitt arbeidsbord per klasse</h4>
   <p>Klikk <strong>+</strong> midt i toppfeltet for å leggje til ei ny side, klikk på eit sidenamn for å byte, og <strong>✕</strong> på ei fane for å slette. Tanken er at <strong>kvar side er sin eigen klasse</strong>: lag side 1 for 1A og side 2 for 1B, og byt fritt mellom dei gjennom dagen utan at noko blir blanda.</p>
   <p><strong>Gi ei side nytt namn</strong> ved å dobbeltklikke på fana. Då blir ho til eit lite skrivefelt. Skriv inn namnet (t.d. «1A» eller «Mattegruppe») og trykk <kbd>Enter</kbd> for å lagre. <kbd>Esc</kbd> avbryt utan å endre namnet.</p>
-  <p><strong>Per side</strong> (eiga for kvar klasse): elevlista, grupper, alle trekk og backlogar (tilfeldig, ordenselev og klassebamse), dagsplanen, gruppeavgrensingar, namnet på klassebamsen, og i tillegg oppsettet av korta, notat og bilete.</p>
-  <p><strong>Felles for alle sider:</strong> lagra klasselister (📋 Lister, eit felles bibliotek du kan laste inn på kva side som helst), tema, font, skriftstorleik, målform og timeren.</p>
+  <p><strong>Per side</strong> (eiga for kvar klasse): elevlista, grupper, dagsplanen, namnet på klassebamsen, og i tillegg oppsettet av korta, notat og bilete.</p>
+  <p><strong>Felles for alle sider:</strong> lagra klasselister (📋 Lister, eit felles bibliotek du kan laste inn på kva side som helst) med trekka sine, tema, font, skriftstorleik, målform og timeren.</p>
   <p>Timeren er felles og held fram med å gå sjølv om du byter side. Vil du til dømes vise eit bilete på ei eiga side medan nedteljinga går, går det heilt fint. Timeren tel vidare i bakgrunnen.</p>
   <p>Ei <strong>ny side startar heilt tom</strong>, utan synlege kort. Du hentar sjølv fram akkurat dei korta du vil ha via <strong>⊞ Kort</strong>-menyen, så kvar side blir nøyaktig slik du vil ha ho.</p>
   <p><strong>Side 1 startar med eit lite utval</strong> første gongen du opnar appen: klokke og tilfeldig elev til venstre, dagsplan og notat i midten, og elevlista til høgre. Det er med vilje få kort, så heile sida får plass på skjermen med ein gong. Ordenselevar, klassebamse, terning, timer og grupper ligg klare i <strong>⊞ Kort</strong> og dukkar opp på den faste plassen sin når du kryssar dei av.</p>
@@ -275,6 +304,14 @@ const BRUKERVEILEDNING_NN = `
   <p><strong>Fjerne ein elev:</strong> trykk <strong>✕</strong> til høgre for namnet (blir vist når du held musa over), eller <strong>👤 Fjern elevar…</strong> for å fjerne fleire. Eleven forsvinn då òg frå gruppene, trekk-backlogane og gruppeavgrensingane.</p>
   <p><strong>Stor forbokstav kjem av seg sjølv:</strong> skriv du «kari nordmann», blir det lagra som «Kari Nordmann». Det same gjeld etter bindestrek («Anne-Marie»), og namn med æ, ø og å blir handsama rett.</p>
   <p>Vil du spare tid neste gong? Lagre elevlista di under <strong>📋 Lister</strong>, og last ho inn att med eitt klikk.</p>
+  <p><strong>Starte ein ny klasse:</strong> trykk <strong>🧹 Tøm</strong> nedst i elevkortet, og trykk ein gong til når knappen spør. Elevane, gruppene og oppmøtet forsvinn frå sida, og <strong>+ Legg til elev</strong> blir opna. Lagra lister blir ikkje rørte. Står det <strong>Ikkje lagra. Tøm?</strong> på knappen, er elevane ikkje lagra i ei liste og blir borte.</p>
+
+  <h4>📋 Klasselister</h4>
+  <p>Opne <strong>📋 Lister</strong> i elevkortet, eller <strong>📋 Klasselister</strong> i 🏫 Skoledash-menyen. <strong>💾 Lagre nåværende</strong> lagrar elevlista på sida du står på. Klikk på ei liste for å laste ho inn. Lagra lister blir delte av alle sidene dine.</p>
+  <p>Kvar liste har fem knappar: <strong>✏️</strong> gir lista nytt namn (<kbd>Enter</kbd> lagrar, <kbd>Esc</kbd> avbryt), <strong>⛔</strong> opnar para som ikkje skal i same gruppe, <strong>📤</strong> lastar ned lista som ei fil, <strong>🔄</strong> byter ut elevane i lista med elevane på sida, og <strong>✕</strong> slettar ho. 🔄 bruker du når du har lagt til eller fjerna elevar og vil at lista skal hugse det. Både 🔄 og ✕ må trykkjast to gonger: første trykket gjer knappen om til <strong>Skrive over?</strong> eller <strong>Slette?</strong>.</p>
+  <p><strong>Del ei liste med ein vikar eller kollega:</strong> trykk <strong>📤</strong> og send fila. Mottakaren trykkjer <strong>📥 Importer liste</strong> nedst i Klasselister. Para følgjer med. Fila inneheld elevnamn, så tenk over kven du gir ho til. Har mottakaren ei liste med same namn frå før, blir ho erstatta.</p>
+  <p>Står det <em>(denne sida)</em> bak ei liste, er det den lista sida sist vart lasta frå eller lagra som. Lista og sida er elles kvar sin kopi: endrar du elevar på sida, hamnar det i lista først når du lagrar ho på nytt.</p>
+  <p><strong>Trekka følgjer lista.</strong> Kven som har vore ordenselev, hatt bamsen og vorte trekt, blir hugsa per liste. Byter du til ei anna liste og tilbake, er trekka der framleis. Bruker to sider same liste, deler dei trekka.</p>
 
   <h4>✓ Kven er her i dag?</h4>
   <p>Kvar elev i lista har to små runde knappar: <strong>✓</strong> tyder at eleven er her, og <strong>−</strong> tyder at eleven er borte. Trykk på same knapp ein gong til for å fjerne merket.</p>
@@ -285,10 +322,11 @@ const BRUKERVEILEDNING_NN = `
 
   <h4>Trekke elevar</h4>
   <p><strong>🙋 Tilfeldig elev</strong>: trykk <strong>Trekk</strong> for å velje ein tilfeldig elev frå lista. Vanleg trekk unngår å velje same elev to gonger på rad.</p>
-  <p><strong>Trekk (bl)</strong> trekkjer utan repetisjon (backlog). Kvar elev blir trekt éin gong før nokon blir trekt på nytt. Talet på trekte står under knappen.</p>
-  <p><strong>⭐ Ordenselevar</strong> vel to elevar som har ordenselev-ansvar. Bruker òg backlog, slik at alle rekk å ha vore ordenselev før nokon blir gjentekne.</p>
-  <p><strong>Klassebamse</strong> vel kven som får bamsen (eller ein annan gjenstand) med heim. Òg med backlog.</p>
-  <p>Vil du nullstille ein backlog? Trykk <strong>⚙️ Nullstill…</strong> nedst til venstre.</p>
+  <p><strong>Trekk (bl)</strong> trekkjer utan repetisjon (backlog). Kvar elev blir trekt éin gong før nokon blir trekt på nytt. Talet på trekte står under knappen. Når alle er trekte, trykkjer du <strong>🔄</strong> øvst i kortet (blir vist når du held musa over) for å starte på nytt.</p>
+  <p><strong>⭐ Ordenselevar</strong> vel to elevar som har ordenselev-ansvar. Alle får tur før nokon blir gjentekne, og når alle har vore ordenselev, startar ein ny runde av seg sjølv, med ei melding om det. Er det éin elev att, kjem den eleven med i første trekket i den nye runden. To elevar som ikkje skal i same gruppe (⛔), blir heller aldri ordenselevar saman. Vil du berre ha éin ordenselev, trykkjer du <strong>👥</strong> øvst i kortet, så blir han til <strong>👤</strong>. Valet gjeld lista, som trekka.</p>
+  <p><strong>Klassebamse</strong> vel kven som får bamsen (eller ein annan gjenstand) med heim. Går òg i rundar av seg sjølv.</p>
+  <p><strong>Borte når runden er ferdig?</strong> Ein elev som er merkt borte og ikkje har hatt tur, mistar han ikkje: eleven blir trekt først når eleven er tilbake.</p>
+  <p>Vil du nullstille ein backlog for hand? Trykk <strong>⚙️ Nullstill…</strong> nedst til venstre.</p>
 
   <h4>📝 Redigere backlog for ordenselev og klassebamse</h4>
   <p>Trykk på blyantikonet (📝) i hjørnet av kortet. Du ser alle elevane som brikker, og grå brikker er alt «brukte». Trykk på ein elev for å setje eller fjerne merket. Nyttig om du har mista lokale data og må finne ut att kven som har vore ordenselev eller hatt med bamsen.</p>
@@ -301,7 +339,8 @@ const BRUKERVEILEDNING_NN = `
   <p><strong>Ny elev når gruppene er laga:</strong> eleven hamnar i den minste gruppa, og dei andre blir verande der dei er. Er fleire grupper like små, blir ei av dei vald tilfeldig. Gruppeavgrensingar blir følgde: passar eleven ikkje i nokon gruppe utan å bryte ei, står eleven utanfor til du deler inn på nytt.</p>
 
   <h4>⛔ Gruppeavgrensing</h4>
-  <p>Klikk <strong>⛔ Par</strong> i hjørnet av Grupper-kortet for å opne lista over par. Vel to elevar i nedtrekkslistene og klikk <strong>Legg til</strong>. Paret hamnar aldri i same gruppe. Du kan leggje til så mange par du vil. Fjern eit par ved å klikke <strong>✕</strong> ved sida av det.</p>
+  <p>Klikk <strong>⛔</strong> ved ei liste i <strong>📋 Klasselister</strong>, eller <strong>⛔ Par</strong> i hjørnet av Grupper-kortet. Vel to elevar i nedtrekkslistene og klikk <strong>Legg til</strong>. Paret hamnar aldri i same gruppe. Du kan leggje til så mange par du vil. Fjern eit par ved å klikke <strong>✕</strong> ved sida av det.</p>
+  <p><strong>Para blir lagra i klasselista,</strong> ikkje på sida. Då blir dei med når du deler lista med ein vikar, og dei gjeld på kvar side du lastar lista inn på. Har sida inga lagra liste enno, ber ⛔ deg lagre lista først. Par du laga før dette, verkar som før og blir flytta inn i lista neste gong du lagrar eller lastar ho.</p>
 
   <h4>🎲 Terning</h4>
   <p>Trykk <strong>🎲 Kast</strong> (eller tasten <kbd>k</kbd>) for å kaste. Terningen trillar eit lite augeblikk før han landar, så klassen rekk å bli spent.</p>
