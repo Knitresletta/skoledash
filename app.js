@@ -2314,14 +2314,15 @@ function renderTimer() {
   document.getElementById('timer-bar-wrap').classList.toggle('hidden', skive || opp);
   document.getElementById('timer-skive').classList.toggle('hidden', !skive);
   document.getElementById('btn-timer-sett').classList.toggle('hidden', opp);
-  const farge = kjører ? 'var(--green)' : (ferdig ? 'var(--red)' : 'var(--primary)');
+  // Temaets hovedfarge, også når den går. Rødt bare når tiden er ute (alarm).
+  const farge = ferdig ? 'var(--red)' : 'var(--primary)';
   document.getElementById('timer-bar').style.background = farge;
   document.getElementById('timer-skive').style.setProperty('--skive-farge', farge);
   tegnTimerFramdrift();
 
   if (kjører) {
     status.textContent = t('▶ Kjører');
-    status.style.color = 'var(--green)';
+    status.style.color = 'var(--primary)';
     btnToggle.textContent = t('⏸ Stopp');
   } else if (ferdig) {
     status.textContent = t('⏹ Ferdig!');
@@ -4310,6 +4311,15 @@ const OPPDATERINGSLOGG_HTML = `
     </ul>
   </details>
   <div class="logg-entry">
+    <div class="logg-versjon">v2.45</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>Alle kortene følger temaet:</strong> Ordenselever, Klassebamse og Timer brukte faste gule, brune og grønne farger. Nå bruker de temaets farger, som resten av appen</li>
+      <li>Knappene øverst i kortene (som 📝 og 🔄) legger seg oppå tittelen når du holder musa over kortet, i stedet for å ta plass fra den. Lange titler som «⭐ Ordenselever» står nå på én linje</li>
+      <li>Fikset: i et smalt elevkort ble <strong>🧹 Tøm</strong> kuttet. Knappene brytes nå til en ny linje</li>
+    </ul>
+  </div>
+  <div class="logg-entry">
     <div class="logg-versjon">v2.44</div>
     <div class="logg-dato">4. november 2026</div>
     <ul>
@@ -6015,7 +6025,7 @@ function renderYoutube(instansId) {
     body.innerHTML = `
       <div class="youtube-input">
         <input type="text" id="youtube-url-${instansId}" placeholder="${t('Lim inn YouTube-lenke…')}" autocomplete="off">
-        <button class="btn btn-success btn-sm" data-klikk="youtube-vis" data-id="${instansId}">${t('Vis')}</button>
+        <button class="btn btn-primary btn-sm" data-klikk="youtube-vis" data-id="${instansId}">${t('Vis')}</button>
       </div>`;
     const inp = document.getElementById(`youtube-url-${instansId}`);
     inp?.addEventListener('keydown', e => { if (e.key === 'Enter') settYoutubeUrlFraFelt(instansId); });

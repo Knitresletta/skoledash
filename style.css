@@ -1031,6 +1031,21 @@ body.kl-endrer-storrelse {
 .card:hover .card-controls {
     opacity: 1;
 }
+/* I overskriften ligger knappene oppå høyre ende, ved siden av ✕, i stedet for å ta
+   plass fra tittelen hele tiden. Usynlige knapper skal heller ikke stå i veien for å
+   dra kortet etter overskriften. */
+.card-header .card-controls {
+    position: absolute;
+    top: 9px;
+    right: 26px;
+    padding-left: 6px;
+    background: var(--card);
+    pointer-events: none;
+}
+.card:hover .card-header .card-controls,
+.card-header .card-controls:has(.bekreft) {
+    pointer-events: auto;
+}
 
 /* ===================== Drag handle ===================== */
 /* ⠿-håndtaket (og kort-kontrollene over) ligger skjult med opacity: 0 og tones inn
@@ -1138,6 +1153,13 @@ body.kl-endrer-storrelse {
 }
 
 /* ===================== Student list ===================== */
+/* Knappene under lista brytes til en ny linje i et smalt kort i stedet for å kuttes. */
+.elev-knapper {
+    flex-wrap: wrap;
+}
+.elev-knapper .btn {
+    white-space: nowrap;
+}
 #elev-liste {
     display: flex;
     flex-direction: column;
@@ -1317,18 +1339,12 @@ body.kl-endrer-storrelse {
     gap: 6px;
 }
 .draw-pair-item {
-    background: var(--amber-l);
+    background: var(--card);
     border-radius: var(--r-sm);
     padding: 8px 12px;
     font-weight: 700;
-    color: var(--amber);
+    color: var(--primary);
     text-align: left;
-}
-.draw-result.ulv-result {
-    background: var(--amber-l);
-}
-.draw-result.ulv-result .drawn-name {
-    color: var(--amber);
 }
 .backlog-count {
     font-size: 0.75rem;
@@ -1347,7 +1363,7 @@ body.kl-endrer-storrelse {
     padding: 6px 0;
 }
 #timer-display.running {
-    color: var(--green);
+    color: var(--primary);
 }
 #timer-display.ferdig {
     color: var(--red);
@@ -1425,10 +1441,11 @@ body.kl-endrer-storrelse {
     display: flex;
     gap: 8px;
 }
+/* Mens tiden går: den myke varianten av hovedfargen, så «Stopp» skiller seg fra «Start». */
 #btn-timer-toggle.timer-kjører {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: var(--on-primary);
+    background: var(--primary-l);
+    border-color: var(--primary-l);
+    color: var(--primary-tekst);
 }
 
 /* ===================== Notes ===================== */
