@@ -134,6 +134,9 @@ const NYNORSK = {
   'Gi nytt navn': 'Gi nytt namn',
   'Par som ikke skal i samme gruppe': 'Par som ikkje skal i same gruppe',
   'Slett?': 'Slette?',
+  '📋 Alle punktene er ferdige': '📋 Alle punkta er ferdige',
+  '▶ Nå: {punkt}': '▶ No: {punkt}',
+  'Punktet som pågår, er ferdig, videre til neste (p). Shift+P angrer.': 'Punktet som går føre seg, er ferdig, vidare til neste (p). Shift+P angrar.',
   '⏳ Nedtelling': '⏳ Nedteljing',
   'Dra for å flytte. Slipp på en annen liste for å lage en gruppe.': 'Dra for å flytte. Slepp på ei anna liste for å lage ei gruppe.',
   'Nytt navn på gruppa': 'Nytt namn på gruppa',
@@ -279,7 +282,6 @@ const ROADMAP_KORT_NN = `
     <p>Dette er idear, ikkje lovnader. Rekkjefølgja kan endre seg. Saknar du noko? Sei frå via <strong>💬 Tilbakemelding</strong>.</p>
     <strong>Neste</strong>
     <ul>
-      <li>📋 <strong>Neste punkt i dagsplanen med éin tast,</strong> og punktet som pågår, blir utheva</li>
       <li>🔍 <strong>Fokusmodus:</strong> eitt kort fyller heile skjermen</li>
       <li>🤫 <strong>Arbeidssymbol og trafikklys</strong> i same kort</li>
       <li>🔢 <strong>Teljar, instruksjonskort, nedteljing til ein dato og vekenummer</strong></li>
@@ -393,6 +395,7 @@ const BRUKERVEILEDNING_NN = `
 
   <h4>Dagsplan</h4>
   <p>Legg til punkt med <strong>+ Legg til punkt</strong> (eller <kbd>d</kbd>). Fjern einskildpunkt med <strong>✕</strong> ved sida av kvart punkt, eller tøm heile planen med <strong>🧹</strong> øvst i kortet (to trykk).</p>
+  <p><strong>Gjennom dagen:</strong> punktet som går føre seg, er utheva. Trykk <strong>▶ Neste</strong> (eller <kbd>p</kbd>) når de er ferdige med det, så blir det kryssa av og neste punkt blir utheva. <kbd>Shift</kbd>+<kbd>P</kbd> angrar. Kryssar du av for hand med prikken, følgjer uthevinga med.</p>
   <p>Kvart punkt har tre stader du kan klikke: <strong>prikken</strong> (●) merkjer punktet som ferdig. Han blir grøn, og teksten får ein strek over (klikk igjen for å angre). <strong>Teksten</strong> opnar redigering: klikk på han, rett opp og trykk <kbd>Enter</kbd> for å lagre eller <kbd>Esc</kbd> for å avbryte. <strong>✕</strong> fjernar punktet.</p>
   <p><strong>Endre rekkjefølgja:</strong> hald inne drahandtaket <strong>⠿</strong> heilt til høgre på punktet (det kjem fram når du held musa over rada), og dra det opp eller ned. Ein blå strek viser kvar punktet hamnar når du slepper.</p>
 
@@ -451,6 +454,7 @@ const BRUKERVEILEDNING_NN = `
     <li><kbd>s</kbd> Set tid på timeren</li>
     <li><kbd>g</kbd> Del inn i grupper</li>
     <li><kbd>d</kbd> Legg til punkt i dagsplanen</li>
+    <li><kbd>p</kbd> Neste punkt i dagsplanen (<kbd>Shift</kbd>+<kbd>P</kbd> angrar)</li>
     <li><kbd>k</kbd> Kast terning</li>
     <li><kbd>l</kbd> Vis klasselister</li>
     <li><kbd>b</kbd> Tavlemodus</li>

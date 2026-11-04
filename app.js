@@ -23,6 +23,10 @@ const LAGRINGSVERSJON = 1;
 // Når appen ikke skal lagre: null, 'annen-fane' (en annen fane har lagret noe nyere,
 // se «Flere faner») eller 'nyere-versjon' (dataene er fra en nyere versjon av appen).
 let lagringSperre = null;
+// Teksten denne fanen sist leste fra eller skrev til lagringen. saveState sammenligner
+// med det som ligger der nå, før den skriver: har noen andre skrevet i mellomtiden (en
+// annen fane, en import), lagrer den ikke over. Se saveState.
+let sistLagretTekst = null;
 // Timerens løpende tilstand per fane (sessionStorage), så en omlasting ikke stopper en
 // nedtelling som går. Se «Timer».
 const TIMER_ØKT_KEY = 'skoledash_timer_okt';
@@ -705,6 +709,7 @@ let oppGått   = 0;
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
+    sistLagretTekst = raw;
     if (raw) {
       // VIKTIG: les migreringsbeslutninger fra det RÅ parsede objektet (_raw), ikke fra
       // det default-flettede `state`. defaultState() fyller alltid sider[0] og notater/bilder
@@ -872,7 +877,18 @@ function saveState() {
   if (sletterAlt || sidenLukkes) return;
   if (lagringSperre) { varsleLagringSperre(); return; }
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    // Har noen andre skrevet siden sist, er denne fanen utdatert. «storage»-hendelsen
+    // ville sagt det samme, men den kommer først når nettleseren kommer til den, og en
+    // lagring som lå i kø (høydejustering, skalering) kunne rukket å skrive over først.
+    const nå = localStorage.getItem(STORAGE_KEY);
+    if (sistLagretTekst !== null && nå !== null && nå !== sistLagretTekst) {
+      lagringSperre = 'annen-fane';
+      varsleLagringSperre();
+      return;
+    }
+    const tekst = JSON.stringify(state);
+    localStorage.setItem(STORAGE_KEY, tekst);
+    sistLagretTekst = tekst;
     lagringFeilet = false;
   } catch (e) {
     console.warn('saveState:', e);
@@ -2307,18 +2323,18 @@ function renderTimer() {
     status.textContent = t('▶ Kjører');
     status.style.color = 'var(--green)';
     btnToggle.textContent = t('⏸ Stopp');
-    btnToggle.style.background = 'var(--amber)';
   } else if (ferdig) {
     status.textContent = t('⏹ Ferdig!');
     status.style.color = 'var(--red)';
     btnToggle.textContent = t('↺ Start på nytt');
-    btnToggle.style.background = '';
   } else {
     status.textContent = t('⏸ Pauset');
     status.style.color = 'var(--muted)';
     btnToggle.textContent = t('▶ Start');
-    btnToggle.style.background = '';
   }
+  // Mens tiden går, får knappen temaets hovedfarge (se .timer-kjører i style.css), så
+  // «Stopp» skiller seg fra den grønne «Start» og passer i alle temaene.
+  btnToggle.classList.toggle('timer-kjører', kjører);
 }
 
 // Tegner bare framdriften (bjelke og skive), med brøkdeler av sekunder, så skiva glir
@@ -2509,6 +2525,36 @@ function toggleDagsplanFerdig(idx) {
   renderDagsplan();
 }
 
+// Punktet som pågår: det første som ikke er ferdig (-1 når alt er ferdig eller planen
+// er tom). Regnes ut, lagres ikke: krysser læreren av punkter for hånd eller endrer
+// rekkefølgen, følger uthevingen med av seg selv.
+function dagsplanPågår(dagsplan = aktivSide().dagsplan) {
+  return dagsplan.findIndex(p => !p.ferdig);
+}
+
+// ▶ Neste (tasten p): punktet som pågår, blir ferdig, og neste blir uthevet. Med
+// tilbake (Shift+P) angres det siste: punktet før det som pågår, er ikke ferdig likevel.
+// Meldingen sier hva som pågår nå, så det virker også når dagsplankortet ikke vises.
+function nesteDagsplanPunkt(tilbake = false) {
+  const dagsplan = aktivSide().dagsplan;
+  if (!dagsplan.length) { notify(t('Dagsplanen er tom'), 'warning'); return; }
+  const nå = dagsplanPågår(dagsplan);
+  if (tilbake) {
+    const forrige = (nå === -1 ? dagsplan.length : nå) - 1;
+    if (forrige < 0) return;
+    dagsplan[forrige].ferdig = false;
+  } else {
+    if (nå === -1) { notify(t('📋 Alle punktene er ferdige')); return; }
+    dagsplan[nå].ferdig = true;
+  }
+  saveState();
+  renderDagsplan();
+  const neste = dagsplanPågår(dagsplan);
+  notify(neste === -1
+    ? t('📋 Dagsplanen er ferdig!')
+    : t('▶ Nå: {punkt}', { punkt: dagsplan[neste].tekst }));
+}
+
 // Indeksen til dagsplan-punktet som redigeres inline (null = ingen redigering pågår).
 let redigerDagsplanIdx = null;
 
@@ -2542,6 +2588,8 @@ function avbrytRedigerDagsplan() {
 function renderDagsplan() {
   const dagsplan = aktivSide().dagsplan;
   const liste = document.getElementById('dagsplan-liste');
+  const pågår = dagsplanPågår(dagsplan);
+  document.getElementById('btn-dagsplan-neste').disabled = pågår === -1;
   if (!dagsplan.length) {
     liste.innerHTML = `<p class="tom-tekst" style="padding:4px">${t('Tom — trykk "+ Legg til punkt"')}</p>`;
     return;
@@ -2552,7 +2600,7 @@ function renderDagsplan() {
             data-rediger="dagsplan" data-idx="${i}">`
       : `<span class="dagsplan-tekst" data-klikk="rediger-dagsplan" data-idx="${i}" title="${t('Klikk for å redigere')}">${esc(p.tekst)}</span>`;
     return `
-    <div class="dagsplan-item${p.ferdig ? ' ferdig' : ''}" data-idx="${i}">
+    <div class="dagsplan-item${p.ferdig ? ' ferdig' : ''}${i === pågår ? ' pågår' : ''}" data-idx="${i}"${i === pågår ? ' aria-current="step"' : ''}>
       <span class="dagsplan-prikk" data-klikk="dagsplan-ferdig" data-idx="${i}" title="${t('Marker ferdig')}">●</span>
       ${innhold}
       <button class="dagsplan-slett" data-klikk="fjern-dagsplan" data-idx="${i}" title="${t('Fjern')}">✕</button>
@@ -4244,7 +4292,6 @@ const OPPDATERINGSLOGG_HTML = `
     <p>Dette er ideer, ikke løfter. Rekkefølgen kan endre seg. Savner du noe? Si fra via <strong>💬 Tilbakemelding</strong>.</p>
     <strong>Neste</strong>
     <ul>
-      <li>📋 <strong>Neste punkt i dagsplanen med én tast,</strong> og punktet som pågår, blir uthevet</li>
       <li>🔍 <strong>Fokusmodus:</strong> ett kort fyller hele skjermen</li>
       <li>🤫 <strong>Arbeidssymboler og trafikklys</strong> i samme kort</li>
       <li>🔢 <strong>Teller, instruksjonskort, nedtelling til en dato og ukenummer</strong></li>
@@ -4262,6 +4309,15 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.44</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>Dagsplanen viser hvor dere er:</strong> punktet som pågår, er uthevet. <strong>▶ Neste</strong> eller tasten <kbd>p</kbd> krysser det av og går videre, og <kbd>Shift</kbd>+<kbd>P</kbd> angrer</li>
+      <li>⏸ Stopp-knappen i timeren følger temaets farge i stedet for å være oransje (brun i noen temaer)</li>
+      <li>Fikset: hadde en annen fane nettopp lagret, kunne en lagring som lå i kø i denne fanen skrive over den. Nå sjekker Skoledash hva som ligger lagret før den skriver</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.43</div>
     <div class="logg-dato">4. november 2026</div>
@@ -4858,6 +4914,7 @@ const BRUKERVEILEDNING_HTML = `
 
   <h4>Dagsplan</h4>
   <p>Legg til punkter med <strong>+ Legg til punkt</strong> (eller <kbd>d</kbd>). Fjern enkeltpunkter med <strong>✕</strong> ved siden av hvert punkt, eller tøm hele planen med <strong>🧹</strong> øverst i kortet (to trykk).</p>
+  <p><strong>Gjennom dagen:</strong> punktet som pågår, er uthevet. Trykk <strong>▶ Neste</strong> (eller <kbd>p</kbd>) når dere er ferdige med det, så krysses det av og neste punkt blir uthevet. <kbd>Shift</kbd>+<kbd>P</kbd> angrer. Krysser du av for hånd med prikken, følger uthevingen med.</p>
   <p>Hvert punkt har tre klikkmål: <strong>prikken</strong> (●) markerer punktet ferdig — den blir grønn og teksten får en strek over (klikk igjen for å angre). <strong>Teksten</strong> åpner redigering — klikk på den, rett opp og trykk <kbd>Enter</kbd> for å lagre eller <kbd>Esc</kbd> for å avbryte. <strong>✕</strong> fjerner punktet.</p>
   <p><strong>Endre rekkefølge:</strong> hold inne dra-håndtaket <strong>⠿</strong> helt til høyre på punktet (vises når du holder musa over raden) og dra det opp eller ned. En blå strek viser hvor punktet havner når du slipper.</p>
 
@@ -4916,6 +4973,7 @@ const BRUKERVEILEDNING_HTML = `
     <li><kbd>s</kbd> — Sett timer-tid</li>
     <li><kbd>g</kbd> — Del inn i grupper</li>
     <li><kbd>d</kbd> — Legg til dagsplan-punkt</li>
+    <li><kbd>p</kbd> — Neste punkt i dagsplanen (<kbd>Shift</kbd>+<kbd>P</kbd> angrer)</li>
     <li><kbd>k</kbd> — Kast terning</li>
     <li><kbd>l</kbd> — Vis klasselister</li>
     <li><kbd>b</kbd> — Tavlemodus</li>
@@ -5245,6 +5303,7 @@ function settOppHendelser() {
   document.getElementById('btn-tilfeldig-tom').onclick = nullstillTilfeldig;
   document.getElementById('btn-lagring-last').onclick = lastInnPåNytt;
   document.getElementById('btn-ordenselev-antall').onclick = byttOrdenselevAntall;
+  document.getElementById('btn-dagsplan-neste').onclick = () => nesteDagsplanPunkt();
   document.getElementById('btn-legg-til-avbryt').onclick  = lukkModal;
   inputEnter('input-elev-navn', bekreftLeggTil);
 
@@ -5513,6 +5572,8 @@ function settOppHendelser() {
       t: () => timerToggle(),
       s: () => document.getElementById('btn-timer-sett').click(),
       d: () => document.getElementById('btn-dagsplan-legg-til').click(),
+      p: () => nesteDagsplanPunkt(),
+      P: () => nesteDagsplanPunkt(true),
       g: () => document.getElementById('btn-grupper-ny').click(),
       k: () => kastTerning(),
       l: () => document.getElementById('btn-lister').click(),
@@ -6549,6 +6610,7 @@ async function bekreftImport() {
 
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(ny));
+    sidenLukkes = true; // ingenting skal lagre den gamle tilstanden over importen før omlastingen
   } catch (e) {
     console.warn('Import-lagring feilet:', e);
     notify(t('Klarte ikke lagre importen — for mye data for nettleseren'), 'error');

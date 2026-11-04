@@ -1425,6 +1425,11 @@ body.kl-endrer-storrelse {
     display: flex;
     gap: 8px;
 }
+#btn-timer-toggle.timer-kjører {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--on-primary);
+}
 
 /* ===================== Notes ===================== */
 /* Attributt-velgeren [id^="notat-textarea"] treffer ALLE notat-felt, også de JS lager
@@ -1471,6 +1476,15 @@ textarea[id^="notat-textarea"]:focus {
     background: var(--bg);
     border-radius: 6px;
     font-size: 0.85rem;
+}
+/* Punktet som pågår: tydelig markert, så klassen ser hvor dere er i dagen. */
+.dagsplan-item.pågår {
+    background: color-mix(in srgb, var(--primary) 14%, var(--card));
+    box-shadow: inset 4px 0 0 var(--primary);
+    font-weight: 700;
+}
+.dagsplan-item.pågår .dagsplan-prikk {
+    color: var(--primary);
 }
 .dagsplan-item .dagsplan-tekst {
     flex: 1;
