@@ -2407,6 +2407,60 @@ textarea[id^="notat-textarea"]:focus {
     color: #3a3a3a;
 }
 
+/* ===================== Øyne hit ===================== */
+/* Over alt annet (som tavla). Temaets primærfarge, så beskjeden hører til temaet
+   og likevel bryter med resten av skjermen. */
+#oynehit-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    background: var(--primary);
+    color: var(--on-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6vw 6vw 80px;
+    cursor: pointer;
+    text-align: center;
+    animation: fade-in 0.15s ease;
+}
+.oynehit-tekst {
+    font-size: clamp(3rem, 11vw, 15rem);
+    font-weight: 800;
+    line-height: 1.05;
+    overflow-wrap: anywhere;
+    animation: oynehit-inn 0.35s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+@keyframes oynehit-inn {
+    from { transform: scale(0.6); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+}
+.oynehit-bunn {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 24px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.85rem;
+    opacity: 0.8;
+}
+.oynehit-bunn kbd {
+    background: rgb(0 0 0 / 0.2);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: inherit;
+}
+.oynehit-lyd {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
 /* ===================== Info modal ===================== */
 .info-modal {
     background: var(--card);

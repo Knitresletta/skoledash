@@ -306,6 +306,7 @@ function defaultState() {
     tema: 'lyst',
     font: 'system',
     språk: 'nb',          // 'nb' (bokmål) eller 'nn' (nynorsk). Nynorsk-tekstene ligger i tekster.js
+    øyne_hit: { tekst: null, lyd: true }, // beskjeden bak ø (null = «Øyne hit!»), v2.57
     skrift_størrelse: 'normal',
     widget_størrelser: {},
     vær_sted:            { ...STANDARD_VÆR_STED }, // sted for vær + pollen (delt av alle sider)
@@ -1016,6 +1017,8 @@ function normaliserState(s) {
   // Nyere data beholder versjonen sin (de lagres uansett ikke, se lagringSperre).
   s.lagringsversjon = Math.max(LAGRINGSVERSJON, Number(s.lagringsversjon) || 0);
   if (s.språk !== 'nn') s.språk = 'nb';
+  const øh = erObjekt(s.øyne_hit) ? s.øyne_hit : {};
+  s.øyne_hit = { tekst: (tekstEllerNull(øh.tekst, 80) || '').trim() || null, lyd: øh.lyd !== false };
   return s;
 }
 
@@ -3712,6 +3715,73 @@ function spillPip() {
   } catch (_) {}
 }
 
+// ===================== Øyne hit =====================
+// Tasten ø åpner dialogen med lærerens beskjed ferdig utfylt, Enter legger den over
+// hele skjermen; Shift+Ø viser den rett på (v2.57). Ingen knapp i toppfeltet: den
+// plassen er holdt av. Beskjeden og lydvalget ligger i state.øyne_hit, felles for
+// alle sidene.
+function øyneHitTekst() {
+  return state.øyne_hit.tekst || t('Øyne hit!');
+}
+
+function øyneHitÅpen() {
+  return !document.getElementById('oynehit-overlay').classList.contains('hidden');
+}
+
+function visØyneHit() {
+  document.getElementById('oynehit-tekst').textContent = øyneHitTekst();
+  document.getElementById('oynehit-overlay').classList.remove('hidden');
+  if (state.øyne_hit.lyd) spillMildLyd();
+}
+
+function lukkØyneHit() {
+  document.getElementById('oynehit-overlay').classList.add('hidden');
+}
+
+function åpneØyneHitRediger() {
+  lukkØyneHit();
+  document.getElementById('input-oynehit').value = state.øyne_hit.tekst || '';
+  document.getElementById('input-oynehit-lyd').checked = state.øyne_hit.lyd;
+  åpneModal('modal-oynehit');
+}
+
+function lagreØyneHit() {
+  const tekst = document.getElementById('input-oynehit').value.trim().slice(0, 80);
+  state.øyne_hit = { tekst: tekst || null, lyd: document.getElementById('input-oynehit-lyd').checked };
+  saveState();
+  lukkModal();
+  visØyneHit();
+}
+
+// To myke toner (en liten «ding-dong») via Web Audio, lavere og kortere enn
+// timerens pip. Samme try/catch: lyd kan være blokkert.
+function spillMildLyd() {
+  try {
+    const ctx = new AudioContext();
+    [[523, 0], [784, 0.22]].forEach(([frekvens, start]) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = frekvens;
+      const t0 = ctx.currentTime + start;
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.14, t0 + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.9);
+      osc.start(t0);
+      osc.stop(t0 + 0.9);
+    });
+  } catch (_) {}
+}
+
+function setupØyneHit() {
+  document.getElementById('oynehit-overlay').onclick = () => lukkØyneHit();
+  document.getElementById('btn-oynehit-avbryt').onclick = () => lukkModal();
+  document.getElementById('btn-oynehit-lagre').onclick = () => lagreØyneHit();
+  inputEnter('input-oynehit', lagreØyneHit);
+}
+
 // ===================== Notat =====================
 // Lar notat-feltet vokse med innholdet: nullstill høyden, les så scrollHeight
 // (full innholdshøyde) og sett den som høyde. Unngår indre scrollbar.
@@ -6249,7 +6319,6 @@ const OPPDATERINGSLOGG_HTML = `
     <strong>Senere</strong>
     <ul>
       <li>🔊 Lydnivåmåler med rekord og mål for klassen</li>
-      <li>👀 «Øyne hit»-beskjed over hele skjermen, med din egen tekst</li>
       <li>🎡 Lykkehjul som valg i Tilfeldig elev</li>
       <li>🃏 Kortbunke med forside og bakside</li>
       <li>🏆 Poengtavle, 🙂 exit-avstemning og rask håndsopprekning</li>
@@ -6257,6 +6326,13 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.57</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>👀 Øyne hit:</strong> trykk <kbd>ø</kbd>, skriv (eller behold) beskjeden og trykk <kbd>Enter</kbd>, så fyller den hele skjermen med en mild lyd. Klikk, <kbd>Esc</kbd> eller <kbd>ø</kbd> tar den bort igjen. <kbd>Shift</kbd>+<kbd>Ø</kbd> viser forrige beskjed rett på. Lyden kan slås av i samme dialog. Tasten står nederst i hurtigtast-raden</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.56</div>
     <div class="logg-dato">4. november 2026</div>
@@ -7051,6 +7127,9 @@ const BRUKERVEILEDNING_HTML = `
   <h4>Tavlemodus</h4>
   <p>Trykk <strong>🖥 Tavle</strong> (eller <kbd>b</kbd>) for en helt svart skjerm — nyttig når du vil fokusere elevoppmerksomheten. Klikk hvor som helst eller trykk <kbd>Esc</kbd> for å avslutte.</p>
 
+  <h4>👀 Øyne hit</h4>
+  <p>Trykk <kbd>ø</kbd> når du trenger alles blikk. Du får opp beskjeden (fra start «Øyne hit!») og kan endre den før du trykker <kbd>Enter</kbd>: da fyller den hele skjermen i temaets farge, med en mild lyd. Klikk, <kbd>Esc</kbd> eller <kbd>ø</kbd> tar den bort igjen. <kbd>Shift</kbd>+<kbd>Ø</kbd> viser forrige beskjed rett på, uten å spørre. Lyden slår du av i samme dialog. Beskjeden er felles for alle sidene og blir med i backupen.</p>
+
   <h4>Tastatursnarveger</h4>
   <ul>
     <li><kbd>a</kbd> — Legg til elev</li>
@@ -7068,6 +7147,7 @@ const BRUKERVEILEDNING_HTML = `
     <li><kbd>l</kbd> — Vis klasselister</li>
     <li><kbd>b</kbd> — Tavlemodus</li>
     <li><kbd>n</kbd> — 💾 Data (backup og sletting)</li>
+    <li><kbd>ø</kbd> — 👀 Øyne hit: skriv beskjeden og vis den (<kbd>Shift</kbd>+<kbd>Ø</kbd> viser forrige rett på)</li>
     <li><kbd>Esc</kbd> — Lukk åpne vinduer</li>
   </ul>
   <p>Snarveiene virker bare når du <em>ikke</em> står og skriver i et tekstfelt, og de utløses ikke sammen med <kbd>Cmd</kbd>/<kbd>Ctrl</kbd>/<kbd>Alt</kbd>.</p>
@@ -7531,6 +7611,8 @@ function settOppHendelser() {
   };
 
 
+  setupØyneHit();
+
   // Blackboard
   document.getElementById('btn-blackboard').onclick = () =>
     document.getElementById('blackboard-overlay').classList.remove('hidden');
@@ -7651,6 +7733,10 @@ function settOppHendelser() {
       if (e.key === 'Escape') blackboard.classList.add('hidden');
       return;
     }
+    if (øyneHitÅpen()) {
+      if (e.key === 'Escape' || e.key === 'ø' || e.key === 'Ø') lukkØyneHit();
+      return;
+    }
     if (!document.getElementById('info-overlay').classList.contains('hidden')) {
       if (e.key === 'Escape') lukkInfoModal();
       return;
@@ -7692,6 +7778,8 @@ function settOppHendelser() {
       l: () => document.getElementById('btn-lister').click(),
       b: () => document.getElementById('btn-blackboard').click(),
       n: () => document.getElementById('btn-data').click(),
+      ø: () => åpneØyneHitRediger(),
+      Ø: () => visØyneHit(),
     };
     const handling = hurtigtaster[e.key];
     if (!handling) return;
@@ -8538,6 +8626,7 @@ async function eksporterData() {
         språk:             state.språk,
         widget_størrelser: state.widget_størrelser,
         timer_varighet:    state.timer_varighet,
+        øyne_hit:          state.øyne_hit,
       },
       klasselister: state.lister,
       klasseliste_begrensninger: state.liste_begrensninger,
@@ -8675,6 +8764,7 @@ async function bekreftImport() {
   if (pref.språk             !== undefined) ny.språk = pref.språk;
   if (pref.widget_størrelser !== undefined) ny.widget_størrelser = pref.widget_størrelser;
   if (pref.timer_varighet    !== undefined) ny.timer_varighet = pref.timer_varighet;
+  if (pref.øyne_hit          !== undefined) ny.øyne_hit = pref.øyne_hit;
   if (innhold.klasselister   !== undefined) ny.lister = innhold.klasselister;
   if (innhold.klasseliste_begrensninger !== undefined) ny.liste_begrensninger = innhold.klasseliste_begrensninger;
   if (innhold.klasseliste_trekk !== undefined) ny.liste_trekk = innhold.klasseliste_trekk;

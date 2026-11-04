@@ -20,6 +20,13 @@ const NYNORSK = {
   'Bytt mellom begge, analog og digital': 'Byt mellom begge, analog og digital',
   // Guidekortene for nye brukere (index.html, data-t-html)
   '↘ Hurtigtaster': '↘ Snøggtastar',
+  'øyne hit': 'auge hit',
+  '👀 Øyne hit': '👀 Auge hit',
+  'Øyne hit!': 'Auge hit!',
+  'Beskjeden fyller hele skjermen. Klikk, <kbd>Esc</kbd> eller <kbd>ø</kbd> tar den bort igjen. <kbd>Shift</kbd>+<kbd>Ø</kbd> viser den rett på, uten å spørre.': 'Meldinga fyller heile skjermen. Klikk, <kbd>Esc</kbd> eller <kbd>ø</kbd> tek henne bort att. <kbd>Shift</kbd>+<kbd>Ø</kbd> viser henne rett på, utan å spørje.',
+  'Spill en mild lyd': 'Spel ein mild lyd',
+  'Vis beskjeden': 'Vis meldinga',
+  'Klikk eller trykk <kbd>Esc</kbd> for å lukke': 'Klikk eller trykk <kbd>Esc</kbd> for å lukke',
   'Klikk på <strong>🏫 Skoledash</strong> oppe til venstre for å velge tema, font, skriftstørrelse og bokmål eller nynorsk.':
     'Klikk på <strong>🏫 Skoledash</strong> oppe til venstre for å velje tema, font, skriftstorleik og bokmål eller nynorsk.',
   'Der finner du også eksport og import av dataene dine, brukerveiledningen og hva som er nytt.':
@@ -387,7 +394,6 @@ const ROADMAP_KORT_NN = `
     <strong>Seinare</strong>
     <ul>
       <li>🔊 Lydnivåmålar med rekord og mål for klassen</li>
-      <li>👀 «Auge hit»-melding over heile skjermen, med din eigen tekst</li>
       <li>🎡 Lykkehjul som val i Tilfeldig elev</li>
       <li>🃏 Kortbunke med framside og bakside</li>
       <li>🏆 Poengtavle, 🙂 exit-avstemming og rask handsopprekning</li>
@@ -577,6 +583,9 @@ const BRUKERVEILEDNING_NN = `
   <h4>Tavlemodus</h4>
   <p>Trykk <strong>🖥 Tavle</strong> (eller <kbd>b</kbd>) for ein heilt svart skjerm. Nyttig når du vil samle merksemda til elevane. Klikk kvar som helst eller trykk <kbd>Esc</kbd> for å avslutte.</p>
 
+  <h4>👀 Auge hit</h4>
+  <p>Trykk <kbd>ø</kbd> når du treng blikket til alle. Du får opp meldinga (frå start «Auge hit!») og kan endre henne før du trykkjer <kbd>Enter</kbd>: då fyller ho heile skjermen i fargen til temaet, med ein mild lyd. Klikk, <kbd>Esc</kbd> eller <kbd>ø</kbd> tek henne bort att. <kbd>Shift</kbd>+<kbd>Ø</kbd> viser førre melding rett på, utan å spørje. Lyden slår du av i same dialog. Meldinga er felles for alle sidene og blir med i backupen.</p>
+
   <h4>Snarvegar på tastaturet</h4>
   <ul>
     <li><kbd>a</kbd> Legg til elev</li>
@@ -594,6 +603,7 @@ const BRUKERVEILEDNING_NN = `
     <li><kbd>l</kbd> Vis klasselister</li>
     <li><kbd>b</kbd> Tavlemodus</li>
     <li><kbd>n</kbd> 💾 Data (backup og sletting)</li>
+    <li><kbd>ø</kbd> 👀 Auge hit: skriv meldinga og vis henne (<kbd>Shift</kbd>+<kbd>Ø</kbd> viser førre rett på)</li>
     <li><kbd>Esc</kbd> Lukk opne vindauge</li>
   </ul>
   <p>Snarvegane verkar berre når du <em>ikkje</em> står og skriv i eit tekstfelt, og dei blir ikkje utløyste saman med <kbd>Cmd</kbd>, <kbd>Ctrl</kbd> eller <kbd>Alt</kbd>.</p>

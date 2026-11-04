@@ -29,7 +29,7 @@ Gruppert så det som hører til samme kort eller samme mekanisme, bygges sammen.
 | Funksjon | Hva det er | Innsats | Merknad |
 |---|---|---|---|
 | Lydnivåmåler | Mikrofonen viser hvor høyt det er i rommet | Middels | Skal være sjarmerende, med gjennomsnitt, rekord og et mål klassen kan nå. Lyden behandles lokalt |
-| «Øyne hit»-signal | Stor beskjed over hele skjermen med en mild lyd | Lett | Læreren skriver meldingen selv |
+| «Øyne hit»-signal | Stor beskjed over hele skjermen med en mild lyd | Lett | Ferdig i v2.57 (4. november 2026) som hurtigtasten ø (dialog med beskjeden, Enter viser; Shift+Ø viser rett på), nederst i hurtigtast-raden. Ingen knapp i toppfeltet: plassen er holdt av til bursdager |
 | Skjermteppe | Dekk til deler av skjermen og avdekk litt etter litt | Middels | |
 | Klassekart | Pultene i rommet med elevnavn, flytt eller trekk ny plassering | Stor | Ferdig i v2.54 (4. november 2026) som eget kort: rutenett av pulter, klikk-klikk-flytting, trekk med «hold fra hverandre»-par, fokusmodus fyller skjermen |
 | Ukeplan | Én dagsplan per ukedag, viser dagens når appen åpnes | Middels | Ferdig i v2.53 (4. november 2026), som 🗓-bryter i Dagsplan-kortet. Bytter aldri plan midt i en dag |
