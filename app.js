@@ -68,7 +68,7 @@ const WIDGET_NAVN = {
   'card-tilfeldig':  'Tilfeldig elev',
   'card-ordenselev': 'Ordenselever',
   'card-ulv':        'Klassebamse',
-  'card-dagsplan':   'Dagsplan',
+  'card-dagsplan':   'Dagsplan / Ukeplan',
   'card-klokke':     'Klokke',
   'card-terning':    'Terning',
   'card-arbeid':     'Arbeidssymboler',
@@ -3703,6 +3703,13 @@ function renderDagsplan() {
   knapp.title = uke ? t('Ukeplan er på: én plan per ukedag. Klikk for én plan') : t('Ukeplan: én plan per ukedag');
   const dager = document.getElementById('dagsplan-dager');
   dager.classList.toggle('hidden', !uke);
+  // Overskriften følger modusen («Dagsplan» eller «Ukeplan») når læreren ikke har
+  // gitt kortet et eget navn. data-standard er det ✏️ sammenligner med.
+  const h2 = document.querySelector('#card-dagsplan > .card-header h2');
+  if (h2) {
+    h2.dataset.standard = uke ? t('Ukeplan') : t('Dagsplan');
+    if (!s.kort_navn['card-dagsplan'] && !h2.querySelector('input')) h2.textContent = h2.dataset.standard;
+  }
   if (uke) {
     const idag = ukedagIdag();
     dager.innerHTML = UKEPLAN_DAGER.map(d => `
@@ -5943,6 +5950,13 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.55</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li>Dagsplan-kortet heter <strong>Dagsplan / Ukeplan</strong> i ⊞ Kort, så ukeplanen er lettere å finne. Overskriften på kortet sier «Ukeplan» når 🗓 er på</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.54</div>
     <div class="logg-dato">4. november 2026</div>

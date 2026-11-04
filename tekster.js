@@ -261,6 +261,8 @@ const NYNORSK = {
   'Klarte ikke å plassere uten at par sitter ved siden av hverandre. Prøv igjen, eller gi rommet flere pulter':
     'Klarte ikkje å plassere utan at par sit ved sida av kvarandre. Prøv igjen, eller gi rommet fleire pultar',
   // Ukeplan (v2.53)
+  'Dagsplan / Ukeplan': 'Dagsplan / Vekeplan',
+  'Ukeplan': 'Vekeplan',
   'Ukeplan: én plan per ukedag': 'Vekeplan: éin plan per vekedag',
   'Ukeplan er på: én plan per ukedag. Klikk for én plan': 'Vekeplan er på: éin plan per vekedag. Klikk for éin plan',
   '🗓 Ukeplan: én plan per ukedag': '🗓 Vekeplan: éin plan per vekedag',
