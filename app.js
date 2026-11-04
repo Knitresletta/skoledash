@@ -639,10 +639,14 @@ function normaliserElever(liste) {
     const gyldigId = erObjekt(e) && typeof e.id === 'string' && ELEV_ID.test(e.id) && !ider.has(e.id);
     let id;
     if (gyldigId) { id = e.id; ider.add(id); } else { id = nyElevId(ider); }
-    ut.push({ id, navn });
+    // Bursdag (v2.59): «MM-DD», uten år. Bare med når den er satt.
+    const bursdag = erObjekt(e) && typeof e.bursdag === 'string' && BURSDAG_FORMAT.test(e.bursdag) ? e.bursdag : null;
+    ut.push(bursdag ? { id, navn, bursdag } : { id, navn });
   }
   return ut;
 }
+
+const BURSDAG_FORMAT = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
 // Lager en funksjon som gjør en referanse til en elev-id, eller null hvis eleven ikke
 // finnes i lista. En referanse kan være en id (nytt format) eller et navn (gamle data).
@@ -1310,7 +1314,7 @@ function oppdaterDato() {
   document.getElementById('header-dato').textContent = `${norskDato()} · ${t('uke')} ${ukenummer()}`;
   // Ved midnatt skal nedtellingene til dato vise ett dag mindre.
   const iDag = new Date().toDateString();
-  if (sistDato && sistDato !== iDag) Object.keys(state.datoer).forEach(id => renderSmåkort('dato', id));
+  if (sistDato && sistDato !== iDag) { Object.keys(state.datoer).forEach(id => renderSmåkort('dato', id)); renderBursdag(); }
   sistDato = iDag;
 }
 
@@ -2791,6 +2795,7 @@ function renderElever() {
 
   if (!antall) {
     liste.innerHTML = `<p class="tom-tekst">${t('Ingen elever inne ennå.')}<br>${t('Trykk "+ Legg til elev" for å starte.')}</p>`;
+    renderBursdag();
     return;
   }
 
@@ -2800,7 +2805,7 @@ function renderElever() {
     s.grupper.forEach((g, gi) => g.forEach(id => gruppeKart.set(id, gi)));
   }
 
-  liste.innerHTML = klasse(s).elever.map(({ id, navn }, i) => {
+  liste.innerHTML = klasse(s).elever.map(({ id, navn, bursdag }, i) => {
     const gi        = gruppeKart.get(id);
     const harGruppe = gi !== undefined;
     const farge     = harGruppe ? GRUPPE_FARGER[gi % GRUPPE_FARGER.length] : null;
@@ -2824,9 +2829,12 @@ function renderElever() {
           <button class="oppmøte-knapp oppmøte-borte" data-klikk="oppmøte" data-status="borte" data-idx="${i}"
             aria-pressed="${st === 'borte'}" title="${t('{navn} er borte i dag', { navn: esc(navn) })}">−</button>
         </span>
+        <button class="elev-bursdag${bursdag ? ' satt' : ''}" data-klikk="bursdag-elev" data-idx="${i}"
+          title="${bursdag ? t('Bursdag: {dato}', { dato: bursdagTekst(bursdag) }) : t('Sett bursdag')}">🎂</button>
         <button class="elev-slett" data-klikk="fjern-elev" data-idx="${i}" title="${t('Fjern {navn}', { navn: esc(navn) })}">✕</button>
       </div>`;
   }).join('');
+  renderBursdag();
   // Etter at lista er tegnet: fokuser redigeringsfeltet og marker teksten, så læreren
   // kan skrive rett over eller rette en typo uten å klikke i feltet først.
   if (redigerElevIdx !== null) {
@@ -2834,6 +2842,90 @@ function renderElever() {
     if (inp) { inp.focus(); inp.select(); }
   }
   oppdaterBegrensningSelecter();
+}
+
+// ===================== Bursdager =====================
+// Bursdag (v2.59) ligger på eleven som «MM-DD», uten år, og følger med i lagrede
+// lister og backup fordi elevene kopieres med alle felt. I toppfeltet vises 👑 og
+// fornavnet til dem på sidens liste som har bursdag i dag, ellers ingenting.
+function bursdagIdag() {
+  const d = new Date();
+  return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// «14. mars» av «03-14».
+function bursdagTekst(bursdag) {
+  const [m, d] = bursdag.split('-').map(Number);
+  return `${d}. ${(state.språk === 'nn' ? MÅNEDER_NN : MÅNEDER)[m - 1]}`;
+}
+
+// Tolker det læreren skriver: «14.03», «14/3», «14-03-2015». Gir «MM-DD» eller null.
+function tolkBursdag(tekst) {
+  const m = String(tekst).trim().match(/^(\d{1,2})[.\/\-\s](\d{1,2})(?:[.\/\-\s]\d{2,4})?\.?$/);
+  if (!m) return null;
+  const dag = Number(m[1]), mnd = Number(m[2]);
+  if (mnd < 1 || mnd > 12 || dag < 1 || dag > [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mnd - 1]) return null;
+  return `${String(mnd).padStart(2, '0')}-${String(dag).padStart(2, '0')}`;
+}
+
+function renderBursdag() {
+  const el = document.getElementById('header-bursdag');
+  if (!el) return;
+  const idag = bursdagIdag();
+  const navn = klasse(aktivSide()).elever.filter(e => e.bursdag === idag).map(e => e.navn.split(/\s+/)[0]);
+  el.classList.toggle('hidden', !navn.length);
+  if (!navn.length) { el.textContent = ''; return; }
+  const liste = navn.length > 1 ? `${navn.slice(0, -1).join(', ')} ${t('og')} ${navn.at(-1)}` : navn[0];
+  el.textContent = `👑 ${liste}`;
+  el.title = t('{navn} har bursdag i dag 🎂', { navn: liste });
+}
+
+let bursdagElevIdx = null; // eleven dialogen gjelder
+
+function åpneBursdag(idx) {
+  const elev = klasse(aktivSide()).elever[idx];
+  if (!elev) return;
+  bursdagElevIdx = idx;
+  document.getElementById('bursdag-tittel').textContent = t('🎂 Bursdag for {navn}', { navn: elev.navn });
+  const input = document.getElementById('input-bursdag');
+  input.value = elev.bursdag ? elev.bursdag.split('-').reverse().join('.') : '';
+  document.getElementById('btn-bursdag-fjern').classList.toggle('hidden', !elev.bursdag);
+  åpneModal('modal-bursdag');
+}
+
+function lagreBursdag(fjern = false) {
+  const s = aktivSide();
+  const elev = klasse(s).elever[bursdagElevIdx];
+  if (!elev) { lukkModal(); return; }
+  let bursdag = null;
+  if (!fjern) {
+    bursdag = tolkBursdag(document.getElementById('input-bursdag').value);
+    if (!bursdag) { notify(t('Skriv dag og måned, f.eks. 14.03'), 'warning'); return; }
+  }
+  klasse(s).elever = klasse(s).elever.map((e, i) => {
+    if (i !== bursdagElevIdx) return e;
+    const { bursdag: _gammel, ...uten } = e;
+    return bursdag ? { ...uten, bursdag } : uten;
+  });
+  // Lista eleven kom fra, får samme bursdag, så den følger med neste gang lista lastes.
+  const listeNavn = klasse(s).liste;
+  if (listeNavn && state.lister[listeNavn]) {
+    state.lister[listeNavn] = state.lister[listeNavn].map(e => {
+      if (e.id !== elev.id && e.navn.toLowerCase() !== elev.navn.toLowerCase()) return e;
+      const { bursdag: _gammel, ...uten } = e;
+      return bursdag ? { ...uten, bursdag } : uten;
+    });
+  }
+  saveState();
+  lukkModal();
+  renderElever();
+}
+
+function setupBursdag() {
+  document.getElementById('btn-bursdag-lagre').onclick = () => lagreBursdag();
+  document.getElementById('btn-bursdag-fjern').onclick = () => lagreBursdag(true);
+  document.getElementById('btn-bursdag-avbryt').onclick = () => lukkModal();
+  inputEnter('input-bursdag', () => lagreBursdag());
 }
 
 // Indeksen til eleven som redigeres inline akkurat nå (null = ingen redigering pågår).
@@ -6376,10 +6468,17 @@ const OPPDATERINGSLOGG_HTML = `
       <li>🎡 Lykkehjul som valg i Tilfeldig elev</li>
       <li>🃏 Kortbunke med forside og bakside</li>
       <li>🏆 Poengtavle, 🙂 exit-avstemning og rask håndsopprekning</li>
-      <li>🎂 Bursdager i toppfeltet, 🤸 bevegelsespause og lydeffekter</li>
+      <li>🤸 Bevegelsespause og lydeffekter</li>
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.59</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>🎂 Bursdager:</strong> hold musa over en elev i elevlista og trykk <strong>🎂</strong> for å legge inn dag og måned. På dagen står <strong>👑 og fornavnet</strong> i toppfeltet, mellom fanene og været, for elevene på lista du har framme. Ingen popup, ingen lyd. Bursdagen følger med i lagrede lister og backup</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.58</div>
     <div class="logg-dato">4. november 2026</div>
@@ -7047,6 +7146,9 @@ const BRUKERVEILEDNING_HTML = `
   <p>Vil du spare tid neste gang? Lagre elevlisten din under <strong>📋 Lister</strong>, og last den inn igjen med ett klikk.</p>
   <p><strong>Starte en ny klasse:</strong> trykk <strong>🧹 Tøm</strong> nederst i elevkortet, og trykk igjen når knappen spør. Elevene, gruppene og oppmøtet forsvinner fra siden, og <strong>+ Legg til elev</strong> åpnes. Lagrede lister røres ikke. Står det <strong>Ikke lagret. Tøm?</strong> på knappen, er elevene ikke lagret i en liste og blir borte.</p>
 
+  <h4>🎂 Bursdager</h4>
+  <p>Hold musa over en elev i elevlista og trykk <strong>🎂</strong>. Skriv dag og måned, f.eks. «14.03», og trykk <kbd>Enter</kbd>. Når dagen kommer, står <strong>👑 og fornavnet</strong> i toppfeltet mellom fanene og været, så lenge eleven står på lista til siden du har framme. Har flere bursdag samme dag, står alle der. Et svakt 🎂 i lista viser hvem som har bursdag lagt inn; klikk på den for å endre eller fjerne. Bursdagen lagres på eleven, så den blir med i 📋 Lister og i backupen. Bare dag og måned lagres, aldri år.</p>
+
   <h4>📋 Klasselister</h4>
   <p>Åpne <strong>📋 Lister</strong> i elevkortet, eller <strong>📋 Klasselister</strong> i 🏫 Skoledash-menyen. <strong>💾 Lagre nåværende</strong> lagrer elevlista på siden du står på. Klikk på en liste for å laste den inn. Lagrede lister deles av alle sidene dine.</p>
   <p>Hver liste har fem knapper: <strong>✏️</strong> gir lista nytt navn (<kbd>Enter</kbd> lagrer, <kbd>Esc</kbd> avbryter), <strong>⛔</strong> åpner parene som ikke skal i samme gruppe, <strong>📤</strong> laster ned lista som en fil, <strong>🔄</strong> erstatter elevene i lista med elevene på siden, og <strong>✕</strong> sletter den. 🔄 bruker du når du har lagt til eller fjernet elever og vil at lista skal huske det. Både 🔄 og ✕ må trykkes to ganger: første trykk gjør knappen om til <strong>Overskriv?</strong> eller <strong>Slett?</strong>.</p>
@@ -7674,6 +7776,7 @@ function settOppHendelser() {
 
 
   setupØyneHit();
+  setupBursdag();
 
   // Blackboard
   document.getElementById('btn-blackboard').onclick = () =>
@@ -9068,6 +9171,7 @@ const KLIKK_HANDLINGER = {
   'fjern-guide':          el => fjernGuide(el.dataset.widget),
   'rediger-elev':         el => startRedigerElev(Number(el.dataset.idx)),
   'fjern-elev':           el => fjernElev(Number(el.dataset.idx)),
+  'bursdag-elev':         el => åpneBursdag(Number(el.dataset.idx)),
   'oppmøte':              el => settOppmøte(Number(el.dataset.idx), el.dataset.status),
   'rediger-dagsplan':     el => startRedigerDagsplan(Number(el.dataset.idx)),
   'dagsplan-ferdig':      el => toggleDagsplanFerdig(Number(el.dataset.idx)),

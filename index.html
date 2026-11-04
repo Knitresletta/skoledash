@@ -104,6 +104,8 @@
   <div id="sider-nav" class="sider-nav"></div> <!-- fane-rad, fylles av renderSiderNav() -->
   <div id="header-dato"></div>                 <!-- dagens dato, settes av oppdaterDato() -->
   <div id="widget-meny-wrapper">
+    <!-- Bursdager i dag (v2.59): 👑 og fornavn, fylles av renderBursdag(). Tom = skjult. -->
+    <div id="header-bursdag" class="hidden"></div>
     <div id="vær-wrapper">
       <div id="header-ver" title="Klikk for detaljer"></div>
       <div id="vær-popup" class="hidden"></div>
@@ -403,6 +405,17 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btn-legg-til-avbryt">Avbryt</button>
       <button class="btn btn-success" id="btn-legg-til-bekreft">Legg til</button>
+    </div>
+  </div>
+
+  <div id="modal-bursdag" class="modal hidden">
+    <h3 id="bursdag-tittel">🎂 Bursdag</h3>
+    <p data-t-html>Skriv dag og måned, f.eks. <strong>14.03</strong>. På dagen vises 👑 og fornavnet i toppfeltet.</p>
+    <input type="text" id="input-bursdag" placeholder="dd.mm" maxlength="10" autocomplete="off" inputmode="numeric">
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btn-bursdag-fjern">Fjern</button>
+      <button class="btn btn-ghost" id="btn-bursdag-avbryt">Avbryt</button>
+      <button class="btn btn-success" id="btn-bursdag-lagre">Lagre</button>
     </div>
   </div>
 

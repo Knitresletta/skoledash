@@ -1330,6 +1330,36 @@ body.kl-endrer-storrelse {
     transition: opacity 0.1s;
     flex-shrink: 0;
 }
+/* 🎂 (v2.59): synlig ved hover, svakt synlig hele tiden når bursdagen er satt */
+.elev-bursdag {
+    opacity: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    line-height: 1;
+    transition: opacity 0.1s;
+    flex-shrink: 0;
+}
+.elev-bursdag.satt { opacity: 0.55; }
+.elev-item:hover .elev-bursdag { opacity: 1; }
+/* Bursdag i toppfeltet: krone og fornavn, mellom fanene og været */
+#header-bursdag {
+    font-size: 0.9rem;
+    font-weight: 700;
+    white-space: nowrap;
+    background: rgb(255 255 255 / 0.18);
+    border: 1px solid rgb(255 255 255 / 0.3);
+    border-radius: 999px;
+    padding: 3px 12px;
+    animation: bursdag-inn 0.6s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+@keyframes bursdag-inn {
+    from { transform: scale(0.6); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+}
 .elev-item:hover .elev-slett {
     opacity: 1;
 }

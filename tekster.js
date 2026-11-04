@@ -22,6 +22,14 @@ const NYNORSK = {
   '↘ Hurtigtaster': '↘ Snøggtastar',
   'øyne hit': 'auge hit',
   'Flere': 'Fleire',
+  'Sett bursdag': 'Set bursdag',
+  'Bursdag: {dato}': 'Bursdag: {dato}',
+  '🎂 Bursdag for {navn}': '🎂 Bursdag for {navn}',
+  '{navn} har bursdag i dag 🎂': '{navn} har bursdag i dag 🎂',
+  'Skriv dag og måned, f.eks. 14.03': 'Skriv dag og månad, t.d. 14.03',
+  'Skriv dag og måned, f.eks. <strong>14.03</strong>. På dagen vises 👑 og fornavnet i toppfeltet.': 'Skriv dag og månad, t.d. <strong>14.03</strong>. På dagen blir 👑 og fornamnet vist i toppfeltet.',
+  'og': 'og',
+  'Fjern': 'Fjern',
   '{antall} sider til': '{antall} sider til',
   'Klikk for de andre sidene, nytt navn eller lagre som mal': 'Klikk for dei andre sidene, nytt namn eller lagre som mal',
   'Slett siden': 'Slett sida',
@@ -401,7 +409,7 @@ const ROADMAP_KORT_NN = `
       <li>🎡 Lykkehjul som val i Tilfeldig elev</li>
       <li>🃏 Kortbunke med framside og bakside</li>
       <li>🏆 Poengtavle, 🙂 exit-avstemming og rask handsopprekning</li>
-      <li>🎂 Bursdagar i toppfeltet, 🤸 rørslepause og lydeffektar</li>
+      <li>🤸 Rørslepause og lydeffektar</li>
       <li>✏️ Teiknebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>`;
@@ -445,6 +453,9 @@ const BRUKERVEILEDNING_NN = `
   <p><strong>Stor forbokstav kjem av seg sjølv:</strong> skriv du «kari nordmann», blir det lagra som «Kari Nordmann». Det same gjeld etter bindestrek («Anne-Marie»), og namn med æ, ø og å blir handsama rett.</p>
   <p>Vil du spare tid neste gong? Lagre elevlista di under <strong>📋 Lister</strong>, og last ho inn att med eitt klikk.</p>
   <p><strong>Starte ein ny klasse:</strong> trykk <strong>🧹 Tøm</strong> nedst i elevkortet, og trykk ein gong til når knappen spør. Elevane, gruppene og oppmøtet forsvinn frå sida, og <strong>+ Legg til elev</strong> blir opna. Lagra lister blir ikkje rørte. Står det <strong>Ikkje lagra. Tøm?</strong> på knappen, er elevane ikkje lagra i ei liste og blir borte.</p>
+
+  <h4>🎂 Bursdagar</h4>
+  <p>Hald musa over ein elev i elevlista og trykk <strong>🎂</strong>. Skriv dag og månad, t.d. «14.03», og trykk <kbd>Enter</kbd>. Når dagen kjem, står <strong>👑 og fornamnet</strong> i toppfeltet mellom fanene og vêret, så lenge eleven står på lista til sida du har framme. Har fleire bursdag same dag, står alle der. Ein svak 🎂 i lista viser kven som har bursdag lagt inn; klikk på han for å endre eller fjerne. Bursdagen blir lagra på eleven, så han blir med i 📋 Lister og i backupen. Berre dag og månad blir lagra, aldri år.</p>
 
   <h4>📋 Klasselister</h4>
   <p>Opne <strong>📋 Lister</strong> i elevkortet, eller <strong>📋 Klasselister</strong> i 🏫 Skoledash-menyen. <strong>💾 Lagre nåværende</strong> lagrar elevlista på sida du står på. Klikk på ei liste for å laste ho inn. Lagra lister blir delte av alle sidene dine.</p>

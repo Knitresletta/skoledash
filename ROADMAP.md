@@ -37,7 +37,7 @@ Gruppert så det som hører til samme kort eller samme mekanisme, bygges sammen.
 | Poengtavle | Poeng per gruppe eller lag | Lett | Vanlig widget + fokusmodus. Kan hente gruppene fra Grupper |
 | Kortbunke | Flashcards: egne kort trekkes ett om gangen, uten å gjenta | Lett-middels | Kortene har forside og bakside (spørsmål og svar) |
 | Bevegelsespause | Tilfeldig aktivitet og en kort timer | Lett | Aktivitetslista kan endres |
-| Bursdager | Fødselsdato per elev, gratulasjon på dagen | Lett | Vises bare når eleven er på aktiv liste, og i toppfeltet, ikke som popup |
+| Bursdager | Fødselsdato per elev, gratulasjon på dagen | Lett | Ferdig i v2.59 (4. november 2026): 🎂 på eleven, 👑 og fornavn i toppfeltet mellom fanene og været. Bare dag og måned, vises bare for lista på siden som er framme |
 | Lydeffekter | Trommevirvel før trekk, gong, applaus | Lett | Kan slås av |
 | Tegnebrett | Tegn med finger eller mus | Middels | Widget + fokusmodus, eller egen sidetype |
 | QR-kode | Lim inn en lenke, få en stor QR-kode | Middels | QR-bibliotek må ligge på skoledash.app, ikke ekstern tjeneste |
