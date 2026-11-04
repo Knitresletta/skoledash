@@ -47,9 +47,6 @@
       <div class="kl-dropdown-sep"></div>
       <div class="kl-dropdown-item" data-klikk="lister">📋 Klasselister</div>
       <div class="kl-dropdown-sep"></div>
-      <div class="kl-dropdown-item" id="btn-eksporter">📤 Eksporter data</div>
-      <div class="kl-dropdown-item" id="btn-importer">📥 Importer data</div>
-      <div class="kl-dropdown-sep"></div>
       <div class="kl-dropdown-item kl-has-submenu">
         🎨 Tema
         <div class="kl-submenu">
@@ -224,6 +221,7 @@
       <div class="card-controls">
         <button class="btn btn-ghost btn-sm btn-icon" id="btn-ordenselev-antall" title="To ordenselever per trekk. Trykk for én.">👥</button>
         <button class="btn btn-ghost btn-sm btn-icon" id="btn-rediger-ordenselev" title="Rediger backlog">📝</button>
+        <button class="btn btn-ghost btn-sm btn-icon" id="btn-ordenselev-tom" title="Nullstill ordenselev-trekket: alle kan trekkes igjen">🔄</button>
       </div>
     </div>
     <div id="ordenselev-vis" class="draw-placeholder">Trykk Trekk for å velge to ordenselever</div>
@@ -240,6 +238,7 @@
       <div class="card-controls">
         <button class="btn btn-ghost btn-sm btn-icon" id="btn-ulv-rename" title="Endre navn">✏️</button>
         <button class="btn btn-ghost btn-sm btn-icon" id="btn-rediger-ulv" title="Rediger backlog">📝</button>
+        <button class="btn btn-ghost btn-sm btn-icon" id="btn-ulv-tom" title="Nullstill bamse-trekket: alle kan trekkes igjen">🔄</button>
       </div>
     </div>
     <div id="ulv-vis" class="draw-placeholder">Trykk Trekk for å velge hvem som tar med klassebamse hjem</div>
@@ -272,6 +271,9 @@
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
       <h2>📋 Dagsplan</h2>
+      <div class="card-controls">
+        <button class="btn btn-ghost btn-sm btn-icon" id="btn-dagsplan-tom" title="Tøm dagsplanen">🧹</button>
+      </div>
     </div>
     <div id="dagsplan-liste"></div>
     <button class="btn btn-ghost w-full btn-sm" id="btn-dagsplan-legg-til" title="Legg til punkt (d)">+ Legg til punkt</button>
@@ -345,7 +347,7 @@
 
 <!-- Action bar -->
 <div id="action-bar">
-  <button class="btn btn-ghost btn-sm" id="btn-nullstill" title="Nullstill (n)">⚙️ Nullstill…</button>
+  <button class="btn btn-ghost btn-sm" id="btn-data" title="Backup og sletting av data (n)">💾 Data</button>
   <button class="btn btn-ghost btn-sm" id="btn-blackboard" title="Tavlemodus (b)">🖥 Tavle</button>
   <div class="action-bar-right">
     <span class="shortcut-hint">
@@ -422,21 +424,16 @@
     </div>
   </div>
 
-  <div id="modal-nullstill" class="modal hidden">
-    <h3>Nullstill…</h3>
-    <div class="modal-list" id="nullstill-liste">
-      <div class="modal-list-item" data-action="tilfeldig"><span>🙋 Tilfeldig-trekk</span></div>
-      <div class="modal-list-item" data-action="ordenselev"><span>⭐ Ordenselever-trekk</span></div>
-      <div class="modal-list-item" data-action="ulv"><span>Klassebamse-trekk</span></div>
-      <div class="modal-list-item" data-action="grupper"><span>👥 Grupper</span></div>
-      <div class="modal-list-item" data-action="timer"><span>⏱ Timer</span></div>
-      <div class="modal-list-item" data-action="notat"><span>📝 Notat</span></div>
-      <div class="modal-list-item" data-action="dagsplan"><span>📋 Dagsplan</span></div>
-      <div class="modal-list-item danger" data-action="fjern_elever"><span>👤 Fjern elever…</span></div>
+  <div id="modal-data" class="modal hidden">
+    <h3>💾 Data</h3>
+    <p class="import-info">Alt Skoledash husker, ligger bare i denne nettleseren. Ta en backup med jevne mellomrom.</p>
+    <div class="modal-list" id="data-liste">
+      <div class="modal-list-item" data-action="eksporter"><span>📤 Eksporter backup</span></div>
+      <div class="modal-list-item" data-action="importer"><span>📥 Importer backup</span></div>
       <div class="modal-list-item danger" data-action="slett_alt"><span>🗑 Slett alle data på denne maskinen…</span></div>
     </div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" id="btn-nullstill-lukk">Lukk</button>
+      <button class="btn btn-ghost" id="btn-data-lukk">Lukk</button>
     </div>
   </div>
 
@@ -448,15 +445,6 @@
       <button class="btn btn-ghost" id="btn-slett-alt-avbryt">Avbryt</button>
       <button class="btn btn-ghost" id="btn-slett-alt-eksporter">📤 Eksporter først</button>
       <button class="btn btn-danger" id="btn-slett-alt-bekreft">Slett alt</button>
-    </div>
-  </div>
-
-  <div id="modal-fjern-elever" class="modal hidden">
-    <h3>Fjern elever</h3>
-    <div id="fjern-elever-liste" class="checkbox-list"></div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" id="btn-fjern-avbryt">Avbryt</button>
-      <button class="btn btn-danger" id="btn-fjern-bekreft">Fjern valgte</button>
     </div>
   </div>
 
@@ -579,7 +567,7 @@
     <p>Skoledash er et gratis verktøy for klasserommet, uten innlogging og uten abonnement. Alt du legger inn lagres bare i nettleseren din.</p>
     <p>Vil du støtte utviklingen, finner du alltid <span class="velkommen-ikon">☕</span> øverst til høyre på siden.</p>
     <p>Vil du se været der du er, kan appen bruke posisjonen din. Den brukes bare til værvarselet, rundes av til omtrent en kilometer og lagres i nettleseren din. Du kan også velge et sted selv ved å klikke på været øverst til høyre.</p>
-    <p class="velkommen-flytt">Har du brukt Skoledash på den gamle adressen? Hent dataene dine med <strong>📥 Importer data</strong> i 🏫-menyen.</p>
+    <p class="velkommen-flytt">Har du brukt Skoledash på den gamle adressen? Hent dataene dine med <strong>📥 Importer backup</strong> under <strong>💾 Data</strong> nederst til venstre.</p>
     <div class="modal-knapper">
       <a class="btn btn-ghost" data-donasjon target="_blank" rel="noopener noreferrer">☕ Støtt utviklingen</a>
       <button class="btn btn-ghost" id="btn-velkommen-posisjon">📍 Vis været der du er</button>

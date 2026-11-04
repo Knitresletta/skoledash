@@ -3807,21 +3807,10 @@ function fjernSide(idx) {
 
 // ===================== Reset =====================
 // Hver nullstill*-funksjon tømmer ett enkelt trekk/widget på aktiv side: tøm
-// valgt + backlog, lagre, tegn på nytt og varsle. Brukes fra Nullstill-modalen.
+// valgt + backlog, lagre, tegn på nytt og varsle. Brukes fra knappene på kortene.
 function nullstillTilfeldig()   { const r = trekk(); r.tilfeldig_valgt = null; r.tilfeldig_backlog = []; saveState(); renderTilfeldig(); notify(t('🙋 Tilfeldig-trekk nullstilt')); }
 function nullstillOrdenselev()  { const r = trekk(); r.ordenselev_valgte = []; r.ordenselev_backlog = []; r.ordenselev_skyldig = []; saveState(); renderOrdenselev(); notify(t('⭐ Ordenselever-trekk nullstilt')); }
-function nullstillUlv()         { const r = trekk(); r.ulv_valgt = null; r.ulv_backlog = []; r.ulv_skyldig = []; saveState(); renderUlv(); notify(t('🐺 Ulv-trekk nullstilt')); }
-// Tømmer teksten i ALLE notat-kort (ikke bare aktiv side, siden notater er globale).
-// Må også nullstille de synlige tekstfeltene + krympe dem, ikke bare state.
-function nullstillNotat() {
-  for (const instansId of Object.keys(state.notater)) {
-    state.notater[instansId].tekst = '';
-    const ta = document.getElementById(`notat-textarea-${instansId}`);
-    if (ta) { ta.value = ''; autoResizeNotat(ta); }
-  }
-  saveState();
-  notify(t('📝 Notat nullstilt'));
-}
+function nullstillUlv()         { const r = trekk(); r.ulv_valgt = null; r.ulv_backlog = []; r.ulv_skyldig = []; saveState(); renderUlv(); notify(t('{bamse}-trekket er nullstilt', { bamse: aktivSide().ulv_navn })); }
 function nullstillDagsplan()    { aktivSide().dagsplan = []; saveState(); renderDagsplan(); notify(t('📋 Dagsplan nullstilt')); }
 
 // ===================== Info modal =====================
@@ -3855,6 +3844,14 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.41</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>⚙️ Nullstill heter nå 💾 Data</strong> og samler 📤 Eksporter backup, 📥 Importer backup og 🗑 Slett alle data. Eksport og import er flyttet hit fra 🏫-menyen</li>
+      <li><strong>Nullstill rett på kortet:</strong> 🔄 på Ordenselever og Klassebamse, 🧹 på Dagsplan. De spør først, så ingenting forsvinner ved et uhell. «Fjern elever…» er erstattet av ✕ per elev og 🧹 Tøm i elevkortet</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.40</div>
     <div class="logg-dato">4. november 2026</div>
@@ -4335,7 +4332,7 @@ const OPPDATERINGSLOGG_HTML = `
 // Brukerveiledningen som vises i info-modalen (se note over OPPDATERINGSLOGG_HTML).
 const BRUKERVEILEDNING_HTML = `
   <h4>📦 Flytte fra den gamle adressen</h4>
-  <p>Skoledash lå tidligere på <em>knitresletta.github.io/klasserom-dashboard</em> og bor nå på <strong>skoledash.app</strong>. Nettleseren holder data fra hver adresse adskilt, så klasselister og sider blir ikke med av seg selv. Åpne den gamle adressen, trykk <strong>📤 Eksporter og åpne skoledash.app</strong> i banneret øverst, og velg <strong>📥 Importer data</strong> i 🏫-menyen på den nye siden.</p>
+  <p>Skoledash lå tidligere på <em>knitresletta.github.io/klasserom-dashboard</em> og bor nå på <strong>skoledash.app</strong>. Nettleseren holder data fra hver adresse adskilt, så klasselister og sider blir ikke med av seg selv. Åpne den gamle adressen, trykk <strong>📤 Eksporter og åpne skoledash.app</strong> i banneret øverst, og velg <strong>📥 Importer backup</strong> under <strong>💾 Data</strong> nederst til venstre på den nye siden.</p>
   <h4>☕ Gratis, uten innlogging</h4>
   <p>Skoledash er gratis å bruke. Du trenger verken konto eller abonnement, og alt du legger inn blir liggende i nettleseren din. Vil du støtte utviklingen, trykker du på <strong>☕</strong> helt øverst til høyre. Da åpnes en side for donasjoner i en ny fane. Hva som kommer framover, ser du øverst i <strong>📋 Oppdateringslogg</strong>.</p>
   <h4>Sider — ett arbeidsbord per klasse</h4>
@@ -4350,7 +4347,7 @@ const BRUKERVEILEDNING_HTML = `
   <h4>Kom i gang</h4>
   <p>Trykk <strong>+ Legg til elev</strong> (eller tasten <kbd>a</kbd>) for å legge inn elevene i klassen din. Du kan ha opptil 35 elever inne samtidig.</p>
   <p><strong>Rette et navn:</strong> klikk rett på elevnavnet i lista — det blir til et lite skrivefelt. Rett opp og trykk <kbd>Enter</kbd> for å lagre, eller <kbd>Esc</kbd> for å avbryte. Endrer du navnet, oppdateres det automatisk overalt eleven er brukt — i grupper, trekk-backlogs og gruppebegrensninger. (Vil du fjerne eleven i stedet, bruk <strong>✕</strong> til høyre.)</p>
-  <p><strong>Fjerne en elev:</strong> trykk <strong>✕</strong> til høyre for navnet (vises når du holder musa over), eller <strong>👤 Fjern elever…</strong> for å fjerne flere. Eleven forsvinner da også fra gruppene, trekk-backlogene og gruppebegrensningene.</p>
+  <p><strong>Fjerne en elev:</strong> trykk <strong>✕</strong> til høyre for navnet (vises når du holder musa over), eller <strong>🧹 Tøm</strong> nederst i kortet for å tømme hele lista. Eleven forsvinner da også fra gruppene, trekk-backlogene og gruppebegrensningene.</p>
   <p><strong>Stor forbokstav kommer av seg selv:</strong> skriver du «kari nordmann», lagres det som «Kari Nordmann». Det samme gjelder etter bindestrek («Anne-Marie»), og navn med æ, ø og å behandles riktig.</p>
   <p>Vil du spare tid neste gang? Lagre elevlisten din under <strong>📋 Lister</strong>, og last den inn igjen med ett klikk.</p>
   <p><strong>Starte en ny klasse:</strong> trykk <strong>🧹 Tøm</strong> nederst i elevkortet, og trykk igjen når knappen spør. Elevene, gruppene og oppmøtet forsvinner fra siden, og <strong>+ Legg til elev</strong> åpnes. Lagrede lister røres ikke. Står det <strong>Ikke lagret. Tøm?</strong> på knappen, er elevene ikke lagret i en liste og blir borte.</p>
@@ -4375,7 +4372,7 @@ const BRUKERVEILEDNING_HTML = `
   <p><strong>⭐ Ordenselever</strong> — velger to elever som har ordenselev-ansvar. Alle får tur før noen gjentas, og når alle har vært ordenselev, starter en ny runde av seg selv, med en melding om det. Er det én elev igjen, kommer den eleven med i første trekk i den nye runden. To elever som ikke skal i samme gruppe (⛔), blir heller aldri ordenselever sammen. Vil du bare ha én ordenselev, trykker du <strong>👥</strong> øverst i kortet, så blir den til <strong>👤</strong>. Valget gjelder lista, som trekkene.</p>
   <p><strong>Klassebamse</strong> — velger hvem som får bamsen (eller en annen gjenstand) med hjem. Går også i runder av seg selv.</p>
   <p><strong>Borte når runden er ferdig?</strong> En elev som er markert borte og ikke har hatt tur, mister den ikke: eleven trekkes først når hen er tilbake.</p>
-  <p>Vil du nullstille en backlog for hånd? Trykk <strong>⚙️ Nullstill…</strong> nederst til venstre.</p>
+  <p>Vil du nullstille et trekk for hånd? Hold musa over kortet og trykk <strong>🔄</strong> øverst. På Ordenselever og Klassebamse må du trykke to ganger, så ingen runde forsvinner ved et uhell.</p>
 
   <h4>📝 Redigere backlog for ordenselev / klassebamse</h4>
   <p>Trykk på blyant-ikonet (📝) i kortets hjørne. Du ser alle elevene som chips — grå chips er allerede «brukt». Trykk på en elev for å sette eller fjerne «brukt»-markeringen. Nyttig hvis du har mistet lokal data og trenger å rekonstruere hvem som har vært ordenselev eller hatt med bamsen.</p>
@@ -4421,7 +4418,7 @@ const BRUKERVEILEDNING_HTML = `
   <p>Du kan ha <strong>flere notatkort</strong>: åpne <strong>⊞ Kort</strong>-menyen og klikk <strong>+ Notat</strong>. Hvert notat kan flyttes uavhengig av de andre. Slett et notat med <strong>✕</strong> i kortets øverste høyre hjørne. Notater er per side — side 1 og side 2 har helt forskjellige notatkort.</p>
 
   <h4>Dagsplan</h4>
-  <p>Legg til punkter med <strong>+ Legg til punkt</strong> (eller <kbd>d</kbd>). Fjern enkeltpunkter med <strong>✕</strong> ved siden av hvert punkt.</p>
+  <p>Legg til punkter med <strong>+ Legg til punkt</strong> (eller <kbd>d</kbd>). Fjern enkeltpunkter med <strong>✕</strong> ved siden av hvert punkt, eller tøm hele planen med <strong>🧹</strong> øverst i kortet (to trykk).</p>
   <p>Hvert punkt har tre klikkmål: <strong>prikken</strong> (●) markerer punktet ferdig — den blir grønn og teksten får en strek over (klikk igjen for å angre). <strong>Teksten</strong> åpner redigering — klikk på den, rett opp og trykk <kbd>Enter</kbd> for å lagre eller <kbd>Esc</kbd> for å avbryte. <strong>✕</strong> fjerner punktet.</p>
   <p><strong>Endre rekkefølge:</strong> hold inne dra-håndtaket <strong>⠿</strong> helt til høyre på punktet (vises når du holder musa over raden) og dra det opp eller ned. En blå strek viser hvor punktet havner når du slipper.</p>
 
@@ -4483,7 +4480,7 @@ const BRUKERVEILEDNING_HTML = `
     <li><kbd>k</kbd> — Kast terning</li>
     <li><kbd>l</kbd> — Vis klasselister</li>
     <li><kbd>b</kbd> — Tavlemodus</li>
-    <li><kbd>n</kbd> — Nullstill…</li>
+    <li><kbd>n</kbd> — 💾 Data (backup og sletting)</li>
     <li><kbd>Esc</kbd> — Lukk åpne vinduer</li>
   </ul>
   <p>Snarveiene virker bare når du <em>ikke</em> står og skriver i et tekstfelt, og de utløses ikke sammen med <kbd>Cmd</kbd>/<kbd>Ctrl</kbd>/<kbd>Alt</kbd>.</p>
@@ -4500,12 +4497,12 @@ const BRUKERVEILEDNING_HTML = `
     <li><strong>Posisjon</strong> brukes bare når du ber om det, med <strong>📍 Vis været der du er</strong> eller <strong>📍 Bruk min posisjon</strong>. Koordinatene rundes av til omtrent en kilometer, sendes én gang til bigdatacloud.net for å finne stedsnavnet, og lagres. Deretter er det disse avrundede koordinatene som brukes til været.</li>
     <li><strong>YouTube-kortet</strong> viser videoer fra youtube-nocookie.com i en egen ramme. Rammen er adskilt fra resten av appen, så YouTube kan ikke lese elevdataene dine. Spilleren lastes når appen åpnes, så lenge et YouTube-kort har en video, også om kortet ligger på en annen side. YouTube ser at videoen vises på skoledash.app, og kan sette egne informasjonskapsler inne i spilleren.</li>
   </ul>
-  <p><strong>Delte maskiner:</strong> elevdataene blir liggende i nettleseren til du sletter dem. Bruker andre den samme maskinen og nettleseren, kan de se klasselistene dine. Når du er ferdig på en slik maskin, velg <strong>Nullstill… → 🗑 Slett alle data på denne maskinen</strong>. Ta gjerne en backup først.</p>
+  <p><strong>Delte maskiner:</strong> elevdataene blir liggende i nettleseren til du sletter dem. Bruker andre den samme maskinen og nettleseren, kan de se klasselistene dine. Når du er ferdig på en slik maskin, velg <strong>💾 Data → 🗑 Slett alle data på denne maskinen</strong>. Ta gjerne en backup først.</p>
   <p>Backupfila du eksporterer, inneholder alt, også notater og bilder. Ta vare på den like trygt som en klasseliste.</p>
 
-  <h4>📤 Eksportere og 📥 importere data</h4>
-  <p>Siden data kun bor i nettleseren din, er det lurt å ta en <strong>backup</strong>. Åpne <strong>Skoledash-menyen</strong> og velg <strong>📤 Eksporter data</strong> — da lastes det ned én fil som inneholder alt: klasselister, alle sider (med elever, grupper, trekk-backlogs og begrensninger), innstillinger, notater og bilder.</p>
-  <p>For å hente data tilbake — eller flytte alt til en annen maskin eller nettleser — velg <strong>📥 Importer data</strong> og pek på fila. Du får velge mellom <strong>«Erstatt alt»</strong> (full gjenoppretting som overskriver det som ligger der nå) og <strong>«Slå sammen kun klasselister»</strong> (behold alt ditt, men hent inn de lagrede listene fra fila — fint for å dele klasselister mellom lærere).</p>
+  <h4>💾 Backup: eksportere og importere</h4>
+  <p>Siden data kun bor i nettleseren din, er det lurt å ta en <strong>backup</strong>. Trykk <strong>💾 Data</strong> nederst til venstre og velg <strong>📤 Eksporter backup</strong> — da lastes det ned én fil som inneholder alt: klasselister, alle sider (med elever, grupper, trekk-backlogs og begrensninger), innstillinger, notater og bilder.</p>
+  <p>For å hente data tilbake — eller flytte alt til en annen maskin eller nettleser — velg <strong>📥 Importer backup</strong> under 💾 Data og pek på fila. Du får velge mellom <strong>«Erstatt alt»</strong> (full gjenoppretting som overskriver det som ligger der nå) og <strong>«Slå sammen kun klasselister»</strong> (behold alt ditt, men hent inn de lagrede listene fra fila — fint for å dele klasselister mellom lærere).</p>
   <p>Når du har laget nye lister eller endret en backlog siden forrige eksport, dukker det opp et lite <strong>«● Ueksporterte endringer»</strong>-merke nederst, rett over hurtigtast-baren. Klikk på det for å ta en ny backup. Merket viser også hvor lenge det er siden forrige backup. Tips: eksporter med jevne mellomrom, så er du trygg om nettleserdata skulle bli tømt.</p>
   <p><strong>Safari rydder bort data</strong> fra nettsider som ikke er brukt på sju dager. Bruker du Safari på Mac eller iPad, er det særlig lurt å ta en backup før ferier. Skoledash ber nettleseren om å ta vare på dataene, men Safari bestemmer selv.</p>
   <p><strong>Åpen i flere faner?</strong> Endrer du noe i én fane, slutter de andre fanene å lagre, så de ikke skriver over endringen. Går du tilbake til en slik fane, lastes den inn på nytt med det nyeste. Står fanen framme på skjermen, ser du et rødt varsel med knappen <strong>↻ Last inn på nytt</strong>.</p>`;
@@ -4555,23 +4552,6 @@ function åpneModal(id) {
 function lukkModal() {
   document.getElementById('modal-overlay').classList.add('hidden');
   aktivModal = null;
-}
-
-// Bygger og åpner «Fjern elever»-modalen: en «Tøm alle»-avkrysning øverst, så én
-// avkrysning per elev. data-idx kobler hver avkrysning til elevens listeindeks.
-function åpneFjernElevModal() {
-  const liste = document.getElementById('fjern-elever-liste');
-  liste.innerHTML = `
-    <div class="checkbox-item checkbox-divider">
-      <input type="checkbox" id="cb-toem-alle">
-      <label for="cb-toem-alle" style="font-weight:700">${t('Tøm alle')}</label>
-    </div>
-    ${aktivSide().elever.map(({ navn }, i) => `
-      <div class="checkbox-item">
-        <input type="checkbox" id="cb-e${i}" data-idx="${i}">
-        <label for="cb-e${i}">${esc(navn)}</label>
-      </div>`).join('')}`;
-  åpneModal('modal-fjern-elever');
 }
 
 // ===================== Notifications =====================
@@ -4907,24 +4887,29 @@ function settOppHendelser() {
   document.getElementById('btn-lagre-liste-avbryt').onclick  = lukkModal;
   inputEnter('input-liste-navn', bekreftLagreListe);
 
-  // Nullstill
-  document.getElementById('btn-nullstill').onclick      = () => åpneModal('modal-nullstill');
-  document.getElementById('btn-nullstill-lukk').onclick = lukkModal;
-  document.getElementById('nullstill-liste').addEventListener('click', e => {
+  // 💾 Data (nederst til venstre): backup og sletting. Det som før lå i Nullstill-
+  // menyen for hvert kort, har fått egne knapper på kortene (🔄 og 🧹).
+  document.getElementById('btn-data').onclick      = () => åpneModal('modal-data');
+  document.getElementById('btn-data-lukk').onclick = lukkModal;
+  document.getElementById('data-liste').addEventListener('click', e => {
     const item = e.target.closest('[data-action]');
     if (!item) return;
+    lukkModal();
     switch (item.dataset.action) {
-      case 'tilfeldig':    nullstillTilfeldig();                          lukkModal(); break;
-      case 'ordenselev':   nullstillOrdenselev();                         lukkModal(); break;
-      case 'ulv':          nullstillUlv();                                lukkModal(); break;
-      case 'grupper':      fjernGrupper(); notify(t('Grupper nullstilt'));   lukkModal(); break;
-      case 'timer':        timerReset(); notify(t('⏱️ Timer nullstilt'));    lukkModal(); break;
-      case 'notat':        nullstillNotat();                              lukkModal(); break;
-      case 'dagsplan':     nullstillDagsplan();                           lukkModal(); break;
-      case 'fjern_elever': lukkModal(); åpneFjernElevModal();                         break;
-      case 'slett_alt':    lukkModal(); åpneSlettAltModal();                          break;
+      case 'eksporter': eksporterData(); break;
+      case 'importer':  document.getElementById('import-fil').click(); break;
+      case 'slett_alt': åpneSlettAltModal(); break;
     }
   });
+  // Nullstilling på kortene. Ordenselev og bamse mister hvem som har hatt tur, og
+  // dagsplanen alt som er skrevet, så de krever to trykk. Tilfeldig-backlogen er
+  // billig å miste og tømmes med ett.
+  toTrykk(document.getElementById('btn-ordenselev-tom'), {
+    spørsmål: t('Nullstille?'), tittel: () => t('Trykk igjen: alle kan bli ordenselev igjen'), utfør: nullstillOrdenselev });
+  toTrykk(document.getElementById('btn-ulv-tom'), {
+    spørsmål: t('Nullstille?'), tittel: () => t('Trykk igjen: alle kan få bamsen igjen'), utfør: nullstillUlv });
+  toTrykk(document.getElementById('btn-dagsplan-tom'), {
+    spørsmål: t('Tømme?'), tittel: () => t('Trykk igjen for å slette alle punktene i dagsplanen'), utfør: nullstillDagsplan });
 
   // Slett alle data på denne maskinen (to klikk på «Slett alt»)
   document.getElementById('btn-slett-alt-avbryt').onclick    = lukkModal;
@@ -4939,24 +4924,6 @@ function settOppHendelser() {
     slettAlleData();
   };
 
-  // Fjern elever
-  document.getElementById('btn-fjern-bekreft').onclick = () => {
-    const toemAlle = document.getElementById('cb-toem-alle');
-    let fjernes;
-    if (toemAlle && toemAlle.checked) {
-      fjernes = aktivSide().elever.map(e => e.id);
-    } else {
-      fjernes = Array.from(
-        document.querySelectorAll('#fjern-elever-liste input[data-idx]:checked')
-      ).map(cb => aktivSide().elever[parseInt(cb.dataset.idx)]?.id).filter(Boolean);
-    }
-    if (fjernes.length) {
-      fjernEleverBatch(new Set(fjernes));
-      notify((fjernes.length > 1 ? t('{antall} elever fjernet', { antall: fjernes.length }) : t('{antall} elev fjernet', { antall: fjernes.length })), 'warning');
-    }
-    lukkModal();
-  };
-  document.getElementById('btn-fjern-avbryt').onclick = lukkModal;
 
   // Blackboard
   document.getElementById('btn-blackboard').onclick = () =>
@@ -4996,14 +4963,6 @@ function settOppHendelser() {
   document.getElementById('btn-åpne-guide').onclick = () => {
     klasseromDrop.classList.add('hidden');
     åpneInfoModal(t('❓ Brukerveiledning'), brukerveiledningHtml());
-  };
-  document.getElementById('btn-eksporter').onclick = () => {
-    klasseromDrop.classList.add('hidden');
-    eksporterData();
-  };
-  document.getElementById('btn-importer').onclick = () => {
-    klasseromDrop.classList.add('hidden');
-    document.getElementById('import-fil').click();
   };
   document.getElementById('import-fil').addEventListener('change', e => håndterImportFil(e.target));
   document.getElementById('btn-import-bekreft').onclick = bekreftImport;
@@ -5116,7 +5075,7 @@ function settOppHendelser() {
       k: () => kastTerning(),
       l: () => document.getElementById('btn-lister').click(),
       b: () => document.getElementById('btn-blackboard').click(),
-      n: () => document.getElementById('btn-nullstill').click(),
+      n: () => document.getElementById('btn-data').click(),
     };
     const handling = hurtigtaster[e.key];
     if (!handling) return;

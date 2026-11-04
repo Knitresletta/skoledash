@@ -1830,6 +1830,18 @@ textarea[id^="notat-textarea"]:focus {
 .liste-slett {
     color: var(--red);
 }
+/* Knapper øverst i kortene (🔄, 🧹) som spør før de nullstiller: rød mens de spør, og
+   synlige selv om musa forlater kortet. */
+.card-controls .btn.bekreft {
+    background: var(--red);
+    border-color: var(--red);
+    color: var(--on-red);
+    font-weight: 700;
+    width: auto;
+}
+.card-controls:has(.bekreft) {
+    opacity: 1;
+}
 /* Første trykk på 🧹 Tøm i elevkortet: knappen blir rød og må trykkes en gang til. */
 #btn-tom-elever.bekreft {
     background: var(--red);

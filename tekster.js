@@ -134,6 +134,13 @@ const NYNORSK = {
   'Gi nytt navn': 'Gi nytt namn',
   'Par som ikke skal i samme gruppe': 'Par som ikkje skal i same gruppe',
   'Slett?': 'Slette?',
+  'Alt Skoledash husker, ligger bare i denne nettleseren. Ta en backup med jevne mellomrom.': 'Alt Skoledash hugsar, ligg berre i denne nettlesaren. Ta ein backup med jamne mellomrom.',
+  'Nullstill ordenselev-trekket: alle kan trekkes igjen': 'Nullstill ordenselev-trekket: alle kan trekkjast igjen',
+  'Nullstill bamse-trekket: alle kan trekkes igjen': 'Nullstill bamse-trekket: alle kan trekkjast igjen',
+  'Trykk igjen: alle kan bli ordenselev igjen': 'Trykk ein gong til: alle kan bli ordenselev igjen',
+  'Trykk igjen: alle kan få bamsen igjen': 'Trykk ein gong til: alle kan få bamsen igjen',
+  'Trykk igjen for å slette alle punktene i dagsplanen': 'Trykk ein gong til for å slette alle punkta i dagsplanen',
+  'nederst til venstre.': 'nedst til venstre.',
   '⚠️ Klarte ikke å lagre. Endringene forsvinner når siden lukkes. Ta en 📤 eksport for å sikre dem.': '⚠️ Klarte ikkje å lagre. Endringane forsvinn når sida blir lukka. Ta ein 📤 eksport for å sikre dei.',
   'Dataene er lagret av en nyere versjon av Skoledash. Endringer her blir ikke lagret.': 'Dataa er lagra av ein nyare versjon av Skoledash. Endringar her blir ikkje lagra.',
   'Skoledash er endret i en annen fane. Endringer her blir ikke lagret før du laster inn på nytt.': 'Skoledash er endra i ei anna fane. Endringar her blir ikkje lagra før du lastar inn på nytt.',
@@ -293,7 +300,7 @@ const ROADMAP_KORT_NN = `
 // same som i nynorsk-menyane (sjå NYNORSK over).
 const BRUKERVEILEDNING_NN = `
   <h4>📦 Flytte frå den gamle adressa</h4>
-  <p>Skoledash låg tidlegare på <em>knitresletta.github.io/klasserom-dashboard</em> og bur no på <strong>skoledash.app</strong>. Nettlesaren held data frå kvar adresse åtskilde, så klasselister og sider blir ikkje med av seg sjølv. Opne den gamle adressa, trykk <strong>📤 Eksporter og åpne skoledash.app</strong> i banneret øvst, og vel <strong>📥 Importer data</strong> i 🏫-menyen på den nye sida.</p>
+  <p>Skoledash låg tidlegare på <em>knitresletta.github.io/klasserom-dashboard</em> og bur no på <strong>skoledash.app</strong>. Nettlesaren held data frå kvar adresse åtskilde, så klasselister og sider blir ikkje med av seg sjølv. Opne den gamle adressa, trykk <strong>📤 Eksporter og åpne skoledash.app</strong> i banneret øvst, og vel <strong>📥 Importer backup</strong> under <strong>💾 Data</strong> nedst til venstre på den nye sida.</p>
   <h4>☕ Gratis, utan innlogging</h4>
   <p>Skoledash er gratis å bruke. Du treng verken konto eller abonnement, og alt du legg inn, blir liggande i nettlesaren din. Vil du støtte utviklinga, trykkjer du på <strong>☕</strong> heilt øvst til høgre. Då blir ei side for donasjonar opna i ei ny fane. Kva som kjem framover, ser du øvst i <strong>📋 Oppdateringslogg</strong>.</p>
   <h4>Sider: eitt arbeidsbord per klasse</h4>
@@ -308,7 +315,7 @@ const BRUKERVEILEDNING_NN = `
   <h4>Kom i gang</h4>
   <p>Trykk <strong>+ Legg til elev</strong> (eller tasten <kbd>a</kbd>) for å leggje inn elevane i klassen din. Du kan ha opptil 35 elevar inne samtidig.</p>
   <p><strong>Rette eit namn:</strong> klikk rett på elevnamnet i lista, så blir det til eit lite skrivefelt. Rett opp og trykk <kbd>Enter</kbd> for å lagre, eller <kbd>Esc</kbd> for å avbryte. Endrar du namnet, blir det oppdatert automatisk overalt der eleven er brukt: i grupper, trekk-backlogar og gruppeavgrensingar. (Vil du heller fjerne eleven, bruk <strong>✕</strong> til høgre.)</p>
-  <p><strong>Fjerne ein elev:</strong> trykk <strong>✕</strong> til høgre for namnet (blir vist når du held musa over), eller <strong>👤 Fjern elevar…</strong> for å fjerne fleire. Eleven forsvinn då òg frå gruppene, trekk-backlogane og gruppeavgrensingane.</p>
+  <p><strong>Fjerne ein elev:</strong> trykk <strong>✕</strong> til høgre for namnet (blir vist når du held musa over), eller <strong>🧹 Tøm</strong> nedst i kortet for å tømme heile lista. Eleven forsvinn då òg frå gruppene, trekk-backlogane og gruppeavgrensingane.</p>
   <p><strong>Stor forbokstav kjem av seg sjølv:</strong> skriv du «kari nordmann», blir det lagra som «Kari Nordmann». Det same gjeld etter bindestrek («Anne-Marie»), og namn med æ, ø og å blir handsama rett.</p>
   <p>Vil du spare tid neste gong? Lagre elevlista di under <strong>📋 Lister</strong>, og last ho inn att med eitt klikk.</p>
   <p><strong>Starte ein ny klasse:</strong> trykk <strong>🧹 Tøm</strong> nedst i elevkortet, og trykk ein gong til når knappen spør. Elevane, gruppene og oppmøtet forsvinn frå sida, og <strong>+ Legg til elev</strong> blir opna. Lagra lister blir ikkje rørte. Står det <strong>Ikkje lagra. Tøm?</strong> på knappen, er elevane ikkje lagra i ei liste og blir borte.</p>
@@ -333,7 +340,7 @@ const BRUKERVEILEDNING_NN = `
   <p><strong>⭐ Ordenselevar</strong> vel to elevar som har ordenselev-ansvar. Alle får tur før nokon blir gjentekne, og når alle har vore ordenselev, startar ein ny runde av seg sjølv, med ei melding om det. Er det éin elev att, kjem den eleven med i første trekket i den nye runden. To elevar som ikkje skal i same gruppe (⛔), blir heller aldri ordenselevar saman. Vil du berre ha éin ordenselev, trykkjer du <strong>👥</strong> øvst i kortet, så blir han til <strong>👤</strong>. Valet gjeld lista, som trekka.</p>
   <p><strong>Klassebamse</strong> vel kven som får bamsen (eller ein annan gjenstand) med heim. Går òg i rundar av seg sjølv.</p>
   <p><strong>Borte når runden er ferdig?</strong> Ein elev som er merkt borte og ikkje har hatt tur, mistar han ikkje: eleven blir trekt først når eleven er tilbake.</p>
-  <p>Vil du nullstille ein backlog for hand? Trykk <strong>⚙️ Nullstill…</strong> nedst til venstre.</p>
+  <p>Vil du nullstille eit trekk for hand? Hald musa over kortet og trykk <strong>🔄</strong> øvst. På Ordenselevar og Klassebamse må du trykkje to gonger, så ingen runde forsvinn ved eit uhell.</p>
 
   <h4>📝 Redigere backlog for ordenselev og klassebamse</h4>
   <p>Trykk på blyantikonet (📝) i hjørnet av kortet. Du ser alle elevane som brikker, og grå brikker er alt «brukte». Trykk på ein elev for å setje eller fjerne merket. Nyttig om du har mista lokale data og må finne ut att kven som har vore ordenselev eller hatt med bamsen.</p>
@@ -379,7 +386,7 @@ const BRUKERVEILEDNING_NN = `
   <p>Du kan ha <strong>fleire notatkort</strong>: opne <strong>⊞ Kort</strong>-menyen og klikk <strong>+ Notat</strong>. Kvart notat kan flyttast uavhengig av dei andre. Slett eit notat med <strong>✕</strong> øvst til høgre i kortet. Notat er per side, så side 1 og side 2 har heilt ulike notatkort.</p>
 
   <h4>Dagsplan</h4>
-  <p>Legg til punkt med <strong>+ Legg til punkt</strong> (eller <kbd>d</kbd>). Fjern einskildpunkt med <strong>✕</strong> ved sida av kvart punkt.</p>
+  <p>Legg til punkt med <strong>+ Legg til punkt</strong> (eller <kbd>d</kbd>). Fjern einskildpunkt med <strong>✕</strong> ved sida av kvart punkt, eller tøm heile planen med <strong>🧹</strong> øvst i kortet (to trykk).</p>
   <p>Kvart punkt har tre stader du kan klikke: <strong>prikken</strong> (●) merkjer punktet som ferdig. Han blir grøn, og teksten får ein strek over (klikk igjen for å angre). <strong>Teksten</strong> opnar redigering: klikk på han, rett opp og trykk <kbd>Enter</kbd> for å lagre eller <kbd>Esc</kbd> for å avbryte. <strong>✕</strong> fjernar punktet.</p>
   <p><strong>Endre rekkjefølgja:</strong> hald inne drahandtaket <strong>⠿</strong> heilt til høgre på punktet (det kjem fram når du held musa over rada), og dra det opp eller ned. Ein blå strek viser kvar punktet hamnar når du slepper.</p>
 
@@ -441,7 +448,7 @@ const BRUKERVEILEDNING_NN = `
     <li><kbd>k</kbd> Kast terning</li>
     <li><kbd>l</kbd> Vis klasselister</li>
     <li><kbd>b</kbd> Tavlemodus</li>
-    <li><kbd>n</kbd> Nullstill…</li>
+    <li><kbd>n</kbd> 💾 Data (backup og sletting)</li>
     <li><kbd>Esc</kbd> Lukk opne vindauge</li>
   </ul>
   <p>Snarvegane verkar berre når du <em>ikkje</em> står og skriv i eit tekstfelt, og dei blir ikkje utløyste saman med <kbd>Cmd</kbd>, <kbd>Ctrl</kbd> eller <kbd>Alt</kbd>.</p>
@@ -458,12 +465,12 @@ const BRUKERVEILEDNING_NN = `
     <li><strong>Posisjon</strong> blir berre brukt når du ber om det, med <strong>📍 Vis vêret der du er</strong> eller <strong>📍 Bruk posisjonen min</strong>. Koordinatane blir runda av til om lag ein kilometer, sende éin gong til bigdatacloud.net for å finne stadnamnet, og lagra. Deretter er det desse avrunda koordinatane som blir brukte til vêret.</li>
     <li><strong>YouTube</strong>-kortet viser videoar frå youtube-nocookie.com i ei eiga ramme. Ramma er skild frå resten av appen, så YouTube kan ikkje lese elevdataa dine. Spelaren blir lasta når appen blir opna, så lenge eit YouTube-kort har ein video, òg om kortet ligg på ei anna side. YouTube ser at videoen blir vist på skoledash.app, og kan setje eigne informasjonskapslar inne i spelaren.</li>
   </ul>
-  <p><strong>Delte maskiner:</strong> elevdataa blir liggande i nettlesaren til du slettar dei. Bruker andre den same maskina og nettlesaren, kan dei sjå klasselistene dine. Når du er ferdig på ei slik maskin, vel <strong>Nullstill… → 🗑 Slett alle data på denne maskina</strong>. Ta gjerne ein backup først.</p>
+  <p><strong>Delte maskiner:</strong> elevdataa blir liggande i nettlesaren til du slettar dei. Bruker andre den same maskina og nettlesaren, kan dei sjå klasselistene dine. Når du er ferdig på ei slik maskin, vel <strong>💾 Data → 🗑 Slett alle data på denne maskina</strong>. Ta gjerne ein backup først.</p>
   <p>Backupfila du eksporterer, inneheld alt, òg notat og bilete. Ta vare på henne like trygt som på ei klasseliste.</p>
 
-  <h4>📤 Eksportere og 📥 importere data</h4>
-  <p>Sidan data berre bur i nettlesaren din, er det lurt å ta ein <strong>backup</strong>. Opne <strong>Skoledash-menyen</strong> og vel <strong>📤 Eksporter data</strong>. Då blir det lasta ned éi fil som inneheld alt: klasselister, alle sider (med elevar, grupper, trekk-backlogar og avgrensingar), innstillingar, notat og bilete.</p>
-  <p>For å hente data tilbake, eller flytte alt til ei anna maskin eller ein annan nettlesar, vel <strong>📥 Importer data</strong> og peik på fila. Du kan velje mellom <strong>«Erstatt alt»</strong> (full gjenoppretting som skriv over det som ligg der no) og <strong>«Slå saman berre klasselister»</strong> (behald alt ditt, men hent inn dei lagra listene frå fila, fint for å dele klasselister mellom lærarar).</p>
+  <h4>💾 Backup: eksportere og importere</h4>
+  <p>Sidan data berre bur i nettlesaren din, er det lurt å ta ein <strong>backup</strong>. Trykk <strong>💾 Data</strong> nedst til venstre og vel <strong>📤 Eksporter backup</strong>. Då blir det lasta ned éi fil som inneheld alt: klasselister, alle sider (med elevar, grupper, trekk-backlogar og avgrensingar), innstillingar, notat og bilete.</p>
+  <p>For å hente data tilbake, eller flytte alt til ei anna maskin eller ein annan nettlesar, vel <strong>📥 Importer backup</strong> under 💾 Data og peik på fila. Du kan velje mellom <strong>«Erstatt alt»</strong> (full gjenoppretting som skriv over det som ligg der no) og <strong>«Slå saman berre klasselister»</strong> (behald alt ditt, men hent inn dei lagra listene frå fila, fint for å dele klasselister mellom lærarar).</p>
   <p>Når du har laga nye lister eller endra ein backlog sidan førre eksport, dukkar det opp eit lite <strong>«● Ueksporterte endringar»</strong>-merke nedst, rett over linja med snarvegar. Klikk på det for å ta ein ny backup. Merket viser òg kor lenge det er sidan førre backup. Tips: eksporter med jamne mellomrom, så er du trygg om nettlesardata skulle bli tømde.</p>
   <p><strong>Safari ryddar bort data</strong> frå nettsider som ikkje er brukte på sju dagar. Bruker du Safari på Mac eller iPad, er det særleg lurt å ta ein backup før feriar. Skoledash ber nettlesaren om å ta vare på dataa, men Safari bestemmer sjølv.</p>
   <p><strong>Open i fleire faner?</strong> Endrar du noko i éi fane, sluttar dei andre fanene å lagre, så dei ikkje skriv over endringa. Går du tilbake til ei slik fane, blir ho lasta inn på nytt med det nyaste. Står fana framme på skjermen, ser du eit raudt varsel med knappen <strong>↻ Last inn på nytt</strong>.</p>
