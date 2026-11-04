@@ -86,7 +86,7 @@ const WIDGET_IKON = {
   'card-dagsplan':   '📋',
   'card-klokke':     '🕐',
   'card-terning':    '🎲',
-  'card-arbeid':     '🤫',
+  'card-arbeid':     '🔇',
   'card-trafikklys': '🚦',
   'card-klassekart': '🪑',
 };
@@ -149,7 +149,7 @@ function erSkalerKort(id) {
 // (state.arbeid_egne), som deles av alle sider. Står her oppe fordi loadState() og
 // normaliserState() bruker lista.
 const ARBEID_SYMBOLER = [
-  { id: 'stille', emoji: '🤫', tekst: 'Stille arbeid' },
+  { id: 'stille', emoji: '🔇', tekst: 'Stille arbeid' },
   { id: 'hviske', emoji: '🗣️', tekst: 'Hviskestemme' },
   { id: 'par',    emoji: '🤝', tekst: 'Pararbeid' }, // 🤝 fra v2.60: 👫 finnes ikke i Fluent
   { id: 'gruppe', emoji: '👥', tekst: 'Gruppearbeid' },
@@ -1681,7 +1681,7 @@ function ukenummer(d = new Date()) {
 }
 
 // ===================== Arbeidssymboler og Trafikklys =====================
-// To kort. 🤫 Arbeidssymboler viser et stort arbeidssymbol (🤫 Stille arbeid, 🤝 Pararbeid ...).
+// To kort. 🔇 Arbeidssymboler viser et stort arbeidssymbol (🔇 Stille arbeid, 🤝 Pararbeid ...).
 // 🚦 Trafikklys har tre lys. Begge velges per side (s.arbeid_symbol, s.arbeid_lys);
 // trykker man på det som alt er valgt, slukkes det. Trafikklyset har bare farger, ingen
 // tekst: hva rødt og grønt betyr, avtaler læreren med klassen. Lysfargene er faste
@@ -6473,6 +6473,13 @@ const OPPDATERINGSLOGG_HTML = `
     </ul>
   </details>
   <div class="logg-entry">
+    <div class="logg-versjon">v2.61</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>Stille arbeid</strong> har fått nytt symbol: 🔇 i stedet for 🤫, som så litt for intens ut i den nye ikonstilen (det gjorde 🤐 også). Kortet Arbeidssymboler bruker det samme ikonet</li>
+    </ul>
+  </div>
+  <div class="logg-entry">
     <div class="logg-versjon">v2.60</div>
     <div class="logg-dato">4. november 2026</div>
     <ul>
@@ -7223,8 +7230,8 @@ const BRUKERVEILEDNING_HTML = `
   <p>Alle tre legges til under <strong>⊞ Kort</strong>, så mange du vil, og får navn med ✏️. <strong>Teller</strong> er et stort tall med + og −, for poeng per gruppe, runder eller advarsler. Det går ikke under null, og ↺ må trykkes to ganger. <strong>Instruksjon</strong> er ett stort skilt: klikk på teksten, skriv beskjeden («Jobb stille til 10.15») og trykk <kbd>Enter</kbd>. <strong>Nedtelling til dato</strong> viser hvor mange dager det er til noe: klikk på kortet, velg datoen og skriv hva som skjer. Kortet sier «i dag!» på dagen, og viser etterpå at det er over.</p>
   <p>Ukenummeret står ved datoen øverst, slik at det alltid er synlig.</p>
 
-  <h4>🤫 Arbeidssymboler</h4>
-  <p>Hent kortet fram under <strong>⊞ Kort</strong>. Trykk på et symbol i raden nederst for å vise det stort: 🤫 Stille arbeid, 🗣️ Hviskestemme, 🤝 Pararbeid, 👥 Gruppearbeid, 🙋 Rekk opp hånda eller 👀 Se hit. Trykk på det samme symbolet igjen for å fjerne det.</p>
+  <h4>🔇 Arbeidssymboler</h4>
+  <p>Hent kortet fram under <strong>⊞ Kort</strong>. Trykk på et symbol i raden nederst for å vise det stort: 🔇 Stille arbeid, 🗣️ Hviskestemme, 🤝 Pararbeid, 👥 Gruppearbeid, 🙋 Rekk opp hånda eller 👀 Se hit. Trykk på det samme symbolet igjen for å fjerne det.</p>
   <p><strong>＋</strong> lager et eget symbol med emoji og tekst, for eksempel «📖 Lesestund». Egne symboler finnes på alle sidene dine, og slettes med ✕ i det samme vinduet. Hver side husker sitt eget symbol.</p>
 
   <h4>🚦 Trafikklys</h4>

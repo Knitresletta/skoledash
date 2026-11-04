@@ -222,7 +222,7 @@ const NYNORSK = {
   'Gi kortet et navn': 'Gi kortet eit namn',
   'Navn på kortet': 'Namn på kortet',
   'Arbeidssymboler': 'Arbeidssymbol',
-  '🤫 Arbeidssymboler': '🤫 Arbeidssymbol',
+  '🔇 Arbeidssymboler': '🔇 Arbeidssymbol',
   'Hviskestemme': 'Kviskrestemme',
   'Rekk opp hånda': 'Rekk opp handa',
   'Se hit': 'Sjå hit',
@@ -524,8 +524,8 @@ const BRUKERVEILEDNING_NN = `
   <p>Alle tre blir lagde til under <strong>⊞ Kort</strong>, så mange du vil, og får namn med ✏️. <strong>Teljar</strong> er eit stort tal med + og −, for poeng per gruppe, rundar eller åtvaringar. Han går ikkje under null, og ↺ må trykkjast to gonger. <strong>Instruksjon</strong> er eitt stort skilt: klikk på teksten, skriv beskjeden («Jobb stille til 10.15») og trykk <kbd>Enter</kbd>. <strong>Nedteljing til dato</strong> viser kor mange dagar det er til noko: klikk på kortet, vel datoen og skriv kva som skjer. Kortet seier «i dag!» på dagen, og viser etterpå at det er over.</p>
   <p>Vekenummeret står ved datoen øvst, slik at det alltid er synleg.</p>
 
-  <h4>🤫 Arbeidssymbol</h4>
-  <p>Hent kortet fram under <strong>⊞ Kort</strong>. Trykk på eit symbol i rada nedst for å vise det stort: 🤫 Stille arbeid, 🗣️ Kviskrestemme, 🤝 Pararbeid, 👥 Gruppearbeid, 🙋 Rekk opp handa eller 👀 Sjå hit. Trykk på det same symbolet igjen for å fjerne det.</p>
+  <h4>🔇 Arbeidssymbol</h4>
+  <p>Hent kortet fram under <strong>⊞ Kort</strong>. Trykk på eit symbol i rada nedst for å vise det stort: 🔇 Stille arbeid, 🗣️ Kviskrestemme, 🤝 Pararbeid, 👥 Gruppearbeid, 🙋 Rekk opp handa eller 👀 Sjå hit. Trykk på det same symbolet igjen for å fjerne det.</p>
   <p><strong>＋</strong> lagar eit eige symbol med emoji og tekst, til dømes «📖 Lesestund». Eigne symbol finst på alle sidene dine, og blir sletta med ✕ i det same vindauget. Kvar side hugsar sitt eige symbol.</p>
 
   <h4>🚦 Trafikklys</h4>
