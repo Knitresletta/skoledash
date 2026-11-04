@@ -2949,6 +2949,49 @@ textarea[id^="notat-textarea"]:focus {
     font-weight: 700;
 }
 
+/* ===================== Fokusmodus ===================== */
+/* Kortet i fokus fyller vinduet over en dempet bakgrunn. Plassen gjøres fast med
+   !important fordi left/top/width/height står som inline-stil fra layouten. Under
+   modalene (z 100), så «+ Legg til elev» og lignende virker også i fokus. */
+#fokus-bakgrunn {
+    position: fixed;
+    inset: 0;
+    z-index: 94;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(4px);
+}
+#fokus-bakgrunn.hidden,
+#btn-fokus-lukk.hidden {
+    display: none;
+}
+.kl-plass.fokus {
+    position: fixed !important;
+    inset: 48px 16px 16px !important;
+    width: auto !important;
+    height: auto !important;
+    z-index: 95 !important;
+}
+.kl-plass.fokus > .card {
+    flex: none;
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+}
+.kl-plass.fokus .kl-kant,
+.kl-plass.fokus .kl-widget-close,
+.kl-plass.fokus .drag-handle {
+    display: none;
+}
+.kl-plass.fokus .card-header {
+    cursor: default;
+}
+#btn-fokus-lukk {
+    position: fixed;
+    top: 10px;
+    right: 16px;
+    z-index: 96;
+    font-weight: 700;
+}
+
 /* ===================== Import-modal ===================== */
 .import-info {
     font-size: 0.85rem;

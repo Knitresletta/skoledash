@@ -2214,6 +2214,7 @@ function timerToggle() {
 function visTimerKort() {
   const id = 'card-timer';
   const side = aktivSide();
+  if (fokusKort) return; // et kort er i fokus: ikke rydd om bordet bak det
   if ((side.widget_hidden ?? []).includes(id)) {
     toggleWidgetSynlighet(id, true); // finner ledig plass, legger øverst og lagrer
   } else {
@@ -3551,6 +3552,108 @@ function plassFor(card) {
   return plass;
 }
 
+// ===================== Fokusmodus =====================
+// ⛶ i overskriften (eller f med musa over kortet) lar ett kort fylle hele vinduet over
+// en dempet bakgrunn, med innholdet skalert opp. Esc, f, klikk utenfor eller ✕ lukker.
+// Ingenting lagres: plassen (.kl-plass) blir fast over vinduet med en CSS-klasse, og
+// kortet skaleres med transform, så x/y/b/h i widget_layout står urørt. Mens fokus er
+// på, står høydejusteringen, skaleringen og flyttingen av kort over for dette kortet
+// (se fokusKort i planleggHøyde, skalerInnhold og flatas pointerdown), ellers ville de
+// målt kortet i fullskjerm og lagret det som ny størrelse.
+let fokusKort = null;      // id-en til kortet i fokus, eller null
+let sistPekerKort = null;  // kortet musa sist var over, for tasten f
+let fokusObservatør = null;
+
+// Legger ⛶ i overskriften på et kort (én gang). Kortet får .card-controls om det
+// ikke har det fra før.
+function leggTilFokusKnapp(card) {
+  const topp = card.querySelector(':scope > .card-header');
+  if (!topp || GUIDE_KORT.includes(card.id) || topp.querySelector('.kl-fokus')) return;
+  let kontroller = topp.querySelector('.card-controls');
+  if (!kontroller) {
+    kontroller = document.createElement('div');
+    kontroller.className = 'card-controls';
+    topp.appendChild(kontroller);
+  }
+  const knapp = document.createElement('button');
+  knapp.className = 'btn btn-ghost btn-sm btn-icon kl-fokus';
+  knapp.textContent = '⛶';
+  knapp.title = t('Fokus: fyll skjermen (f)');
+  knapp.setAttribute('aria-label', knapp.title);
+  knapp.addEventListener('click', e => { e.stopPropagation(); byttFokus(card.id); });
+  kontroller.appendChild(knapp);
+}
+
+function byttFokus(id) {
+  if (fokusKort === id) lukkFokus();
+  else åpneFokus(id);
+}
+
+function åpneFokus(id) {
+  const card = document.getElementById(id);
+  const plass = card?.parentElement;
+  if (!plass?.classList.contains('kl-plass') || plass.style.display === 'none') return;
+  if (fokusKort) lukkFokus();
+  fokusKort = id;
+  plass.classList.add('fokus');
+  document.body.classList.add('fokus-modus');
+  document.getElementById('fokus-bakgrunn').classList.remove('hidden');
+  document.getElementById('btn-fokus-lukk').classList.remove('hidden');
+  card.querySelector('.kl-skaler')?.style.setProperty('zoom', '');
+  skalerFokus();
+  // Innholdet kan endre seg i fokus (ny elev, neste punkt, nytt trekk): skaler på nytt.
+  let planlagt = false;
+  fokusObservatør = new MutationObserver(() => {
+    if (planlagt) return;
+    planlagt = true;
+    requestAnimationFrame(() => { planlagt = false; skalerFokus(); });
+  });
+  fokusObservatør.observe(card, { childList: true, subtree: true, characterData: true });
+}
+
+function lukkFokus() {
+  if (!fokusKort) return;
+  const card = document.getElementById(fokusKort);
+  fokusKort = null;
+  fokusObservatør?.disconnect();
+  fokusObservatør = null;
+  document.body.classList.remove('fokus-modus');
+  document.getElementById('fokus-bakgrunn').classList.add('hidden');
+  document.getElementById('btn-fokus-lukk').classList.add('hidden');
+  if (!card) return;
+  card.parentElement?.classList.remove('fokus');
+  card.style.width = card.style.height = card.style.transform = card.style.transformOrigin = '';
+  // Tilbake på flata: la den vanlige skaleringen og høyden måle kortet på nytt.
+  const boks = card.querySelector('.kl-skaler');
+  if (boks) skalerInnhold(boks);
+  planleggHøyde(card);
+}
+
+// Finner største skala der hele kortet får plass i vinduet: kortet legges ut i et
+// område på (bredde / z) × (høyde / z) og skaleres med z. Binærsøk som skalerInnhold,
+// mellom 0,5 (lange lister i et lavt vindu) og 6.
+function skalerFokus() {
+  if (!fokusKort) return;
+  const card = document.getElementById(fokusKort);
+  const plass = card?.parentElement;
+  if (!plass) return;
+  const B = plass.clientWidth, H = plass.clientHeight;
+  card.style.transformOrigin = 'top left';
+  const passer = z => {
+    card.style.width  = `${B / z}px`;
+    card.style.height = `${H / z}px`;
+    card.style.transform = `scale(${z})`;
+    return card.scrollHeight <= card.clientHeight + 1 && card.scrollWidth <= card.clientWidth + 1;
+  };
+  let lav = MIN_SKALERING, høy = MAKS_SKALERING;
+  if (passer(1)) lav = 1; else høy = 1;
+  for (let i = 0; i < 10; i++) {
+    const midt = (lav + høy) / 2;
+    if (passer(midt)) lav = midt; else høy = midt;
+  }
+  passer(lav);
+}
+
 function settPlassStil(plass, w) {
   plass.style.left   = `${w.x}%`;
   plass.style.top    = `${w.y}%`;
@@ -3588,6 +3691,7 @@ function applyLayout() {
     }
   });
 
+  lukkFokus(); // sidebytte, kort som skjules osv.: fokus hører til bordet som var
   const skjult = side.widget_hidden ?? [];
   const iLayout = new Map(side.widget_layout.map(w => [w.id, w]));
   document.querySelectorAll('main .card').forEach(card => {
@@ -3597,6 +3701,7 @@ function applyLayout() {
     plass.style.display = '';
     settPlassStil(plass, w);
     følgInnhold(card);
+    leggTilFokusKnapp(card);
   });
   settStabelRekkefølge();
 
@@ -3723,6 +3828,7 @@ function planleggHøyde(card) {
     if (pågårOperasjon || smalSkjerm()) return;
     let endret = false;
     ider.forEach(id => {
+      if (id === fokusKort) return; // i fokus måles kortet i fullskjerm: ikke lagre det
       const ta = document.querySelector(`#${id} > textarea[id^="notat-textarea"]`);
       if (ta) målNotatfelt(ta);
       const w = aktivSide().widget_layout.find(x => x.id === id);
@@ -3817,6 +3923,7 @@ function settOppSkalering() {
 function skalerInnhold(boks) {
   if (!boks) return;
   boks.style.zoom = '';
+  if (boks.closest('.card')?.id === fokusKort) return; // fokus skalerer hele kortet
   if (smalSkjerm() || !boks.offsetParent) return;
   const card = boks.closest('.card');
   const w = aktivSide().widget_layout.find(x => x.id === card.id);
@@ -3915,7 +4022,7 @@ function settOppFlate() {
   const flate = document.getElementById('flate');
   flate.addEventListener('pointerdown', e => {
     const plass = e.target.closest('.kl-plass');
-    if (!plass || e.button !== 0) return;
+    if (!plass || e.button !== 0 || fokusKort) return; // i fokus flyttes ingenting
     const id = plass.dataset.kort;
     if (løftFram(id)) saveState();
     if (smalSkjerm()) return;
@@ -4293,7 +4400,6 @@ const OPPDATERINGSLOGG_HTML = `
     <p>Dette er ideer, ikke løfter. Rekkefølgen kan endre seg. Savner du noe? Si fra via <strong>💬 Tilbakemelding</strong>.</p>
     <strong>Neste</strong>
     <ul>
-      <li>🔍 <strong>Fokusmodus:</strong> ett kort fyller hele skjermen</li>
       <li>🤫 <strong>Arbeidssymboler og trafikklys</strong> i samme kort</li>
       <li>🔢 <strong>Teller, instruksjonskort, nedtelling til en dato og ukenummer</strong></li>
       <li>📑 <strong>Maler for sider,</strong> og deling av en side med en kollega, uten elevnavn</li>
@@ -4310,6 +4416,13 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.46</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>🔍 Fokus:</strong> ⛶ øverst i et kort, eller tasten <kbd>f</kbd>, lar kortet fylle hele skjermen med stort innhold. Alt virker som vanlig i fokus, og <kbd>Esc</kbd> lukker. Kortet beholder plassen og størrelsen sin på bordet</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.45</div>
     <div class="logg-dato">4. november 2026</div>
@@ -4911,6 +5024,10 @@ const BRUKERVEILEDNING_HTML = `
   <p><strong>Vil du bytte sted?</strong> Nederst i vær-vinduet ligger <strong>📍 Bruk min posisjon</strong>, og et søkefelt der du kan skrive inn et hvilket som helst sted og trykke <kbd>Enter</kbd>. Fylke og land står under hvert treff, så du ikke havner i feil land. Stedet blir stående til du bytter det selv. Appen spør ikke om posisjonen din hver gang du åpner den.</p>
   <p>Har du ikke valgt noe sted, eller sier nei til posisjon, brukes <strong>Eidsvoll</strong> til du velger noe annet. Har du valgt et sted tidligere, brukes det.</p>
 
+  <h4>🔍 Fokus: ett kort på hele skjermen</h4>
+  <p>Hold musa over et kort og trykk <strong>⛶</strong> øverst i kortet, eller tasten <kbd>f</kbd>. Kortet fyller hele vinduet, og innholdet blir så stort det får plass til: timeren for hele klassen, elevlista, dagsplanen eller trekket. Alt virker som vanlig inne i fokus, så du kan starte timeren og krysse av dagsplanen der.</p>
+  <p>Lukk med <kbd>Esc</kbd>, <kbd>f</kbd>, <strong>✕ Lukk fokus</strong> øverst til høyre eller et klikk utenfor kortet. Kortet ligger der det lå på bordet, med samme størrelse. Vil du ha hele skjermen uten fanene og adressefeltet, trykker du <kbd>F11</kbd> i tillegg.</p>
+
   <h4>Timer</h4>
   <p>Standard er 5 minutter. Trykk <strong>Sett tid</strong> (eller <kbd>s</kbd>) for å velge en annen varighet (1–60 min). Start og stopp med <strong>▶ Start</strong> (eller <kbd>t</kbd>). En lyd spilles av når tiden er ute.</p>
   <p>Starter du timeren med <kbd>t</kbd> mens timerkortet ikke er framme, hentes kortet fram av seg selv og legges øverst, så klassen ser nedtellingen.</p>
@@ -4984,6 +5101,7 @@ const BRUKERVEILEDNING_HTML = `
     <li><kbd>g</kbd> — Del inn i grupper</li>
     <li><kbd>d</kbd> — Legg til dagsplan-punkt</li>
     <li><kbd>p</kbd> — Neste punkt i dagsplanen (<kbd>Shift</kbd>+<kbd>P</kbd> angrer)</li>
+    <li><kbd>f</kbd> — Fokus: kortet musa er over, fyller skjermen (<kbd>Esc</kbd> lukker)</li>
     <li><kbd>k</kbd> — Kast terning</li>
     <li><kbd>l</kbd> — Vis klasselister</li>
     <li><kbd>b</kbd> — Tavlemodus</li>
@@ -5312,6 +5430,14 @@ function settOppHendelser() {
   });
   document.getElementById('btn-tilfeldig-tom').onclick = nullstillTilfeldig;
   document.getElementById('btn-lagring-last').onclick = lastInnPåNytt;
+  document.getElementById('btn-fokus-lukk').onclick = lukkFokus;
+  document.getElementById('fokus-bakgrunn').onclick = lukkFokus;
+  window.addEventListener('resize', () => { if (fokusKort) skalerFokus(); });
+  // Husk kortet musa er over, så f vet hva som skal i fokus.
+  document.getElementById('flate').addEventListener('pointermove', e => {
+    const plass = e.target.closest('.kl-plass');
+    if (plass) sistPekerKort = plass.dataset.kort;
+  });
   document.getElementById('btn-ordenselev-antall').onclick = byttOrdenselevAntall;
   document.getElementById('btn-dagsplan-neste').onclick = () => nesteDagsplanPunkt();
   document.getElementById('btn-legg-til-avbryt').onclick  = lukkModal;
@@ -5563,6 +5689,7 @@ function settOppHendelser() {
       if (e.key === 'Escape') lukkModal();
       return;
     }
+    if (fokusKort && e.key === 'Escape') { lukkFokus(); return; }
     // Ikke utløs hurtigtaster mens man skriver i et tekstfelt — da skal «a», «r» osv.
     // bli vanlige bokstaver, ikke kommandoer.
     const tag = document.activeElement?.tagName;
@@ -5584,6 +5711,11 @@ function settOppHendelser() {
       d: () => document.getElementById('btn-dagsplan-legg-til').click(),
       p: () => nesteDagsplanPunkt(),
       P: () => nesteDagsplanPunkt(true),
+      f: () => {
+        if (fokusKort) lukkFokus();
+        else if (sistPekerKort && document.getElementById(sistPekerKort)) åpneFokus(sistPekerKort);
+        else notify(t('Hold musa over et kort og trykk f'), 'warning');
+      },
       g: () => document.getElementById('btn-grupper-ny').click(),
       k: () => kastTerning(),
       l: () => document.getElementById('btn-lister').click(),

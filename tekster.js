@@ -134,6 +134,7 @@ const NYNORSK = {
   'Gi nytt navn': 'Gi nytt namn',
   'Par som ikke skal i samme gruppe': 'Par som ikkje skal i same gruppe',
   'Slett?': 'Slette?',
+  'Hold musa over et kort og trykk f': 'Hald musa over eit kort og trykk f',
   '📋 Alle punktene er ferdige': '📋 Alle punkta er ferdige',
   '▶ Nå: {punkt}': '▶ No: {punkt}',
   'Punktet som pågår, er ferdig, videre til neste (p). Shift+P angrer.': 'Punktet som går føre seg, er ferdig, vidare til neste (p). Shift+P angrar.',
@@ -282,7 +283,6 @@ const ROADMAP_KORT_NN = `
     <p>Dette er idear, ikkje lovnader. Rekkjefølgja kan endre seg. Saknar du noko? Sei frå via <strong>💬 Tilbakemelding</strong>.</p>
     <strong>Neste</strong>
     <ul>
-      <li>🔍 <strong>Fokusmodus:</strong> eitt kort fyller heile skjermen</li>
       <li>🤫 <strong>Arbeidssymbol og trafikklys</strong> i same kort</li>
       <li>🔢 <strong>Teljar, instruksjonskort, nedteljing til ein dato og vekenummer</strong></li>
       <li>📑 <strong>Malar for sider,</strong> og deling av ei side med ein kollega, utan elevnamn</li>
@@ -382,6 +382,10 @@ const BRUKERVEILEDNING_NN = `
   <p><strong>Vil du byte stad?</strong> Nedst i vêrvindauget ligg <strong>📍 Bruk posisjonen min</strong>, og eit søkjefelt der du kan skrive inn kva stad som helst og trykkje <kbd>Enter</kbd>. Fylke og land står under kvart treff, så du ikkje hamnar i feil land. Staden blir ståande til du byter han sjølv. Appen spør ikkje om posisjonen din kvar gong du opnar han.</p>
   <p>Har du ikkje valt nokon stad, eller seier nei til posisjon, blir <strong>Eidsvoll</strong> brukt til du vel noko anna. Har du valt ein stad tidlegare, blir han brukt.</p>
 
+  <h4>🔍 Fokus: eitt kort på heile skjermen</h4>
+  <p>Hald musa over eit kort og trykk <strong>⛶</strong> øvst i kortet, eller tasten <kbd>f</kbd>. Kortet fyller heile vindauget, og innhaldet blir så stort det får plass til: timeren for heile klassen, elevlista, dagsplanen eller trekket. Alt verkar som vanleg inne i fokus, så du kan starte timeren og krysse av dagsplanen der.</p>
+  <p>Lukk med <kbd>Esc</kbd>, <kbd>f</kbd>, <strong>✕ Lukk fokus</strong> øvst til høgre eller eit klikk utanfor kortet. Kortet ligg der det låg på bordet, med same storleik. Vil du ha heile skjermen utan fanene og adressefeltet, trykkjer du <kbd>F11</kbd> i tillegg.</p>
+
   <h4>Timer</h4>
   <p>Standard er 5 minutt. Trykk <strong>Set tid</strong> (eller <kbd>s</kbd>) for å velje ei anna lengd (1–60 min). Start og stopp med <strong>▶ Start</strong> (eller <kbd>t</kbd>). Det kjem ein lyd når tida er ute.</p>
   <p>Startar du timeren med <kbd>t</kbd> medan timerkortet ikkje er framme, blir kortet henta fram av seg sjølv og lagt øvst, så klassen ser nedteljinga.</p>
@@ -455,6 +459,7 @@ const BRUKERVEILEDNING_NN = `
     <li><kbd>g</kbd> Del inn i grupper</li>
     <li><kbd>d</kbd> Legg til punkt i dagsplanen</li>
     <li><kbd>p</kbd> Neste punkt i dagsplanen (<kbd>Shift</kbd>+<kbd>P</kbd> angrar)</li>
+    <li><kbd>f</kbd> Fokus: kortet musa er over, fyller skjermen (<kbd>Esc</kbd> lukkar)</li>
     <li><kbd>k</kbd> Kast terning</li>
     <li><kbd>l</kbd> Vis klasselister</li>
     <li><kbd>b</kbd> Tavlemodus</li>
