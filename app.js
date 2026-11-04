@@ -313,6 +313,10 @@ function defaultState() {
     lagringsversjon: LAGRINGSVERSJON,
     aktiv_side: 0,
     sider: [ førsteSide() ],
+    // Sidemaler (v2.51): oppsettet til en side uten klassen. Liste, ikke objekt, så
+    // rekkefølgen er den læreren lagret i (tallnavn ville ellers havnet først).
+    // Se «Sidemaler».
+    maler: [],
   };
 }
 
@@ -620,6 +624,75 @@ function rensRåState(raw) {
   return raw;
 }
 
+// Gyldige innstillinger for ett YouTube-kort fra en lagret eller importert verdi.
+function vaskYoutube(y) {
+  const ny = { modus: erObjekt(y) && y.modus === 'lyd' ? 'lyd' : 'video' };
+  if (erObjekt(y) && typeof y.videoId === 'string' && YOUTUBE_VIDEO_ID.test(y.videoId)) {
+    ny.videoId = y.videoId;
+    ny.url   = tekstEllerNull(y.url, 500) || `https://www.youtube.com/watch?v=${y.videoId}`;
+    ny.start = heltall(y.start, 0, 86400, 0);
+  }
+  if (erObjekt(y) && Number.isFinite(y.volum)) ny.volum = heltall(Math.round(y.volum), 0, 100, 100);
+  return ny;
+}
+
+// Gyldige innstillinger for ett kopierbart kort i en mal, eller null for korttyper
+// som ikke har noen (de faste kortene og ukjente typer).
+function vaskMalKort(type, x) {
+  const o = erObjekt(x) ? x : {};
+  switch (type) {
+    case 'timer':     return { varighet: heltall(o.varighet, 1, 86400, 300), modus: o.modus === 'opp' ? 'opp' : 'ned',
+                               visning: o.visning === 'skive' ? 'skive' : 'bjelke' };
+    case 'tilfeldig':
+    case 'bilde':     return {};
+    case 'notat':     return { tekst: typeof o.tekst === 'string' ? o.tekst.slice(0, 100000) : '', kursiv: o.kursiv === true,
+                               størrelse: NOTAT_STØRRELSER.includes(o.størrelse) ? o.størrelse : 1 };
+    case 'youtube':   return vaskYoutube(o);
+    default:          return SMÅKORT_FELT[type] ? SMÅKORT_FELT[type].vask(o) : null;
+  }
+}
+
+// Sidemalene (v2.51): unike navn, bare gyldige kort med gyldig plass, og innstillinger
+// bare for kort som står i malen. Guidekortene hører aldri hjemme i en mal.
+function normaliserMaler(s) {
+  const navnBrukt = new Set();
+  s.maler = (Array.isArray(s.maler) ? s.maler : [])
+    .filter(erObjekt)
+    .map(m => {
+      const navn = (tekstEllerNull(m.navn, 40) || '').trim();
+      if (!navn || navnBrukt.has(navn)) return null;
+      navnBrukt.add(navn);
+      const widget_layout = (Array.isArray(m.widget_layout) ? m.widget_layout : [])
+        .filter(w => erObjekt(w) && erGyldigKortId(w.id) && !GUIDE_KORT.includes(w.id))
+        .map(w => ({ id: w.id, col: heltall(w.col, 1, 4, 1), ...gyldigPlassering(w) }))
+        .filter(w => w.x !== undefined);
+      const ider = new Set(widget_layout.map(w => w.id));
+      const kort = {};
+      for (const [id, x] of Object.entries(erObjekt(m.kort) ? m.kort : {})) {
+        if (!ider.has(id) || FARLIGE_NØKLER.has(id)) continue;
+        const vasket = vaskMalKort(kortType(id), x);
+        if (vasket) kort[id] = vasket;
+      }
+      const størrelser = {};
+      for (const [id, v] of Object.entries(erObjekt(m.størrelser) ? m.størrelser : {})) {
+        if (ider.has(id) && !FARLIGE_NØKLER.has(id) && klemWidgetProsent(v)) størrelser[id] = klemWidgetProsent(v);
+      }
+      return {
+        navn,
+        widget_layout,
+        widget_hidden: [...new Set(tekstliste(m.widget_hidden).filter(id => ider.has(id)))],
+        kort_navn: Object.fromEntries(Object.entries(erObjekt(m.kort_navn) ? m.kort_navn : {})
+          .filter(([id, n]) => ider.has(id) && !FARLIGE_NØKLER.has(id) && typeof n === 'string' && n.trim())
+          .map(([id, n]) => [id, n.trim().slice(0, 40)])),
+        ulv_navn: tekstEllerNull(m.ulv_navn, 40) || 'Klassebamse',
+        kort,
+        størrelser,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 50);
+}
+
 // Endelig pass etter migreringene: hvert felt får riktig type. Endrer på stedet og
 // returnerer samme objekt. Ukjente felt får stå, de brukes ikke til noe.
 // Den felles timeren fra før v2.48 («card-timer», samme timer på alle sider) blir én
@@ -766,14 +839,7 @@ function normaliserState(s) {
   const youtube = {};
   for (const [id, y] of Object.entries(s.youtube ?? {})) {
     if (!INSTANS_ID.test(id) || !id.startsWith('youtube-')) continue;
-    const ny = { modus: erObjekt(y) && y.modus === 'lyd' ? 'lyd' : 'video' };
-    if (erObjekt(y) && typeof y.videoId === 'string' && YOUTUBE_VIDEO_ID.test(y.videoId)) {
-      ny.videoId = y.videoId;
-      ny.url   = tekstEllerNull(y.url, 500) || `https://www.youtube.com/watch?v=${y.videoId}`;
-      ny.start = heltall(y.start, 0, 86400, 0);
-    }
-    if (erObjekt(y) && Number.isFinite(y.volum)) ny.volum = heltall(Math.round(y.volum), 0, 100, 100);
-    youtube[id] = ny;
+    youtube[id] = vaskYoutube(y);
   }
   s.youtube = youtube;
 
@@ -827,6 +893,7 @@ function normaliserState(s) {
   }
   s.bilde_teller   = Math.max(heltall(s.bilde_teller, 0, 999999, 0), størsteId(s.bilder));
   s.youtube_teller = Math.max(heltall(s.youtube_teller, 0, 999999, 0), størsteId(s.youtube));
+  normaliserMaler(s);
 
   // --- Øvrige globale felt ---
   s.timer_varighet = heltall(s.timer_varighet, 1, 86400, 300);
@@ -5074,6 +5141,8 @@ function toggleWidgetSynlighet(id, synlig) {
 // (byttSide → renderSiderNav), så de to klikkene i et dobbeltklikk lander på
 // ulike DOM-noder og nettleserens dblclick-event fyrer ikke pålitelig. Vi måler
 // derfor selv tiden mellom to klikk på samme fane — andre klikk åpner omdøping.
+// Klikk på den aktive fanen åpner menyen (nytt navn / lagre som mal) i stedet for å
+// bytte til siden man allerede står på (v2.51). Dobbeltklikk går rett til omdøping.
 let sisteSideKlikk = { idx: -1, tid: 0 };
 function håndterSideKlikk(idx) {
   const nå = Date.now();
@@ -5082,22 +5151,33 @@ function håndterSideKlikk(idx) {
     startSideRename(idx);
   } else {
     sisteSideKlikk = { idx, tid: nå };
-    byttSide(idx);
+    if (idx === state.aktiv_side) visSideMeny(idx);
+    else byttSide(idx);
   }
 }
 
 // Tegner fane-raden for sidene: én knapp per side (aktiv side markert), en ✕ for å
 // slette (vises kun når det finnes mer enn én side), og en «+» for å legge til side.
+// Hver knapp står i en .side-tab-wrap, som menyene (visSideMeny, visNySideMeny)
+// henges under.
 function renderSiderNav() {
   const nav = document.getElementById('sider-nav');
   if (!nav) return;
   nav.innerHTML = '';
+  const pakk = btn => {
+    const wrap = document.createElement('span');
+    wrap.className = 'side-tab-wrap';
+    wrap.appendChild(btn);
+    nav.appendChild(wrap);
+    return wrap;
+  };
   state.sider.forEach((side, idx) => {
     const btn = document.createElement('button');
-    btn.className = 'side-tab' + (idx === state.aktiv_side ? ' aktiv' : '');
+    const aktiv = idx === state.aktiv_side;
+    btn.className = 'side-tab' + (aktiv ? ' aktiv' : '');
     btn.textContent = side.navn;
-    btn.onclick = () => håndterSideKlikk(idx);
-    btn.title = t('Dobbeltklikk for å gi nytt navn');
+    btn.onclick = e => { e.stopPropagation(); håndterSideKlikk(idx); };
+    btn.title = aktiv ? t('Klikk for å gi nytt navn eller lagre som mal') : t('Dobbeltklikk for å gi nytt navn');
     if (state.sider.length > 1) {
       const x = document.createElement('span');
       x.className = 'side-slett';
@@ -5105,14 +5185,75 @@ function renderSiderNav() {
       x.onclick = e => { e.stopPropagation(); fjernSide(idx); };
       btn.appendChild(x);
     }
-    nav.appendChild(btn);
+    pakk(btn);
   });
   const leggTil = document.createElement('button');
   leggTil.className = 'side-legg-til';
   leggTil.textContent = '+';
-  leggTil.title = t('Legg til side');
-  leggTil.onclick = leggTilSide;
-  nav.appendChild(leggTil);
+  leggTil.title = t('Ny side, tom eller fra mal');
+  const wrap = pakk(leggTil);
+  leggTil.onclick = e => { e.stopPropagation(); visNySideMeny(wrap); };
+}
+
+// Menyene under fanene bygges når de åpnes og fjernes ved klikk utenfor (se
+// klikklytteren i init), ved sidebytte (renderSiderNav tømmer raden) og når et valg er
+// gjort. Bare én meny er åpen om gangen.
+function lukkSideMenyer() {
+  document.querySelectorAll('.side-meny').forEach(m => m.remove());
+}
+
+function lagSideMeny(wrap, html, onValg) {
+  const åpen = wrap.querySelector('.side-meny');
+  lukkSideMenyer();
+  if (åpen) return null; // klikk på samme knapp igjen lukker
+  const meny = document.createElement('div');
+  meny.className = 'side-meny';
+  meny.innerHTML = html;
+  meny.onclick = e => {
+    e.stopPropagation();
+    const el = e.target.closest('[data-valg]');
+    if (el) onValg(el.dataset.valg, el);
+  };
+  wrap.appendChild(meny);
+  return meny;
+}
+
+// Menyen på den aktive fanen: nytt navn, eller lagre siden som mal.
+function visSideMeny(idx) {
+  const wrap = document.getElementById('sider-nav')?.children[idx];
+  if (!wrap) return;
+  lagSideMeny(wrap, `
+    <div class="kl-dropdown-item" data-valg="navn">✏️ ${t('Gi nytt navn')}</div>
+    <div class="kl-dropdown-item" data-valg="mal">📑 ${t('Lagre som mal')}</div>`,
+  valg => {
+    lukkSideMenyer();
+    if (valg === 'navn') startSideRename(idx);
+    if (valg === 'mal') åpneLagreMal();
+  });
+}
+
+// Menyen under «+»: ny tom side øverst, så malene. ✕ på en mal spør «Slett?» først,
+// og sletter ved neste klikk.
+function visNySideMeny(wrap) {
+  const maler = state.maler.map((m, i) => `
+    <div class="kl-dropdown-item side-meny-mal" data-valg="mal" data-idx="${i}">
+      <span class="side-meny-malnavn">📑 ${esc(m.navn)}</span>
+      <span class="side-mal-slett" data-valg="slett" data-idx="${i}" title="${t('Slett malen')}">✕</span>
+    </div>`).join('');
+  const hint = `<div class="side-meny-hint">${t('Lagre en side som mal ved å klikke på navnet i fanen')}</div>`;
+  lagSideMeny(wrap, `
+    <div class="kl-dropdown-item" data-valg="ny">➕ ${t('Ny tom side')}</div>
+    <div class="kl-dropdown-sep"></div>
+    ${state.maler.length ? `<div class="kl-dropdown-label">${t('Fra mal')}</div>${maler}` : hint}`,
+  (valg, el) => {
+    const idx = Number(el.dataset.idx);
+    if (valg === 'ny') { lukkSideMenyer(); leggTilSide(); }
+    else if (valg === 'mal') { lukkSideMenyer(); nySideFraMal(state.maler[idx]); }
+    else if (valg === 'slett') {
+      if (el.dataset.bekreft) { slettMal(idx); lukkSideMenyer(); visNySideMeny(wrap); }
+      else { el.dataset.bekreft = '1'; el.textContent = t('Slett?'); }
+    }
+  });
 }
 
 // Inline omdøping: dobbeltklikk på en fane bytter den til et tekstfelt.
@@ -5124,6 +5265,7 @@ function startSideRename(idx) {
   // Finn derfor den LEVENDE fanen på nytt før vi bytter den ut med tekstfeltet.
   const tab = nav && nav.children[idx];
   if (!tab) return;
+  lukkSideMenyer();
   const input = document.createElement('input');
   input.className = 'side-tab-input';
   input.value = state.sider[idx].navn;
@@ -5209,6 +5351,158 @@ function fjernSide(idx) {
   byttSide(Math.min(state.aktiv_side, state.sider.length - 1));
 }
 
+// ===================== Sidemaler =====================
+// En mal (v2.51) er oppsettet til en side uten klassen: kortenes plass og størrelse,
+// hvilke som vises, egne kortnavn, bamsens navn og innstillingene i de kopierbare
+// kortene (timerens tid, instruksjonstekst, notattekst, YouTube-lenke). Elever,
+// grupper, dagsplan, trekk, oppmøte og koblet liste blir ikke med. Kortene i malen
+// har id-ene fra siden den ble lagret fra; de er bare navn inne i malen. En ny side
+// fra malen får ferske id-er på alle kopierbare kort (opprettKortFraMal), så malen og
+// siden aldri deler innhold. state.maler er en liste, i lagret rekkefølge.
+
+// Innstillingene som skal med i malen for ett kort, eller null for faste kort.
+function malKortData(type, id) {
+  switch (type) {
+    case 'timer':     return { ...state.timere[id] };
+    case 'tilfeldig':
+    case 'bilde':     return {}; // bildene bor i IndexedDB og blir ikke med: kortet kommer tomt
+    case 'notat':     return { ...state.notater[id] };
+    case 'youtube':   return { ...state.youtube[id] };
+    case 'teller':    return { verdi: 0 }; // en ny side starter på null
+    default:          return SMÅKORT_FELT[type] ? { ...state[SMÅKORT_FELT[type].felt][id] } : null;
+  }
+}
+
+function malFraSide(s, navn) {
+  const widget_layout = s.widget_layout.filter(w => !GUIDE_KORT.includes(w.id)).map(w => ({ ...w }));
+  const ider = new Set(widget_layout.map(w => w.id));
+  const kort = {};
+  const størrelser = {};
+  for (const w of widget_layout) {
+    const id = w.id.replace(/^card-/, '');
+    if (!INSTANS_ID.test(id)) continue;
+    const data = malKortData(kortType(w.id), id);
+    if (data) kort[w.id] = data;
+    if (state.widget_størrelser[w.id]) størrelser[w.id] = state.widget_størrelser[w.id];
+  }
+  return {
+    navn,
+    widget_layout,
+    widget_hidden: (s.widget_hidden ?? []).filter(id => ider.has(id)),
+    kort_navn: Object.fromEntries(Object.entries(s.kort_navn ?? {}).filter(([id]) => ider.has(id))),
+    ulv_navn: s.ulv_navn,
+    kort,
+    størrelser,
+  };
+}
+
+// 📑 Lagre som mal i fanemenyen: navnefeltet er forhåndsfylt med sidenavnet.
+function åpneLagreMal() {
+  const input = document.getElementById('input-mal-navn');
+  input.value = aktivSide().navn;
+  åpneModal('modal-lagre-mal');
+  setTimeout(() => input.select(), 80); // åpneModal fokuserer feltet etter 60 ms
+}
+
+// Lagrer aktiv side som mal. Finnes navnet fra før, erstattes malen.
+function lagreSomMal(navn) {
+  navn = navn.trim().slice(0, 40);
+  const mal = malFraSide(aktivSide(), navn);
+  const idx = state.maler.findIndex(m => m.navn === navn);
+  if (idx >= 0) state.maler[idx] = mal; else state.maler.push(mal);
+  saveState();
+  notify(idx >= 0 ? t('📑 Malen «{navn}» er oppdatert', { navn }) : t('📑 Siden er lagret som malen «{navn}»', { navn }));
+}
+
+function slettMal(idx) {
+  const [mal] = state.maler.splice(idx, 1);
+  if (!mal) return;
+  saveState();
+  notify(t('🗑 Malen «{navn}» er slettet', { navn: mal.navn }));
+}
+
+// Lager et nytt kort av et kopierbart slag med innstillingene fra malen: felt i
+// state, DOM-element og knapper, som «+»-valgene i ⊞ Kort gjør. Plassen på flata
+// setter nySideFraMal. Gir kort-id-en («card-timer-4»), eller null for ukjent type.
+function opprettKortFraMal(type, data) {
+  let id;
+  if (type === 'timer') {
+    id = `timer-${++state.timer_teller}`;
+    state.timere[id] = { varighet: 300, modus: 'ned', visning: 'bjelke', ...data };
+    const el = lagTimerElement(id);
+    settInnKort(el);
+    setupTimer(id);
+    pakkSkaler(el);
+    renderTimer(id);
+  } else if (type === 'tilfeldig') {
+    id = `tilfeldig-${++state.tilfeldig_teller}`;
+    state.tilfeldige[id] = {};
+    const el = lagTilfeldigElement(id);
+    settInnKort(el);
+    setupTilfeldig(`card-${id}`);
+    pakkSkaler(el); // tegnes av byttSide → renderAlleTrekk, når siden er aktiv
+  } else if (type === 'notat') {
+    id = `notat-${++state.notat_teller}`;
+    state.notater[id] = { tekst: '', kursiv: false, størrelse: 1, ...data };
+    const el = lagNotatElement(id);
+    settInnKort(el);
+    setupNotat(id);
+  } else if (type === 'bilde') {
+    id = `bilde-${++state.bilde_teller}`;
+    state.bilder[id] = {};
+    const el = lagBildeElement(id);
+    settInnKort(el);
+    setupBilde(id);
+  } else if (type === 'youtube') {
+    id = `youtube-${++state.youtube_teller}`;
+    state.youtube[id] = { modus: 'video', ...data };
+    const el = lagYoutubeElement(id);
+    settInnKort(el);
+    setupYoutube(id);
+  } else if (SMÅKORT[type]) {
+    const k = SMÅKORT[type];
+    id = `${type}-${++state[k.teller]}`;
+    state[k.felt][id] = { ...k.ny(), ...data };
+    settInnSmåkort(type, id);
+    renderSmåkort(type, id);
+  } else {
+    return null;
+  }
+  return `card-${id}`;
+}
+
+// Ny side fra en mal, og bytt til den. Siden får malens navn; de faste kortene
+// beholder id-ene sine, de kopierbare får nye. Faste kort som mangler i malen, legges
+// til skjult, så ⊞ Kort kan hente dem fram.
+function nySideFraMal(mal) {
+  if (!mal) return;
+  const side = nySide(mal.navn);
+  const nyId = {}; // kort-id i malen → kort-id på den nye siden
+  const widget_layout = [];
+  for (const w of mal.widget_layout) {
+    let id = w.id;
+    if (INSTANS_ID.test(w.id.replace(/^card-/, ''))) {
+      id = opprettKortFraMal(kortType(w.id), mal.kort[w.id] ?? {});
+      if (!id) continue;
+      nyId[w.id] = id;
+    }
+    widget_layout.push({ ...w, id });
+  }
+  const bytt = id => nyId[id] ?? id;
+  side.widget_hidden = mal.widget_hidden.map(bytt);
+  for (const w of nySide('').widget_layout) {
+    if (w.id.startsWith('card-notat-')) continue; // malens egne notater er allerede med
+    if (!widget_layout.some(x => x.id === w.id)) { widget_layout.push({ ...w }); side.widget_hidden.push(w.id); }
+  }
+  side.widget_layout = widget_layout;
+  side.kort_navn = Object.fromEntries(Object.entries(mal.kort_navn).map(([id, n]) => [bytt(id), n]));
+  side.ulv_navn = mal.ulv_navn;
+  for (const [id, pst] of Object.entries(mal.størrelser)) if (nyId[id]) state.widget_størrelser[nyId[id]] = pst;
+  state.sider.push(side);
+  byttSide(state.sider.length - 1);
+  notify(t('📑 Ny side fra malen «{navn}»', { navn: mal.navn }));
+}
+
 // ===================== Reset =====================
 // Hver nullstill*-funksjon tømmer ett enkelt trekk/widget på aktiv side: tøm
 // valgt + backlog, lagre, tegn på nytt og varsle. Brukes fra knappene på kortene.
@@ -5229,7 +5523,7 @@ const OPPDATERINGSLOGG_HTML = `
     <p>Dette er ideer, ikke løfter. Rekkefølgen kan endre seg. Savner du noe? Si fra via <strong>💬 Tilbakemelding</strong>.</p>
     <strong>Neste</strong>
     <ul>
-      <li>📑 <strong>Maler for sider,</strong> og deling av en side med en kollega, uten elevnavn</li>
+      <li>📤 <strong>Deling av en side</strong> med en kollega, uten elevnavn</li>
     </ul>
     <strong>Senere</strong>
     <ul>
@@ -5243,6 +5537,15 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.51</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>📑 Sidemaler:</strong> klikk på navnet til siden du står på og velg <strong>Lagre som mal</strong>. <strong>+</strong> gir nå en meny med <strong>Ny tom side</strong> øverst og malene dine under. En mal tar med oppsettet av kortene og innstillingene i dem, ikke elever, grupper, dagsplan eller trekk</li>
+      <li>Klikk på navnet til den aktive siden gir også <strong>Gi nytt navn</strong>. Dobbeltklikk virker som før</li>
+      <li>Malene blir med i 📤 backup</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.50</div>
     <div class="logg-dato">4. november 2026</div>
@@ -5819,13 +6122,17 @@ const BRUKERVEILEDNING_HTML = `
   <h4>☕ Gratis, uten innlogging</h4>
   <p>Skoledash er gratis å bruke. Du trenger verken konto eller abonnement, og alt du legger inn blir liggende i nettleseren din. Vil du støtte utviklingen, trykker du på <strong>☕</strong> helt øverst til høyre. Da åpnes en side for donasjoner i en ny fane. Hva som kommer framover, ser du øverst i <strong>📋 Oppdateringslogg</strong>.</p>
   <h4>Sider — ett arbeidsbord per klasse</h4>
-  <p>Klikk <strong>+</strong> i midten av headeren for å legge til en ny side, klikk på et sidenavn for å bytte, og <strong>✕</strong> på en fane for å slette. Tanken er at <strong>hver side er sin egen klasse</strong>: lag side 1 for 1A og side 2 for 1B, og bytt fritt mellom dem gjennom dagen uten at noe blandes.</p>
-  <p><strong>Gi en side nytt navn</strong> ved å dobbeltklikke på fanen. Da blir den til et lite skrivefelt — skriv inn navnet (f.eks. «1A» eller «Mattegruppe») og trykk <kbd>Enter</kbd> for å lagre. <kbd>Esc</kbd> avbryter uten å endre navnet.</p>
+  <p>Klikk <strong>+</strong> i midten av headeren for å legge til en ny side (tom, eller fra en mal du har lagret), klikk på et sidenavn for å bytte, og <strong>✕</strong> på en fane for å slette. Tanken er at <strong>hver side er sin egen klasse</strong>: lag side 1 for 1A og side 2 for 1B, og bytt fritt mellom dem gjennom dagen uten at noe blandes.</p>
+  <p><strong>Klikk på navnet til siden du står på</strong> for å få to valg: <strong>✏️ Gi nytt navn</strong> og <strong>📑 Lagre som mal</strong>. Nytt navn gjør fanen til et lite skrivefelt. Skriv inn navnet (f.eks. «1A» eller «Mattegruppe») og trykk <kbd>Enter</kbd> for å lagre. <kbd>Esc</kbd> avbryter uten å endre navnet. Dobbeltklikk på fanen går rett til skrivefeltet.</p>
   <p><strong>Per side</strong> (egen for hver klasse): elevlisten, grupper, dagsplanen, klassebamsens navn, pluss oppsettet av kortene, notater og bilder.</p>
   <p><strong>Delt mellom alle sider:</strong> lagrede klasselister (📋 Lister — et felles bibliotek du kan laste inn i hvilken som helst side) med sine trekk, tema, font og skriftstørrelse.</p>
   <p>Timere hører til siden de er laget på, men fortsetter å gå når du bytter side. Vil du f.eks. vise et bilde på en egen side mens nedtellingen ruller, går det helt fint, og du får beskjed når tiden er ute.</p>
   <p>En <strong>ny side starter helt tom</strong> — ingen kort er synlige ennå. Du henter selv fram akkurat de kortene du vil ha via <strong>⊞ Kort</strong>-menyen, så hver side blir nøyaktig slik du ønsker den.</p>
   <p><strong>Side 1 starter med et lite utvalg</strong> første gang du åpner appen: klokke og tilfeldig elev til venstre, dagsplan og notat i midten, og elevlisten til høyre. Det er med vilje få kort — da får hele siden plass på skjermen med én gang. Ordenselever, klassebamse, terning og grupper ligger klare i <strong>⊞ Kort</strong> og dukker opp på sin faste plass når du krysser dem av.</p>
+
+  <h4>📑 Sidemaler</h4>
+  <p>Har du satt opp en side slik du vil ha den, kan du ta vare på oppsettet som en mal: klikk på sidenavnet i fanen og velg <strong>📑 Lagre som mal</strong>. Malen tar med kortene og hvor de står, hvilke som vises, egne kortnavn, klassebamsens navn og innstillingene i kortene (timerens tid, instruksjonstekster, notater, YouTube-lenke). Elever, grupper, dagsplan, trekk og oppmøte blir <strong>ikke</strong> med: malen er bordet, ikke klassen.</p>
+  <p>Trykk <strong>+</strong> og velg malen for å lage en ny side fra den. Siden får malens navn og helt egne kort, så det du skriver der, endrer ikke malen. Bildekort kommer tomme, og en teller starter på null. Lagrer du en side med et malnavn som finnes fra før, erstattes malen. <strong>✕</strong> ved en mal i +-menyen sletter den (trykk to ganger). Malene blir med i 📤 backup.</p>
 
   <h4>Kom i gang</h4>
   <p>Trykk <strong>+ Legg til elev</strong> (eller tasten <kbd>a</kbd>) for å legge inn elevene i klassen din. Du kan ha opptil 35 elever inne samtidig.</p>
@@ -6392,6 +6699,16 @@ function settOppHendelser() {
   document.getElementById('btn-lagre-liste-avbryt').onclick  = lukkModal;
   inputEnter('input-liste-navn', bekreftLagreListe);
 
+  // Sidemal (📑 Lagre som mal i fanemenyen)
+  const bekreftLagreMal = () => {
+    const navn = document.getElementById('input-mal-navn').value.trim();
+    if (navn) { lagreSomMal(navn); lukkModal(); }
+    else notify(t('Skriv inn et navn'), 'warning');
+  };
+  document.getElementById('btn-lagre-mal-bekreft').onclick = bekreftLagreMal;
+  document.getElementById('btn-lagre-mal-avbryt').onclick  = lukkModal;
+  inputEnter('input-mal-navn', bekreftLagreMal);
+
   // 💾 Data (nederst til venstre): backup og sletting. Det som før lå i Nullstill-
   // menyen for hvert kort, har fått egne knapper på kortene (🔄 og 🧹).
   document.getElementById('btn-data').onclick      = () => åpneModal('modal-data');
@@ -6535,6 +6852,7 @@ function settOppHendelser() {
     widgetDropdown.classList.add('hidden');
     klasseromDrop.classList.add('hidden');
     document.getElementById('vær-popup').classList.add('hidden');
+    lukkSideMenyer();
   });
 
   // Lukk modal ved klikk på overlay
@@ -7443,6 +7761,7 @@ async function eksporterData() {
       klasseliste_oppsett: state.liste_oppsett,
       sider:        state.sider,
       aktiv_side:   state.aktiv_side,
+      maler:        state.maler,
       widgetinnhold: {
         notater:        state.notater,
         bilder:         bilderEksport,
@@ -7574,6 +7893,7 @@ async function bekreftImport() {
   if (innhold.klasseliste_trekk !== undefined) ny.liste_trekk = innhold.klasseliste_trekk;
   if (innhold.klasseliste_oppsett !== undefined) ny.liste_oppsett = innhold.klasseliste_oppsett;
   if (Array.isArray(innhold.sider) && innhold.sider.length) ny.sider = innhold.sider;
+  if (Array.isArray(innhold.maler)) ny.maler = innhold.maler;
   const wi = innhold.widgetinnhold ?? {};
   if (wi.notater        !== undefined) ny.notater = wi.notater;
   if (wi.bilder         !== undefined) ny.bilder = wi.bilder;

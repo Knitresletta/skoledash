@@ -21,7 +21,7 @@ Gruppert så det som hører til samme kort eller samme mekanisme, bygges sammen.
 | 4 | Instruksjonskort | Nummererte steg i stor skrift, som kan krysses av | Lett | Ligner Notat, men med struktur |
 | 4 | Nedtelling til dato | «12 dager til juleferie» | Lett | |
 | 4 | Ukenummer og kalender | Ukenummer i toppfeltet, eventuelt liten månedskalender | Lett | |
-| 5 | Maler for sider | Lagre en side som mal og lag nye sider fra den | Middels | Samme mekanisme som deling: en side uten elevdata |
+| 5 | Maler for sider | Lagre en side som mal og lag nye sider fra den | Middels | Ferdig i v2.51 (4. november 2026). Malen er oppsettet uten elevdata, samme grunnlag som deling |
 | 5 | Del en side med en kollega | Eksporter én side uten elevnavn til en fil som kan importeres | Lett-middels | Bygges sammen med maler |
 
 ## Gira

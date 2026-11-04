@@ -438,6 +438,9 @@ header h1 {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
+    /* transform gir raden sin egen stabel. Uten z-index lå menyene under fanene
+       (.side-meny) bak kortene på flata, som har z-index fra oppsettet. */
+    z-index: 150;
 }
 .side-tab {
     background: rgba(255, 255, 255, 0.15);
@@ -496,6 +499,57 @@ header h1 {
 .side-legg-til:hover {
     border-color: currentColor;
     opacity: 1;
+}
+/* Menyene under fanene (v2.51): nytt navn / lagre som mal på den aktive fanen, og
+   ny side / maler under «+». Hver knapp står i en .side-tab-wrap, så menyen kan
+   henges rett under den. Samme utseende som Skoledash-menyen. */
+.side-tab-wrap {
+    position: relative;
+    display: inline-flex;
+}
+.side-meny {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    background: var(--card);
+    color: var(--text);
+    border-radius: var(--r);
+    box-shadow: var(--shadow-md);
+    padding: 8px 0;
+    min-width: 180px;
+    z-index: 150;
+    animation: modal-in 0.15s ease;
+    font-weight: 400;
+    text-align: left;
+}
+.side-meny-mal {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+}
+.side-meny-malnavn {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 240px;
+}
+.side-mal-slett {
+    font-size: 0.7rem;
+    opacity: 0.55;
+    padding: 2px 5px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+.side-mal-slett:hover {
+    opacity: 1;
+    color: var(--red);
+}
+.side-meny-hint {
+    padding: 6px 16px 4px;
+    font-size: 0.78rem;
+    color: var(--muted);
+    max-width: 240px;
+    line-height: 1.35;
 }
 #header-dato {
     font-size: 0.85rem;

@@ -47,6 +47,18 @@ const NYNORSK = {
   '+ 🖼 Bilde': '+ 🖼 Bilete',
   'Fjern fra siden': 'Fjern frå sida',
   'Dobbeltklikk for å gi nytt navn': 'Dobbeltklikk for å gi nytt namn',
+  // Fanemenyene og sidemaler (v2.51)
+  'Klikk for å gi nytt navn eller lagre som mal': 'Klikk for å gi nytt namn eller lagre som mal',
+  'Ny side, tom eller fra mal': 'Ny side, tom eller frå mal',
+  'Gi nytt navn': 'Gi nytt namn',
+  'Lagre en side som mal ved å klikke på navnet i fanen': 'Lagre ei side som mal ved å klikke på namnet i fana',
+  '📑 Siden er lagret som malen «{navn}»': '📑 Sida er lagra som malen «{navn}»',
+  '🗑 Malen «{navn}» er slettet': '🗑 Malen «{navn}» er sletta',
+  '📑 Ny side fra malen «{navn}»': '📑 Ny side frå malen «{navn}»',
+  '📑 Lagre siden som mal': '📑 Lagre sida som mal',
+  'Malen tar med oppsettet av kortene og innstillingene i dem, men ikke elever, grupper, dagsplan eller trekk.':
+    'Malen tek med oppsettet av korta og innstillingane i dei, men ikkje elevar, grupper, dagsplan eller trekk.',
+  'f.eks. Mattetime, Stasjoner…': 't.d. Mattetime, Stasjonar…',
   'Dra for å endre rekkefølge': 'Dra for å endre rekkjefølgja',
 
   // Temaer
@@ -318,7 +330,7 @@ const ROADMAP_KORT_NN = `
     <p>Dette er idear, ikkje lovnader. Rekkjefølgja kan endre seg. Saknar du noko? Sei frå via <strong>💬 Tilbakemelding</strong>.</p>
     <strong>Neste</strong>
     <ul>
-      <li>📑 <strong>Malar for sider,</strong> og deling av ei side med ein kollega, utan elevnamn</li>
+      <li>📤 <strong>Deling av ei side</strong> med ein kollega, utan elevnamn</li>
     </ul>
     <strong>Seinare</strong>
     <ul>
@@ -342,13 +354,17 @@ const BRUKERVEILEDNING_NN = `
   <h4>☕ Gratis, utan innlogging</h4>
   <p>Skoledash er gratis å bruke. Du treng verken konto eller abonnement, og alt du legg inn, blir liggande i nettlesaren din. Vil du støtte utviklinga, trykkjer du på <strong>☕</strong> heilt øvst til høgre. Då blir ei side for donasjonar opna i ei ny fane. Kva som kjem framover, ser du øvst i <strong>📋 Oppdateringslogg</strong>.</p>
   <h4>Sider: eitt arbeidsbord per klasse</h4>
-  <p>Klikk <strong>+</strong> midt i toppfeltet for å leggje til ei ny side, klikk på eit sidenamn for å byte, og <strong>✕</strong> på ei fane for å slette. Tanken er at <strong>kvar side er sin eigen klasse</strong>: lag side 1 for 1A og side 2 for 1B, og byt fritt mellom dei gjennom dagen utan at noko blir blanda.</p>
-  <p><strong>Gi ei side nytt namn</strong> ved å dobbeltklikke på fana. Då blir ho til eit lite skrivefelt. Skriv inn namnet (t.d. «1A» eller «Mattegruppe») og trykk <kbd>Enter</kbd> for å lagre. <kbd>Esc</kbd> avbryt utan å endre namnet.</p>
+  <p>Klikk <strong>+</strong> midt i toppfeltet for å leggje til ei ny side (tom, eller frå ein mal du har lagra), klikk på eit sidenamn for å byte, og <strong>✕</strong> på ei fane for å slette. Tanken er at <strong>kvar side er sin eigen klasse</strong>: lag side 1 for 1A og side 2 for 1B, og byt fritt mellom dei gjennom dagen utan at noko blir blanda.</p>
+  <p><strong>Klikk på namnet til sida du står på</strong> for å få to val: <strong>✏️ Gi nytt namn</strong> og <strong>📑 Lagre som mal</strong>. Nytt namn gjer fana til eit lite skrivefelt. Skriv inn namnet (t.d. «1A» eller «Mattegruppe») og trykk <kbd>Enter</kbd> for å lagre. <kbd>Esc</kbd> avbryt utan å endre namnet. Dobbeltklikk på fana går rett til skrivefeltet.</p>
   <p><strong>Per side</strong> (eiga for kvar klasse): elevlista, grupper, dagsplanen, namnet på klassebamsen, og i tillegg oppsettet av korta, notat og bilete.</p>
   <p><strong>Felles for alle sider:</strong> lagra klasselister (📋 Lister, eit felles bibliotek du kan laste inn på kva side som helst) med trekka sine, tema, font, skriftstorleik og målform.</p>
   <p>Timerar høyrer til sida dei er laga på, men held fram med å gå når du byter side. Vil du til dømes vise eit bilete på ei eiga side medan nedteljinga går, går det heilt fint, og du får beskjed når tida er ute.</p>
   <p>Ei <strong>ny side startar heilt tom</strong>, utan synlege kort. Du hentar sjølv fram akkurat dei korta du vil ha via <strong>⊞ Kort</strong>-menyen, så kvar side blir nøyaktig slik du vil ha ho.</p>
   <p><strong>Side 1 startar med eit lite utval</strong> første gongen du opnar appen: klokke og tilfeldig elev til venstre, dagsplan og notat i midten, og elevlista til høgre. Det er med vilje få kort, så heile sida får plass på skjermen med ein gong. Ordenselevar, klassebamse, terning og grupper ligg klare i <strong>⊞ Kort</strong> og dukkar opp på den faste plassen sin når du kryssar dei av.</p>
+
+  <h4>📑 Sidemalar</h4>
+  <p>Har du sett opp ei side slik du vil ha ho, kan du ta vare på oppsettet som ein mal: klikk på sidenamnet i fana og vel <strong>📑 Lagre som mal</strong>. Malen tek med korta og kvar dei står, kva som blir vist, eigne kortnamn, namnet på klassebamsen og innstillingane i korta (tida på timeren, instruksjonstekstar, notat, YouTube-lenkje). Elevar, grupper, dagsplan, trekk og oppmøte blir <strong>ikkje</strong> med: malen er bordet, ikkje klassen.</p>
+  <p>Trykk <strong>+</strong> og vel malen for å lage ei ny side frå han. Sida får namnet til malen og heilt eigne kort, så det du skriv der, endrar ikkje malen. Biletkort kjem tomme, og ein teljar startar på null. Lagrar du ei side med eit malnamn som finst frå før, blir malen bytt ut. <strong>✕</strong> ved ein mal i +-menyen slettar han (trykk to gonger). Malane blir med i 📤 backup.</p>
 
   <h4>Kom i gang</h4>
   <p>Trykk <strong>+ Legg til elev</strong> (eller tasten <kbd>a</kbd>) for å leggje inn elevane i klassen din. Du kan ha opptil 35 elevar inne samtidig.</p>
