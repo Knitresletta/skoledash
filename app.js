@@ -15,6 +15,17 @@ const RESERVE_KEY = 'klasserom_state_v1_reserve';
 const FØR_ELEV_ID_KEY = 'klasserom_state_v1_for_elev_id';
 // Settes av slettAlleData(), så ingen lagring skriver dataene tilbake før siden lastes på nytt.
 let sletterAlt = false;
+// Versjonen av lagringsformatet (v2.40). Øk den når eldre kode ville lest de nye
+// dataene feil, slik v2.36 ville gjort med elevobjektene fra v2.37. Finner appen data
+// med høyere versjon enn sin egen, lagrer den ingenting (se lagringSperre), så en
+// tilbakerulling ikke skriver over nyere data.
+const LAGRINGSVERSJON = 1;
+// Når appen ikke skal lagre: null, 'annen-fane' (en annen fane har lagret noe nyere,
+// se «Flere faner») eller 'nyere-versjon' (dataene er fra en nyere versjon av appen).
+let lagringSperre = null;
+// Timerens løpende tilstand per fane (sessionStorage), så en omlasting ikke stopper en
+// nedtelling som går. Se «Timer».
+const TIMER_ØKT_KEY = 'skoledash_timer_okt';
 
 // Hvor ☕-knappen og velkomstmeldingen sender folk som vil donere. Når Vipps er
 // godkjent, blir ☕ en liten meny med Vipps, Ko-fi og lenke til vilkar.html.
@@ -245,6 +256,8 @@ function defaultState() {
     bilde_teller: 0,
     youtube_teller: 0,
     eksport_signatur: null, // signatur av data ved siste eksport (for endrings-varsel)
+    eksport_tid: null,      // tidspunkt (ms) for siste eksport, vises i varselet
+    lagringsversjon: LAGRINGSVERSJON,
     aktiv_side: 0,
     sider: [ førsteSide() ],
   };
@@ -648,6 +661,9 @@ function normaliserState(s) {
   if (typeof s.tema !== 'string') s.tema = 'lyst';  // settTema() sjekker mot gyldige temaer
   if (typeof s.font !== 'string') s.font = 'system'; // settFont() sjekker mot FONTER
   if (typeof s.eksport_signatur !== 'string') s.eksport_signatur = null;
+  if (!Number.isFinite(s.eksport_tid)) s.eksport_tid = null;
+  // Nyere data beholder versjonen sin (de lagres uansett ikke, se lagringSperre).
+  s.lagringsversjon = Math.max(LAGRINGSVERSJON, Number(s.lagringsversjon) || 0);
   if (s.språk !== 'nn') s.språk = 'nb';
   return s;
 }
@@ -657,10 +673,14 @@ let værData = null;    // siste værsvar fra met.no, delt mellom topptekst, pop
 let pollenData = null; // siste pollensvar fra Open-Meteo, brukt av klokkekortet
 let stedsTreff = [];   // siste geokodingstreff, slik at klikk kan slå opp på indeks
 
-// Timer runtime state (not persisted)
+// Timerens løpende tilstand. Lagres ikke i state (den er ikke en del av klassens data),
+// men per fane i sessionStorage, så den overlever en omlasting (se lagreTimerØkt).
+// Mens timeren går, er timerSlutt klokkeslettet (ms) den treffer null; timerRemaining
+// regnes ut fra det. Se «Timer» for hvorfor.
 let timerRemaining = state.timer_varighet;
 let timerRunning   = false;
 let timerInterval  = null;
+let timerSlutt     = null;
 
 // Leser lagret tilstand fra localStorage og migrerer eldre dataformater opp til
 // dagens struktur (flat state → sider, enkelt-notat → flerinstans osv.). Returnerer
@@ -674,6 +694,7 @@ function loadState() {
       // med tomme defaults, så guards som "finnes feltet?" må sjekke _raw — ellers ser de
       // alltid defaultene og migrerer aldri (→ datatap for gamle states). Se v2.7.
       const _raw = rensRåState(trygtJsonParse(raw));
+      if (Number(_raw.lagringsversjon) > LAGRINGSVERSJON) lagringSperre = 'nyere-versjon';
       const state = Object.assign(defaultState(), _raw);
       if (!_raw.sider) {
         // Flatt pre-v1.9-state uten `sider`: bygg side 1 fra gammelt topp-nivå-oppsett
@@ -820,14 +841,79 @@ function aktivSide() {
 // Skriver hele tilstanden til localStorage. Kalles etter HVER mutasjon av `state`,
 // ellers går endringen tapt ved neste sideoppfriskning. Oppdaterer også eksport-
 // varselet, siden lagret data nå kan avvike fra forrige eksporterte backup.
+// Lagring som feiler (full lagring, sperret i et privat vindu), sies fra om én gang
+// til den virker igjen. Ellers ville læreren trodd at alt var lagret.
+let lagringFeilet = false;
 function saveState() {
   if (sletterAlt) return;
+  if (lagringSperre) { varsleLagringSperre(); return; }
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    lagringFeilet = false;
   } catch (e) {
     console.warn('saveState:', e);
+    if (!lagringFeilet) {
+      lagringFeilet = true;
+      notify(t('⚠️ Klarte ikke å lagre. Endringene forsvinner når siden lukkes. Ta en 📤 eksport for å sikre dem.'), 'error');
+    }
   }
   oppdaterEksportVarsel();
+}
+
+// ===================== Flere faner =====================
+// Hver fane har sin egen kopi av state og lagrer hele kopien. Var Skoledash åpen i to
+// faner, ville den som lagret sist, skrevet over den andres endringer uten at noen
+// merket det. Nettleseren sender «storage» til de ANDRE fanene når en fane lagrer.
+// Da blir denne fanen utdatert: den slutter å lagre, og laster inn på nytt så snart
+// det ikke forstyrrer (med en gang hvis fanen er skjult, ellers når læreren kommer
+// tilbake til den eller trykker knappen i varselet). Timeren overlever omlastingen.
+function følgAndreFaner() {
+  window.addEventListener('storage', e => {
+    if (e.key !== STORAGE_KEY || e.storageArea !== localStorage || sletterAlt) return;
+    if (lagringSperre === 'nyere-versjon') return;
+    // Lagret den andre fanen akkurat det denne fanen har, er det ingen konflikt.
+    if (e.newValue === JSON.stringify(state)) return;
+    lagringSperre = 'annen-fane';
+    if (document.hidden) lastInnPåNytt();
+    else visLagringVarsel();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && lagringSperre === 'annen-fane') lastInnPåNytt();
+  });
+}
+
+function lastInnPåNytt() {
+  lagreTimerØkt();
+  location.reload();
+}
+
+// Fast varsel øverst når appen ikke lagrer, med knapp for å laste inn på nytt.
+function visLagringVarsel() {
+  const el = document.getElementById('lagring-varsel');
+  if (!el || !lagringSperre) return;
+  document.getElementById('lagring-varsel-tekst').textContent = lagringSperre === 'nyere-versjon'
+    ? t('Dataene er lagret av en nyere versjon av Skoledash. Endringer her blir ikke lagret.')
+    : t('Skoledash er endret i en annen fane. Endringer her blir ikke lagret før du laster inn på nytt.');
+  el.classList.remove('hidden');
+}
+
+// Kalles når noe skulle vært lagret, men ikke ble det. Sier fra høyst hvert 5. sekund.
+let sistSperreVarsel = 0;
+function varsleLagringSperre() {
+  visLagringVarsel();
+  if (Date.now() - sistSperreVarsel < 5000) return;
+  sistSperreVarsel = Date.now();
+  notify(t('Endringen ble ikke lagret. Last inn siden på nytt.'), 'warning');
+}
+
+// Ber nettleseren om å ikke rydde bort dataene når det blir trangt om plass eller
+// siden ikke er brukt på en stund. Chrome og Edge svarer uten å spørre, Firefox kan
+// spørre læreren. Kalles når læreren gjør noe med lister eller backup, ikke ved
+// oppstart, så ingen får et spørsmål første gang de åpner appen.
+function beOmVarigLagring() {
+  navigator.storage?.persisted?.()
+    .then(varig => varig || navigator.storage.persist?.())
+    .catch(() => {});
 }
 
 // ===================== Date / Weather =====================
@@ -1934,28 +2020,83 @@ function renderAlleTrekk() {
 }
 
 // ===================== Timer =====================
+// Tiden regnes fra klokkeslettet, ikke ved å telle tikk. Nettlesere kaller timere
+// sjeldnere i faner som ikke vises (Chrome ned til én gang i minuttet etter fem
+// minutter), så en timer som trakk fra ett sekund per tikk, gikk for sakte når
+// læreren viste noe i en annen fane. Nå huskes når nedtellingen er ferdig
+// (timerSlutt), og hvert tikk regner ut hvor mye som er igjen.
+
+// Sekunder igjen akkurat nå. Rundes opp, så 4,2 s vises som 00:05 og null kommer
+// når tiden faktisk er ute.
+function timerGjenstår() {
+  if (!timerRunning || timerSlutt === null) return timerRemaining;
+  return Math.max(0, Math.ceil((timerSlutt - Date.now()) / 1000));
+}
+
+function stoppTimerIntervall() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+}
+
+// Tikker fire ganger i sekundet, så visningen ikke hopper over et sekund når et tikk
+// kommer litt sent. renderTimer tegner bare om når tallet endrer seg.
+function startTimerIntervall() {
+  stoppTimerIntervall();
+  timerInterval = setInterval(timerTick, 250);
+}
+
+// Lagrer timerens tilstand for denne fanen. Kalles ved hver endring og før omlasting.
+function lagreTimerØkt() {
+  try {
+    sessionStorage.setItem(TIMER_ØKT_KEY, JSON.stringify({
+      kjører: timerRunning, slutt: timerSlutt, gjenstår: timerRemaining, varighet: state.timer_varighet,
+    }));
+  } catch (_) { /* ingen sessionStorage: timeren starter bare på nytt ved omlasting */ }
+}
+
+// Henter timeren tilbake etter en omlasting i samme fane. Er tiden gått ut mens siden
+// lastet, vises den som ferdig, uten pip (det ville kommet uventet). Lagret med en
+// annen varighet enn den som gjelder nå, starter timeren fra den nye varigheten.
+function hentTimerØkt() {
+  let økt = null;
+  try { økt = JSON.parse(sessionStorage.getItem(TIMER_ØKT_KEY)); } catch (_) { return; }
+  if (!økt || økt.varighet !== state.timer_varighet) return;
+  if (økt.kjører && Number.isFinite(økt.slutt)) {
+    if (økt.slutt > Date.now()) {
+      timerRunning = true;
+      timerSlutt   = økt.slutt;
+      timerRemaining = timerGjenstår();
+      startTimerIntervall();
+    } else {
+      timerRemaining = 0;
+    }
+  } else if (Number.isFinite(økt.gjenstår)) {
+    timerRemaining = Math.max(0, Math.min(økt.gjenstår, state.timer_varighet));
+  }
+}
+
 // Hovedknappen for timeren med tre tilstander avhengig av hvor vi er:
 //  - tiden er ute  → nullstill til full varighet (knappen blir «start på nytt»)
-//  - kjører        → pause (stopp intervallet)
-//  - pauset/klar   → start (tikk hvert sekund via setInterval)
+//  - kjører        → pause (husk hvor mye som er igjen)
+//  - pauset/klar   → start (regn ut når den er ferdig)
 function timerToggle() {
-  if (timerRemaining <= 0) {
+  if (timerGjenstår() <= 0) {
     timerRemaining = state.timer_varighet;
     timerRunning   = false;
-    clearInterval(timerInterval);
-    timerInterval = null;
-    renderTimer();
-    return;
-  }
-  if (timerRunning) {
-    timerRunning = false;
-    clearInterval(timerInterval);
-    timerInterval = null;
+    timerSlutt     = null;
+    stoppTimerIntervall();
+  } else if (timerRunning) {
+    timerRemaining = timerGjenstår();
+    timerRunning   = false;
+    timerSlutt     = null;
+    stoppTimerIntervall();
   } else {
-    timerRunning  = true;
-    timerInterval = setInterval(timerTick, 1000);
+    timerRunning = true;
+    timerSlutt   = Date.now() + timerRemaining * 1000;
+    startTimerIntervall();
     visTimerKort();
   }
+  lagreTimerØkt();
   renderTimer();
 }
 
@@ -1983,29 +2124,34 @@ function visTimerKort() {
   kort.addEventListener('animationend', () => kort.classList.remove('kort-sprett'), { once: true });
 }
 
-// Kjøres én gang i sekundet mens timeren går. Teller ned, og når den treffer 0:
-// stopp intervallet, varsle og spill en pip. Ellers bare dekrementer og re-render.
+// Kjøres mens timeren går. Regner ut hvor mye som er igjen, og når det er null:
+// stopp, varsle og spill en pip.
 function timerTick() {
-  if (timerRemaining <= 0) {
-    timerRunning = false;
-    clearInterval(timerInterval);
-    timerInterval  = null;
+  const igjen = timerGjenstår();
+  if (igjen <= 0) {
+    timerRunning   = false;
+    timerSlutt     = null;
     timerRemaining = 0;
+    stoppTimerIntervall();
+    lagreTimerØkt();
     renderTimer();
     notify(t('⏰ Tiden er ute!'), 'warning');
     spillPip();
     return;
   }
-  timerRemaining--;
-  renderTimer();
+  if (igjen !== timerRemaining) {
+    timerRemaining = igjen;
+    renderTimer();
+  }
 }
 
 // Stopper timeren og setter gjenstående tid tilbake til valgt varighet.
 function timerReset() {
   timerRunning   = false;
-  clearInterval(timerInterval);
-  timerInterval  = null;
+  timerSlutt     = null;
+  stoppTimerIntervall();
   timerRemaining = state.timer_varighet;
+  lagreTimerØkt();
   renderTimer();
 }
 
@@ -2014,10 +2160,11 @@ function timerReset() {
 function timerSett(minutter) {
   state.timer_varighet = minutter * 60;
   timerRunning         = false;
-  clearInterval(timerInterval);
-  timerInterval  = null;
+  timerSlutt           = null;
+  stoppTimerIntervall();
   timerRemaining = state.timer_varighet;
   saveState();
+  lagreTimerØkt();
   renderTimer();
   notify(t('⏱️ Timer satt til {min} min', { min: minutter }));
 }
@@ -2524,6 +2671,7 @@ function lagreListe(navn) {
   s.gruppe_begrensninger = [];
   tømSidensTrekk(s);
   saveState();
+  beOmVarigLagring();
   notify((erNy ? t("📋 '{navn}' lagret ({antall} elever)", { navn, antall: s.elever.length })
         : t("📋 '{navn}' oppdatert ({antall} elever)", { navn, antall: s.elever.length })));
   return true;
@@ -2578,6 +2726,7 @@ function lastListe(navn) {
   renderAlleTrekk();
   renderGrupper();
   renderBegrensninger();
+  beOmVarigLagring();
   notify(t("📋 '{navn}' lastet ({antall} elever)", { navn, antall: elever.length }));
 }
 
@@ -3707,6 +3856,17 @@ const OPPDATERINGSLOGG_HTML = `
     </ul>
   </details>
   <div class="logg-entry">
+    <div class="logg-versjon">v2.40</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>Trygt med flere faner:</strong> har du Skoledash åpen i to faner, skriver de ikke lenger over hverandres endringer. En fane som er utdatert, slutter å lagre og lastes inn på nytt når du går tilbake til den</li>
+      <li><strong>Timeren går riktig i bakgrunnen:</strong> den regner ut tiden fra klokka, så den ikke går for sakte mens du viser noe i en annen fane. Den fortsetter også etter at siden er lastet inn på nytt</li>
+      <li><strong>Du får beskjed hvis lagringen feiler,</strong> i stedet for at endringene forsvinner i det stille</li>
+      <li><strong>«● Ueksporterte endringer»</strong> viser hvor lenge det er siden forrige backup, og Skoledash ber nettleseren om å ikke rydde bort dataene</li>
+      <li>Lagringen har fått et versjonsnummer, så en eldre versjon av appen aldri lagrer over data fra en nyere</li>
+    </ul>
+  </div>
+  <div class="logg-entry">
     <div class="logg-versjon">v2.39</div>
     <div class="logg-dato">4. november 2026</div>
     <ul>
@@ -4254,6 +4414,7 @@ const BRUKERVEILEDNING_HTML = `
   <h4>Timer</h4>
   <p>Standard er 5 minutter. Trykk <strong>Sett tid</strong> (eller <kbd>s</kbd>) for å velge en annen varighet (1–60 min). Start og stopp med <strong>▶ Start</strong> (eller <kbd>t</kbd>). En lyd spilles av når tiden er ute.</p>
   <p>Starter du timeren med <kbd>t</kbd> mens timerkortet ikke er framme, hentes kortet fram av seg selv og legges øverst, så klassen ser nedtellingen.</p>
+  <p>Timeren går riktig selv om du viser noe i en annen fane en stund, og laster du siden inn på nytt, fortsetter den der den var.</p>
 
   <h4>Notat</h4>
   <p>Et fritekst-felt som vokser automatisk med innholdet. Lagres automatisk i nettleseren — du mister ikke notatet ved omlasting.</p>
@@ -4345,7 +4506,9 @@ const BRUKERVEILEDNING_HTML = `
   <h4>📤 Eksportere og 📥 importere data</h4>
   <p>Siden data kun bor i nettleseren din, er det lurt å ta en <strong>backup</strong>. Åpne <strong>Skoledash-menyen</strong> og velg <strong>📤 Eksporter data</strong> — da lastes det ned én fil som inneholder alt: klasselister, alle sider (med elever, grupper, trekk-backlogs og begrensninger), innstillinger, notater og bilder.</p>
   <p>For å hente data tilbake — eller flytte alt til en annen maskin eller nettleser — velg <strong>📥 Importer data</strong> og pek på fila. Du får velge mellom <strong>«Erstatt alt»</strong> (full gjenoppretting som overskriver det som ligger der nå) og <strong>«Slå sammen kun klasselister»</strong> (behold alt ditt, men hent inn de lagrede listene fra fila — fint for å dele klasselister mellom lærere).</p>
-  <p>Når du har laget nye lister eller endret en backlog siden forrige eksport, dukker det opp et lite <strong>«● Ueksporterte endringer»</strong>-merke nederst, rett over hurtigtast-baren. Klikk på det for å ta en ny backup. Tips: eksporter med jevne mellomrom, så er du trygg om nettleserdata skulle bli tømt.</p>`;
+  <p>Når du har laget nye lister eller endret en backlog siden forrige eksport, dukker det opp et lite <strong>«● Ueksporterte endringer»</strong>-merke nederst, rett over hurtigtast-baren. Klikk på det for å ta en ny backup. Merket viser også hvor lenge det er siden forrige backup. Tips: eksporter med jevne mellomrom, så er du trygg om nettleserdata skulle bli tømt.</p>
+  <p><strong>Safari rydder bort data</strong> fra nettsider som ikke er brukt på sju dager. Bruker du Safari på Mac eller iPad, er det særlig lurt å ta en backup før ferier. Skoledash ber nettleseren om å ta vare på dataene, men Safari bestemmer selv.</p>
+  <p><strong>Åpen i flere faner?</strong> Endrer du noe i én fane, slutter de andre fanene å lagre, så de ikke skriver over endringen. Går du tilbake til en slik fane, lastes den inn på nytt med det nyeste. Står fanen framme på skjermen, ser du et rødt varsel med knappen <strong>↻ Last inn på nytt</strong>.</p>`;
 
 // Åpner info-overlayet med gitt tittel og ferdig HTML-innhold (logg eller guide).
 // Oppdateringsloggen står på bokmål. På nynorsk får den en merknad øverst, og den
@@ -4661,6 +4824,7 @@ function settOppHendelser() {
     },
   });
   document.getElementById('btn-tilfeldig-tom').onclick = nullstillTilfeldig;
+  document.getElementById('btn-lagring-last').onclick = lastInnPåNytt;
   document.getElementById('btn-ordenselev-antall').onclick = byttOrdenselevAntall;
   document.getElementById('btn-legg-til-avbryt').onclick  = lukkModal;
   inputEnter('input-elev-navn', bekreftLeggTil);
@@ -5786,6 +5950,13 @@ function oppdaterEksportVarsel() {
       r.tilfeldig_backlog.length || r.ordenselev_backlog.length || r.ulv_backlog.length);
   const endret = state.eksport_signatur !== beregnEksportSignatur();
   el.classList.toggle('hidden', !(harData && endret));
+  // Hvor gammel siste backup er, så læreren ser om det haster.
+  const dager = state.eksport_tid ? Math.floor((Date.now() - state.eksport_tid) / 86_400_000) : null;
+  const når = dager === null ? t('ingen ennå')
+    : dager === 0 ? t('i dag')
+    : dager === 1 ? t('i går')
+    : t('for {antall} dager siden', { antall: dager });
+  el.textContent = t('● Ueksporterte endringer (siste backup: {alder})', { alder: når });
 }
 
 // Skriver hele tilstanden til en JSON-fil og laster den ned som backup. Vi pakker
@@ -5844,7 +6015,9 @@ async function eksporterData() {
 
   // Marker som eksportert → endrings-varselet forsvinner til neste endring
   state.eksport_signatur = beregnEksportSignatur();
+  state.eksport_tid = Date.now();
   saveState();
+  beOmVarigLagring();
   notify(t('📤 Data eksportert'));
 }
 
@@ -6032,8 +6205,11 @@ function init() {
     setupNotat(instansId);
   }
 
+  hentTimerØkt(); // en nedtelling som gikk før omlastingen, fortsetter
   renderTimer();
   setupTerning();
+  følgAndreFaner();
+  visLagringVarsel(); // bare synlig hvis dataene er fra en nyere versjon
 
   // Guidekortene ligger i markupen for alle, men hører bare hjemme hos en ny bruker
   // som ikke har fjernet dem ennå.

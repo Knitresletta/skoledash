@@ -134,6 +134,13 @@ const NYNORSK = {
   'Gi nytt navn': 'Gi nytt namn',
   'Par som ikke skal i samme gruppe': 'Par som ikkje skal i same gruppe',
   'Slett?': 'Slette?',
+  '⚠️ Klarte ikke å lagre. Endringene forsvinner når siden lukkes. Ta en 📤 eksport for å sikre dem.': '⚠️ Klarte ikkje å lagre. Endringane forsvinn når sida blir lukka. Ta ein 📤 eksport for å sikre dei.',
+  'Dataene er lagret av en nyere versjon av Skoledash. Endringer her blir ikke lagret.': 'Dataa er lagra av ein nyare versjon av Skoledash. Endringar her blir ikkje lagra.',
+  'Skoledash er endret i en annen fane. Endringer her blir ikke lagret før du laster inn på nytt.': 'Skoledash er endra i ei anna fane. Endringar her blir ikkje lagra før du lastar inn på nytt.',
+  'Endringen ble ikke lagret. Last inn siden på nytt.': 'Endringa vart ikkje lagra. Last inn sida på nytt.',
+  'ingen ennå': 'ingen enno',
+  'for {antall} dager siden': 'for {antall} dagar sidan',
+  '● Ueksporterte endringer (siste backup: {alder})': '● Ueksporterte endringar (siste backup: {alder})',
   'Overskriv?': 'Skrive over?',
   'Erstatt elevene i lista med elevene på siden': 'Byt ut elevane i lista med elevane på sida',
   'Trykk igjen for å erstatte elevene i {navn} med de {antall} elevene på siden': 'Trykk ein gong til for å byte ut elevane i {navn} med dei {antall} elevane på sida',
@@ -365,6 +372,7 @@ const BRUKERVEILEDNING_NN = `
   <h4>Timer</h4>
   <p>Standard er 5 minutt. Trykk <strong>Set tid</strong> (eller <kbd>s</kbd>) for å velje ei anna lengd (1–60 min). Start og stopp med <strong>▶ Start</strong> (eller <kbd>t</kbd>). Det kjem ein lyd når tida er ute.</p>
   <p>Startar du timeren med <kbd>t</kbd> medan timerkortet ikkje er framme, blir kortet henta fram av seg sjølv og lagt øvst, så klassen ser nedteljinga.</p>
+  <p>Timeren går rett sjølv om du viser noko i ei anna fane ei stund, og lastar du sida inn på nytt, held han fram der han var.</p>
 
   <h4>Notat</h4>
   <p>Eit felt for fritekst som veks automatisk med innhaldet. Det blir lagra automatisk i nettlesaren, så du mistar ikkje notatet når sida blir lasta på nytt.</p>
@@ -456,6 +464,8 @@ const BRUKERVEILEDNING_NN = `
   <h4>📤 Eksportere og 📥 importere data</h4>
   <p>Sidan data berre bur i nettlesaren din, er det lurt å ta ein <strong>backup</strong>. Opne <strong>Skoledash-menyen</strong> og vel <strong>📤 Eksporter data</strong>. Då blir det lasta ned éi fil som inneheld alt: klasselister, alle sider (med elevar, grupper, trekk-backlogar og avgrensingar), innstillingar, notat og bilete.</p>
   <p>For å hente data tilbake, eller flytte alt til ei anna maskin eller ein annan nettlesar, vel <strong>📥 Importer data</strong> og peik på fila. Du kan velje mellom <strong>«Erstatt alt»</strong> (full gjenoppretting som skriv over det som ligg der no) og <strong>«Slå saman berre klasselister»</strong> (behald alt ditt, men hent inn dei lagra listene frå fila, fint for å dele klasselister mellom lærarar).</p>
-  <p>Når du har laga nye lister eller endra ein backlog sidan førre eksport, dukkar det opp eit lite <strong>«● Ueksporterte endringar»</strong>-merke nedst, rett over linja med snarvegar. Klikk på det for å ta ein ny backup. Tips: eksporter med jamne mellomrom, så er du trygg om nettlesardata skulle bli tømde.</p>
+  <p>Når du har laga nye lister eller endra ein backlog sidan førre eksport, dukkar det opp eit lite <strong>«● Ueksporterte endringar»</strong>-merke nedst, rett over linja med snarvegar. Klikk på det for å ta ein ny backup. Merket viser òg kor lenge det er sidan førre backup. Tips: eksporter med jamne mellomrom, så er du trygg om nettlesardata skulle bli tømde.</p>
+  <p><strong>Safari ryddar bort data</strong> frå nettsider som ikkje er brukte på sju dagar. Bruker du Safari på Mac eller iPad, er det særleg lurt å ta ein backup før feriar. Skoledash ber nettlesaren om å ta vare på dataa, men Safari bestemmer sjølv.</p>
+  <p><strong>Open i fleire faner?</strong> Endrar du noko i éi fane, sluttar dei andre fanene å lagre, så dei ikkje skriv over endringa. Går du tilbake til ei slik fane, blir ho lasta inn på nytt med det nyaste. Står fana framme på skjermen, ser du eit raudt varsel med knappen <strong>↻ Last inn på nytt</strong>.</p>
 `;
 const BRUKERVEILEDNING_MERKNAD_NN = '<p class="logg-målform">Brukarrettleiinga er førebels berre på bokmål.</p>';

@@ -2750,6 +2750,37 @@ textarea[id^="notat-textarea"]:focus {
     filter: brightness(1.08);
 }
 
+/* Fast varsel øverst når appen ikke lagrer (endret i en annen fane, eller data fra en
+   nyere versjon). Ligger over alt, så ingen jobber videre uten å se det. */
+#lagring-varsel {
+    position: fixed;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: min(640px, 94vw);
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: var(--red);
+    color: var(--on-red);
+    font-weight: 600;
+    font-size: 0.9rem;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+}
+#lagring-varsel.hidden {
+    display: none;
+}
+#btn-lagring-last {
+    flex-shrink: 0;
+    background: var(--on-red);
+    color: var(--red);
+    border: none;
+    font-weight: 700;
+}
+
 /* ===================== Import-modal ===================== */
 .import-info {
     font-size: 0.85rem;
