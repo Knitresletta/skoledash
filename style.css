@@ -1775,6 +1775,84 @@ textarea[id^="notat-textarea"]:focus {
     max-height: 60vh;
     overflow-y: auto;
 }
+/* Lister-menyen, rekkefølge og grupper (v2.42). ⠿ er håndtaket; klikk på resten av
+   raden laster lista som før. */
+.liste-dra {
+    cursor: grab;
+    color: var(--muted);
+    padding: 0 2px;
+    font-size: 0.95rem;
+    line-height: 1;
+    touch-action: none;   /* fingeren drar raden i stedet for å rulle siden */
+    user-select: none;
+    flex-shrink: 0;
+}
+.liste-dra:active {
+    cursor: grabbing;
+}
+.liste-gruppe {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.liste-gruppe-topp {
+    cursor: pointer;
+    gap: 10px;
+    font-weight: 700;
+}
+.liste-gruppe-navn {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.gruppe-navn-input {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    color: var(--text);
+    background: var(--card);
+    border: 1px solid var(--primary);
+    border-radius: 4px;
+    padding: 2px 6px;
+    outline: none;
+}
+/* Listene i en gruppe står litt inn, med en linje som viser hvor gruppa slutter. */
+.liste-gruppe-innhold {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-left: 14px;
+    padding-left: 8px;
+    border-left: 2px solid var(--border);
+}
+/* Mens noe dras: originalen dimmes på plass, kopien følger pekeren over vinduet. */
+.liste-drar {
+    opacity: 0.4;
+}
+.liste-klone {
+    position: fixed;
+    z-index: 10001;
+    pointer-events: none;
+    box-sizing: border-box;
+    background: var(--card);
+    border-radius: 8px;
+    box-shadow: var(--shadow-md);
+    opacity: 0.95;
+    cursor: grabbing;
+}
+/* Hvor det havner: strek over eller under, eller stiplet ramme for «legg i gruppe». */
+.slipp-før {
+    box-shadow: inset 0 3px 0 var(--primary);
+}
+.slipp-etter {
+    box-shadow: inset 0 -3px 0 var(--primary);
+}
+.slipp-inn {
+    outline: 2px dashed var(--primary);
+    outline-offset: -2px;
+}
 /* Lister-menyen: navnet til venstre, antall og knappene til høyre. */
 .liste-rad {
     gap: 10px;

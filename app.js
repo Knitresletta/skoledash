@@ -238,6 +238,10 @@ function defaultState() {
     // Trekkene per lagret liste (v2.39): listenavn → backlogs og hvem som er trukket
     // (se «Trekk per liste»). Delt av alle sider som bruker lista.
     liste_trekk:         {},
+    // Rekkefølge og grupper i Lister-menyen (v2.42): listenavn og { gruppe, lister, åpen }.
+    // Egen liste fordi rekkefølgen i et objekt ikke kan styres (navn som «8» havner
+    // alltid først). Se «Oppsett i Lister-menyen».
+    liste_oppsett:       [],
     timer_varighet:      300,
     tema: 'lyst',
     font: 'system',
@@ -606,6 +610,9 @@ function normaliserState(s) {
     if (lister[navn] && erObjekt(r)) listeTrekk[navn] = normaliserTrekk(r);
   }
   s.liste_trekk = listeTrekk;
+  // --- Oppsett i Lister-menyen: nye objekter, så ukjente felt fra en fil ikke blir med ---
+  s.liste_oppsett = normaliserOppsett((Array.isArray(s.liste_oppsett) ? s.liste_oppsett : [])
+    .map(x => (erObjekt(x) ? { gruppe: x.gruppe, lister: x.lister, åpen: x.åpen } : x)), lister);
   // Sidens kobling til en liste gjelder bare hvis lista finnes.
   for (const side of s.sider) {
     side.liste = typeof side.liste === 'string' && lister[side.liste] ? side.liste : null;
@@ -2667,6 +2674,7 @@ function lagreListe(navn) {
   state.lister[navn] = s.elever.map(e => ({ ...e })); // kopi: lista og siden endres hver for seg
   state.liste_begrensninger[navn] = nyePar;
   state.liste_trekk[navn] = nyeTrekk;
+  if (erNy) state.liste_oppsett.push(navn); // nye lister havner nederst i menyen
   s.liste = navn;
   s.gruppe_begrensninger = [];
   tømSidensTrekk(s);
@@ -2747,6 +2755,7 @@ function slettListe(navn) {
   delete state.lister[navn];
   delete state.liste_begrensninger[navn];
   delete state.liste_trekk[navn];
+  state.liste_oppsett = normaliserOppsett(state.liste_oppsett, state.lister);
   saveState();
   notify(t("🗑️ '{navn}' slettet", { navn }));
   renderListerModal();
@@ -2766,6 +2775,13 @@ function endreListenavn(gammelt, nytt) {
   state.lister = bytt(state.lister);
   state.liste_begrensninger = bytt(state.liste_begrensninger);
   state.liste_trekk = bytt(state.liste_trekk);
+  // Lista beholder plassen sin i menyen, også inni en gruppe.
+  const nyttNavn = x => (x === gammelt ? nytt : x);
+  state.liste_oppsett = state.liste_oppsett.map(x => {
+    if (typeof x === 'string') return nyttNavn(x);
+    x.lister = x.lister.map(nyttNavn);
+    return x;
+  });
   for (const side of state.sider) if (side.liste === gammelt) side.liste = nytt;
   saveState();
   notify(t('✓ Lista heter nå {navn}', { navn: nytt }));
@@ -2835,6 +2851,230 @@ function importerListeFil(input) {
 
 // Lista som står med skrivefelt i menyen akkurat nå (nytt navn), eller null.
 let redigerListeNavn = null;
+let redigerGruppe = null;   // gruppa (objektet) som har skrivefeltet for navn åpent
+
+// ===================== Oppsett i Lister-menyen =====================
+// state.liste_oppsett bestemmer rekkefølgen i menyen. Hvert element er enten et
+// listenavn eller en gruppe { gruppe: navn, lister: [listenavn], åpen }. Grupper ligger
+// bare på øverste nivå (ingen grupper i grupper). Læreren drar lister for å flytte dem,
+// og slipper en liste midt på en annen for å lage en gruppe, som i Windows' startmeny.
+//
+// Gyldig oppsett: hver liste i state.lister står nøyaktig én gang. Lister som mangler
+// (lagret av en eldre versjon, eller importert), legges nederst. Ukjente navn og tomme
+// grupper forsvinner. Gruppeobjektene beholdes (samme objekt), så redigerGruppe og
+// referanser fra et drag fortsatt peker riktig.
+function normaliserOppsett(oppsett, lister) {
+  const finnes = new Set(Object.keys(lister));
+  const brukt = new Set();
+  const ny = navn => typeof navn === 'string' && finnes.has(navn) && !brukt.has(navn) && brukt.add(navn);
+  const ut = [];
+  for (const x of Array.isArray(oppsett) ? oppsett : []) {
+    if (typeof x === 'string') {
+      if (ny(x)) ut.push(x);
+    } else if (erObjekt(x) && Array.isArray(x.lister)) {
+      x.lister = x.lister.filter(ny);
+      // Fast tekst, ikke t(): kjører også fra loadState(), før state finnes.
+      x.gruppe = typeof x.gruppe === 'string' && x.gruppe.trim() ? x.gruppe.trim().slice(0, 40) : 'Gruppe';
+      x.åpen = x.åpen !== false;
+      if (x.lister.length) ut.push(x);
+    }
+  }
+  for (const navn of finnes) if (!brukt.has(navn)) ut.push(navn);
+  return ut;
+}
+
+// Hvor en liste står: beholderen (oppsettet selv eller en gruppes lister) og plassen.
+function finnIOppsett(oppsett, navn) {
+  const i = oppsett.indexOf(navn);
+  if (i !== -1) return { beholder: oppsett, idx: i };
+  for (const x of oppsett) {
+    if (typeof x !== 'string') {
+      const j = x.lister.indexOf(navn);
+      if (j !== -1) return { beholder: x.lister, idx: j };
+    }
+  }
+  return null;
+}
+
+// Utfører et slipp. `dra` er { navn } (en liste) eller { gruppe } (et gruppeobjekt).
+// `mål` er { type: 'før' | 'etter' | 'inn', navn } eller { type, gruppe }:
+//  - før/etter en liste: samme beholder som lista (i gruppa hvis den står i en).
+//  - før/etter en gruppe: på øverste nivå.
+//  - inn i en liste på øverste nivå: de to blir en ny gruppe (returneres, så den kan
+//    få navn med en gang). Inn i en liste i en gruppe: legges i den gruppa.
+//  - inn i en gruppe: nederst i gruppa, og gruppa åpnes.
+// En gruppe kan bare flyttes før/etter, aldri inn i noe.
+function flyttIOppsett(dra, mål) {
+  const o = state.liste_oppsett;
+  const element = dra.gruppe ?? dra.navn;
+  if (dra.gruppe) o.splice(o.indexOf(dra.gruppe), 1);
+  else {
+    const fra = finnIOppsett(o, dra.navn);
+    if (fra) fra.beholder.splice(fra.idx, 1); // en gruppe som blir tom, ryddes av normaliseringen
+  }
+  let nyGruppe = null;
+  if (mål.navn !== undefined) {
+    const til = finnIOppsett(o, mål.navn);
+    if (til) {
+      if (mål.type === 'inn' && !dra.gruppe) {
+        if (til.beholder === o) {
+          nyGruppe = { gruppe: t('Ny gruppe'), lister: [mål.navn, dra.navn], åpen: true };
+          o.splice(til.idx, 1, nyGruppe);
+        } else {
+          til.beholder.splice(til.idx + 1, 0, dra.navn);
+        }
+      } else {
+        til.beholder.splice(mål.type === 'før' ? til.idx : til.idx + 1, 0, element);
+      }
+    }
+  } else if (mål.gruppe) {
+    if (mål.type === 'inn' && !dra.gruppe) {
+      mål.gruppe.lister.push(dra.navn);
+      mål.gruppe.åpen = true;
+    } else {
+      const idx = o.indexOf(mål.gruppe);
+      o.splice(mål.type === 'før' ? idx : idx + 1, 0, element);
+    }
+  }
+  state.liste_oppsett = normaliserOppsett(o, state.lister);
+  // Ble ikke det som ble dratt, plassert (målet fantes ikke), legger normaliseringen
+  // en liste nederst. En gruppe må legges tilbake for hånd.
+  if (dra.gruppe && !state.liste_oppsett.includes(dra.gruppe) && dra.gruppe.lister.length) {
+    state.liste_oppsett.push(dra.gruppe);
+  }
+  saveState();
+  return nyGruppe;
+}
+
+// Dra og slipp i Lister-menyen. Samme grep som dagsplanen (se setupDagsplanDrag):
+// Pointer Events i stedet for HTML5-drag, en flytende kopi som følger pekeren, og
+// originalen dimmet på plass. Virker med mus, penn og finger. Her finnes tre slags
+// slipp, vist med hver sin markering på målet:
+//  - øvre/nedre del av en rad: før/etter (strek over/under)
+//  - midt på en rad: lag gruppe, eller legg i gruppa raden står i (stiplet ramme)
+//  - midt på en gruppeoverskrift: legg i gruppa
+// Nær kanten av lista ruller den, så lange lister kan ordnes. Lyttes på én gang fra
+// init: pointerdown delegeres fra #lister-innhold, som står fast mens innholdet tegnes
+// på nytt.
+function setupListeDra() {
+  const innhold = document.getElementById('lister-innhold');
+  let økt = null; // { element, dra, erGruppe, pekerId, startX, startY, grepX, grepY, aktiv, klone, mål, rull }
+
+  innhold.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    const håndtak = e.target.closest('.liste-dra');
+    if (!håndtak) return;
+    const gruppeEl = håndtak.closest('.liste-gruppe-topp')?.closest('.liste-gruppe');
+    const element = gruppeEl ?? håndtak.closest('.liste-rad');
+    if (!element) return;
+    e.preventDefault();
+    const r = element.getBoundingClientRect();
+    økt = {
+      element,
+      erGruppe: !!gruppeEl,
+      dra: gruppeEl ? { gruppe: state.liste_oppsett[Number(gruppeEl.dataset.gidx)] } : { navn: element.dataset.navn },
+      pekerId: e.pointerId, startX: e.clientX, startY: e.clientY,
+      grepX: e.clientX - r.left, grepY: e.clientY - r.top,
+      aktiv: false, klone: null, mål: null, rull: 0,
+    };
+    try { håndtak.setPointerCapture(e.pointerId); } catch {}
+  });
+
+  document.addEventListener('pointermove', e => {
+    if (!økt || e.pointerId !== økt.pekerId) return;
+    if (!økt.aktiv) {
+      if (Math.abs(e.clientX - økt.startX) + Math.abs(e.clientY - økt.startY) < 4) return;
+      start();
+    }
+    økt.klone.style.left = (e.clientX - økt.grepX) + 'px';
+    økt.klone.style.top  = (e.clientY - økt.grepY) + 'px';
+    // Rull lista når pekeren er nær øvre eller nedre kant.
+    const boks = innhold.querySelector('.liste-oppsett');
+    const kant = boks.getBoundingClientRect();
+    økt.rull = e.clientY < kant.top + 28 ? -10 : e.clientY > kant.bottom - 28 ? 10 : 0;
+    if (økt.rull) boks.scrollTop += økt.rull;
+    marker(finnMål(e.clientX, e.clientY));
+  });
+
+  const slutt = e => {
+    if (!økt || e.pointerId !== økt.pekerId) return;
+    const { aktiv, mål, dra } = økt;
+    avslutt();
+    if (!aktiv || !mål) return;
+    const nyGruppe = flyttIOppsett(dra, mål);
+    if (nyGruppe) redigerGruppe = nyGruppe; // ny gruppe får navnefeltet med en gang
+    renderListerModal();
+  };
+  document.addEventListener('pointerup', slutt);
+  document.addEventListener('pointercancel', e => {
+    if (!økt || e.pointerId !== økt.pekerId) return;
+    avslutt();
+  });
+
+  function start() {
+    økt.aktiv = true;
+    const r = økt.element.getBoundingClientRect();
+    const klone = økt.element.cloneNode(true);
+    klone.classList.add('liste-klone');
+    klone.style.width = r.width + 'px';
+    document.body.appendChild(klone);
+    økt.klone = klone;
+    økt.element.classList.add('liste-drar');
+    document.body.style.userSelect = 'none';
+  }
+
+  // Finner målet under pekeren. Kopien slipper pekeren gjennom (pointer-events: none),
+  // så elementFromPoint ser lista under.
+  function finnMål(x, y) {
+    const under = document.elementFromPoint(x, y);
+    const rad  = under?.closest('#lister-innhold .liste-rad');
+    const topp = under?.closest('#lister-innhold .liste-gruppe-topp');
+    const kandidat = rad ?? topp;
+    if (!kandidat || økt.element.contains(kandidat)) return null;
+    const r = kandidat.getBoundingClientRect();
+    const andel = (y - r.top) / r.height;
+    const halv = andel < 0.5 ? 'før' : 'etter';
+    if (topp) {
+      const gEl = topp.closest('.liste-gruppe');
+      const g = state.liste_oppsett[Number(gEl.dataset.gidx)];
+      if (!økt.erGruppe && andel > 0.25 && andel < 0.75) return { type: 'inn', gruppe: g, el: topp };
+      // Etter en åpen gruppe betyr etter hele gruppa: streken under gruppa, ikke overskriften.
+      return { type: halv, gruppe: g, el: halv === 'etter' ? gEl : topp };
+    }
+    const iGruppe = rad.closest('.liste-gruppe');
+    if (økt.erGruppe) {
+      // En gruppe kan ikke ligge i en gruppe: bruk gruppa raden står i som mål.
+      if (iGruppe) return { type: halv, gruppe: state.liste_oppsett[Number(iGruppe.dataset.gidx)], el: iGruppe };
+      return { type: halv, navn: rad.dataset.navn, el: rad };
+    }
+    if (andel > 0.3 && andel < 0.7) return { type: 'inn', navn: rad.dataset.navn, el: rad };
+    return { type: halv, navn: rad.dataset.navn, el: rad };
+  }
+
+  function marker(mål) {
+    innhold.querySelectorAll('.slipp-før, .slipp-etter, .slipp-inn')
+      .forEach(el => el.classList.remove('slipp-før', 'slipp-etter', 'slipp-inn'));
+    økt.mål = mål;
+    if (mål) mål.el.classList.add(`slipp-${mål.type}`);
+  }
+
+  function avslutt() {
+    økt.klone?.remove();
+    økt.element.classList.remove('liste-drar');
+    innhold.querySelectorAll('.slipp-før, .slipp-etter, .slipp-inn')
+      .forEach(el => el.classList.remove('slipp-før', 'slipp-etter', 'slipp-inn'));
+    document.body.style.userSelect = '';
+    økt = null;
+  }
+}
+
+// Gir en gruppe nytt navn. Tomt navn beholder det gamle.
+function endreGruppenavn(gruppe, nytt) {
+  nytt = (nytt ?? '').trim().slice(0, 40);
+  if (!nytt || nytt === gruppe.gruppe) return;
+  gruppe.gruppe = nytt;
+  saveState();
+}
 
 // Tegner innholdet i Lister-menyen: én rad per liste med antall elever og par, og
 // knapper for nytt navn, par, eksport og sletting. Klikk på selve raden laster lista.
@@ -2866,23 +3106,25 @@ function toTrykk(knapp, { spørsmål, tittel, utfør }) {
 
 function renderListerModal() {
   const innhold = document.getElementById('lister-innhold');
-  const poster  = Object.entries(state.lister);
-  if (!poster.length) {
+  if (!Object.keys(state.lister).length) {
     innhold.innerHTML = `<p class="tom-tekst" style="padding:12px">${t('Ingen lagrede lister ennå.')}</p>`;
     return;
   }
+  state.liste_oppsett = normaliserOppsett(state.liste_oppsett, state.lister);
   const denne = sidensListe();
-  innhold.innerHTML = `<div class="modal-list">
-    ${poster.map(([navn, elever]) => {
-      const antPar = (state.liste_begrensninger[navn] ?? []).length;
-      const navnHtml = navn === redigerListeNavn
-        ? `<input class="liste-navn-input" type="text" maxlength="60" value="${esc(navn)}" aria-label="${t('Nytt navn på lista')}">`
-        : `<span class="liste-navn">📋 ${esc(navn)}${navn === denne ? ` <span class="liste-denne">${t('(denne siden)')}</span>` : ''}</span>`;
-      return `
+  const dra = `<span class="liste-dra" title="${t('Dra for å flytte. Slipp på en annen liste for å lage en gruppe.')}" aria-hidden="true">⠿</span>`;
+  const rad = navn => {
+    const elever = state.lister[navn];
+    const antPar = (state.liste_begrensninger[navn] ?? []).length;
+    const navnHtml = navn === redigerListeNavn
+      ? `<input class="liste-navn-input" type="text" maxlength="60" value="${esc(navn)}" aria-label="${t('Nytt navn på lista')}">`
+      : `<span class="liste-navn">📋 ${esc(navn)}${navn === denne ? ` <span class="liste-denne">${t('(denne siden)')}</span>` : ''}</span>`;
+    return `
       <div class="modal-list-item liste-rad" data-navn="${esc(navn)}">
+        ${dra}
         ${navnHtml}
         <div class="liste-handlinger">
-          <span class="item-meta">${t('{antall} elever', { antall: elever.length })}${antPar ? ` · ${t('{antall} par', { antall: antPar })}` : ''}</span>
+          <span class="item-meta">${elever.length === 1 ? t('1 elev') : t('{antall} elever', { antall: elever.length })}${antPar ? ` · ${t('{antall} par', { antall: antPar })}` : ''}</span>
           <button class="liste-knapp" data-liste="endre" title="${t('Gi nytt navn')}" aria-label="${t('Gi nytt navn')}">✏️</button>
           <button class="liste-knapp" data-liste="par" title="${t('Par som ikke skal i samme gruppe')}" aria-label="${t('Par som ikke skal i samme gruppe')}">⛔</button>
           <button class="liste-knapp" data-liste="eksport" title="${t('Last ned lista som fil')}" aria-label="${t('Last ned lista som fil')}">📤</button>
@@ -2890,13 +3132,67 @@ function renderListerModal() {
           <button class="liste-knapp liste-slett" data-liste="slett" title="${t('Slett lista')}" aria-label="${t('Slett lista')}">✕</button>
         </div>
       </div>`;
-    }).join('')}
+  };
+  const gruppe = (g, gi) => {
+    const navnHtml = g === redigerGruppe
+      ? `<input class="gruppe-navn-input" type="text" maxlength="40" value="${esc(g.gruppe)}" aria-label="${t('Nytt navn på gruppa')}">`
+      : `<span class="liste-gruppe-navn">${g.åpen ? '▾' : '▸'} 📁 ${esc(g.gruppe)}</span>`;
+    return `
+      <div class="liste-gruppe${g.åpen ? ' åpen' : ''}" data-gidx="${gi}">
+        <div class="modal-list-item liste-gruppe-topp" role="button" aria-expanded="${g.åpen}">
+          ${dra}
+          ${navnHtml}
+          <div class="liste-handlinger">
+            <span class="item-meta">${g.lister.length === 1 ? t('1 liste') : t('{antall} lister', { antall: g.lister.length })}</span>
+            <button class="liste-knapp" data-gruppe="endre" title="${t('Gi gruppa nytt navn')}" aria-label="${t('Gi gruppa nytt navn')}">✏️</button>
+          </div>
+        </div>
+        ${g.åpen ? `<div class="liste-gruppe-innhold">${g.lister.map(rad).join('')}</div>` : ''}
+      </div>`;
+  };
+  innhold.innerHTML = `<div class="modal-list liste-oppsett">
+    ${state.liste_oppsett.map((x, i) => (typeof x === 'string' ? rad(x) : gruppe(x, i))).join('')}
   </div>`;
+
+  // Gruppeoverskriftene: klikk folder sammen/åpner, ✏️ gir nytt navn.
+  innhold.querySelectorAll('.liste-gruppe').forEach(el => {
+    const g = state.liste_oppsett[Number(el.dataset.gidx)];
+    const topp = el.querySelector('.liste-gruppe-topp');
+    topp.addEventListener('click', e => {
+      if (e.target.closest('.liste-knapp, .liste-dra, .gruppe-navn-input')) return;
+      g.åpen = !g.åpen;
+      saveState();
+      renderListerModal();
+    });
+    topp.querySelector('[data-gruppe="endre"]').addEventListener('click', () => {
+      redigerGruppe = g;
+      renderListerModal();
+    });
+  });
+  const ginp = innhold.querySelector('.gruppe-navn-input');
+  if (ginp) {
+    const g = redigerGruppe;
+    let ferdig = false;
+    const avslutt = lagre => {
+      if (ferdig) return;
+      ferdig = true;
+      if (lagre) endreGruppenavn(g, ginp.value);
+      redigerGruppe = null;
+      renderListerModal();
+    };
+    ginp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); avslutt(true); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); avslutt(false); }
+    });
+    ginp.addEventListener('blur', () => avslutt(true));
+    ginp.focus();
+    ginp.select();
+  }
 
   innhold.querySelectorAll('.liste-rad').forEach(rad => {
     const navn = rad.dataset.navn;
     rad.addEventListener('click', e => {
-      if (e.target.closest('.liste-knapp, .liste-navn-input')) return;
+      if (e.target.closest('.liste-knapp, .liste-navn-input, .liste-dra')) return;
       lastListe(navn);
       lukkModal();
     });
@@ -3845,6 +4141,15 @@ const OPPDATERINGSLOGG_HTML = `
     </ul>
   </details>
   <div class="logg-entry">
+    <div class="logg-versjon">v2.42</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>Ordne klasselistene:</strong> dra i ⠿ for å endre rekkefølgen i Lister-menyen</li>
+      <li><strong>Grupper av lister:</strong> slipp en liste midt på en annen, så blir de en gruppe du kan gi navn, folde sammen og flytte. Som mapper i startmenyen i Windows</li>
+      <li>Fikset: lister med tall som navn (som «8») havnet alltid øverst</li>
+    </ul>
+  </div>
+  <div class="logg-entry">
     <div class="logg-versjon">v2.41</div>
     <div class="logg-dato">4. november 2026</div>
     <ul>
@@ -4357,6 +4662,7 @@ const BRUKERVEILEDNING_HTML = `
   <p>Hver liste har fem knapper: <strong>✏️</strong> gir lista nytt navn (<kbd>Enter</kbd> lagrer, <kbd>Esc</kbd> avbryter), <strong>⛔</strong> åpner parene som ikke skal i samme gruppe, <strong>📤</strong> laster ned lista som en fil, <strong>🔄</strong> erstatter elevene i lista med elevene på siden, og <strong>✕</strong> sletter den. 🔄 bruker du når du har lagt til eller fjernet elever og vil at lista skal huske det. Både 🔄 og ✕ må trykkes to ganger: første trykk gjør knappen om til <strong>Overskriv?</strong> eller <strong>Slett?</strong>.</p>
   <p><strong>Del en liste med en vikar eller kollega:</strong> trykk <strong>📤</strong> og send fila. Mottakeren trykker <strong>📥 Importer liste</strong> nederst i Klasselister. Parene følger med. Fila inneholder elevnavn, så tenk over hvem du gir den til. Har mottakeren en liste med samme navn fra før, blir den erstattet.</p>
   <p>Står det <em>(denne siden)</em> bak en liste, er det den lista siden sist ble lastet fra eller lagret som. Lista og siden er ellers hver sin kopi: endrer du elever på siden, havner det i lista først når du lagrer den på nytt.</p>
+  <p><strong>Ordne listene:</strong> ta tak i <strong>⠿</strong> til venstre og dra lista dit du vil ha den. Slipper du den midt på en annen liste, blir de to en gruppe, som i startmenyen i Windows, og du kan gi gruppa et navn med en gang (for eksempel «Trinn 7»). Dra flere lister inn på gruppa, eller dra dem ut igjen. Klikk på gruppa for å folde den sammen eller åpne den. En gruppe som blir tom, forsvinner av seg selv.</p>
   <p><strong>Trekkene følger lista.</strong> Hvem som har vært ordenselev, hatt bamsen og blitt trukket, huskes per liste. Bytter du til en annen liste og tilbake, er trekkene der fortsatt. Bruker to sider samme liste, deler de trekkene.</p>
 
   <h4>✓ Hvem er her i dag?</h4>
@@ -5948,6 +6254,7 @@ async function eksporterData() {
       klasselister: state.lister,
       klasseliste_begrensninger: state.liste_begrensninger,
       klasseliste_trekk: state.liste_trekk,
+      klasseliste_oppsett: state.liste_oppsett,
       sider:        state.sider,
       aktiv_side:   state.aktiv_side,
       widgetinnhold: {
@@ -6027,6 +6334,7 @@ function flettInnLister(innhold) {
   for (const [navn, elever] of Object.entries(innkommende)) {
     if (!Array.isArray(elever) || FARLIGE_NØKLER.has(navn)) continue;
     const listenavn = navn.slice(0, 60);
+    if (!state.lister[listenavn]) state.liste_oppsett.push(listenavn); // ny: nederst
     state.lister[listenavn] = normaliserElever(elever);
     // Parene følger lista, så en vikar som får lista, får parene også. Bare par
     // mellom elever som faktisk står i lista, slipper inn.
@@ -6070,6 +6378,7 @@ async function bekreftImport() {
   if (innhold.klasselister   !== undefined) ny.lister = innhold.klasselister;
   if (innhold.klasseliste_begrensninger !== undefined) ny.liste_begrensninger = innhold.klasseliste_begrensninger;
   if (innhold.klasseliste_trekk !== undefined) ny.liste_trekk = innhold.klasseliste_trekk;
+  if (innhold.klasseliste_oppsett !== undefined) ny.liste_oppsett = innhold.klasseliste_oppsett;
   if (Array.isArray(innhold.sider) && innhold.sider.length) ny.sider = innhold.sider;
   const wi = innhold.widgetinnhold ?? {};
   if (wi.notater        !== undefined) ny.notater = wi.notater;
@@ -6168,6 +6477,7 @@ function init() {
   renderTimer();
   setupTerning();
   følgAndreFaner();
+  setupListeDra();
   visLagringVarsel(); // bare synlig hvis dataene er fra en nyere versjon
 
   // Guidekortene ligger i markupen for alle, men hører bare hjemme hos en ny bruker

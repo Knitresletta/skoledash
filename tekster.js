@@ -134,6 +134,9 @@ const NYNORSK = {
   'Gi nytt navn': 'Gi nytt namn',
   'Par som ikke skal i samme gruppe': 'Par som ikkje skal i same gruppe',
   'Slett?': 'Slette?',
+  'Dra for å flytte. Slipp på en annen liste for å lage en gruppe.': 'Dra for å flytte. Slepp på ei anna liste for å lage ei gruppe.',
+  'Nytt navn på gruppa': 'Nytt namn på gruppa',
+  'Gi gruppa nytt navn': 'Gi gruppa nytt namn',
   'Alt Skoledash husker, ligger bare i denne nettleseren. Ta en backup med jevne mellomrom.': 'Alt Skoledash hugsar, ligg berre i denne nettlesaren. Ta ein backup med jamne mellomrom.',
   'Nullstill ordenselev-trekket: alle kan trekkes igjen': 'Nullstill ordenselev-trekket: alle kan trekkjast igjen',
   'Nullstill bamse-trekket: alle kan trekkes igjen': 'Nullstill bamse-trekket: alle kan trekkjast igjen',
@@ -325,6 +328,7 @@ const BRUKERVEILEDNING_NN = `
   <p>Kvar liste har fem knappar: <strong>✏️</strong> gir lista nytt namn (<kbd>Enter</kbd> lagrar, <kbd>Esc</kbd> avbryt), <strong>⛔</strong> opnar para som ikkje skal i same gruppe, <strong>📤</strong> lastar ned lista som ei fil, <strong>🔄</strong> byter ut elevane i lista med elevane på sida, og <strong>✕</strong> slettar ho. 🔄 bruker du når du har lagt til eller fjerna elevar og vil at lista skal hugse det. Både 🔄 og ✕ må trykkjast to gonger: første trykket gjer knappen om til <strong>Skrive over?</strong> eller <strong>Slette?</strong>.</p>
   <p><strong>Del ei liste med ein vikar eller kollega:</strong> trykk <strong>📤</strong> og send fila. Mottakaren trykkjer <strong>📥 Importer liste</strong> nedst i Klasselister. Para følgjer med. Fila inneheld elevnamn, så tenk over kven du gir ho til. Har mottakaren ei liste med same namn frå før, blir ho erstatta.</p>
   <p>Står det <em>(denne sida)</em> bak ei liste, er det den lista sida sist vart lasta frå eller lagra som. Lista og sida er elles kvar sin kopi: endrar du elevar på sida, hamnar det i lista først når du lagrar ho på nytt.</p>
+  <p><strong>Ordne listene:</strong> ta tak i <strong>⠿</strong> til venstre og dra lista dit du vil ha ho. Slepper du ho midt på ei anna liste, blir dei to ei gruppe, som i startmenyen i Windows, og du kan gi gruppa eit namn med ein gong (til dømes «Trinn 7»). Dra fleire lister inn på gruppa, eller dra dei ut att. Klikk på gruppa for å falde ho saman eller opne ho. Ei gruppe som blir tom, forsvinn av seg sjølv.</p>
   <p><strong>Trekka følgjer lista.</strong> Kven som har vore ordenselev, hatt bamsen og vorte trekt, blir hugsa per liste. Byter du til ei anna liste og tilbake, er trekka der framleis. Bruker to sider same liste, deler dei trekka.</p>
 
   <h4>✓ Kven er her i dag?</h4>
