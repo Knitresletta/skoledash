@@ -47,6 +47,32 @@ const NYNORSK = {
   '+ 🖼 Bilde': '+ 🖼 Bilete',
   'Fjern fra siden': 'Fjern frå sida',
   'Dobbeltklikk for å gi nytt navn': 'Dobbeltklikk for å gi nytt namn',
+  // Klasser (v2.56)
+  'Uten klasse': 'Utan klasse',
+  'Klasse: sidene i raden deler elever, oppmøte, klassekart og ukeplan': 'Klasse: sidene i rada deler elevar, oppmøte, klassekart og vekeplan',
+  'En klasse samler sidene for én klasse: samme elever, oppmøte, klassekart og ukeplan på alle sidene':
+    'Ein klasse samlar sidene for éin klasse: same elevar, oppmøte, klassekart og vekeplan på alle sidene',
+  'Ny klasse med denne siden': 'Ny klasse med denne sida',
+  'Gi klassen nytt navn': 'Gi klassen nytt namn',
+  'Løs opp klassen': 'Løys opp klassen',
+  'Løs opp? Sidene beholder hver sin kopi': 'Løys opp? Sidene beheld kvar sin kopi',
+  'Flytt til klasse': 'Flytt til klasse',
+  'Ut av klassen': 'Ut av klassen',
+  'Ny klasse': 'Ny klasse',
+  'Nytt navn på klassen': 'Nytt namn på klassen',
+  '📚 Klassen «{navn}» er laget med denne siden': '📚 Klassen «{navn}» er laga med denne sida',
+  '📚 Klassen «{navn}» er laget. Legg til elever, eller hent en liste': '📚 Klassen «{navn}» er laga. Legg til elevar, eller hent ei liste',
+  '📚 Klassen «{navn}» er laget med sidene uten klasse': '📚 Klassen «{navn}» er laga med sidene utan klasse',
+  'Ta med alle sidene uten klasse ({antall})': 'Ta med alle sidene utan klasse ({antall})',
+  'Ta med de andre sidene uten klasse ({antall})': 'Ta med dei andre sidene utan klasse ({antall})',
+  'Bare denne siden': 'Berre denne sida',
+  'Start med en tom side': 'Start med ei tom side',
+  'Elevlista er fra «{side}». Elever fra de andre sidene som ikke sto der: {navn}': 'Elevlista er frå «{side}». Elevar frå dei andre sidene som ikkje stod der: {navn}',
+  'Klassen «{navn}» er løst opp. Sidene har hver sin kopi av elevene': 'Klassen «{navn}» er løyst opp. Sidene har kvar sin kopi av elevane',
+  '{klasse} har {antall} elever. {mangler} på siden sto ikke der: {navn}': '{klasse} har {antall} elevar. {mangler} på sida stod ikkje der: {navn}',
+  'Sidene i en klasse deler elevliste, oppmøte, klassekart og ukeplan. Kortene, dagsplanen og gruppeinndelingen er fortsatt egne per side.':
+    'Sidene i ein klasse deler elevliste, oppmøte, klassekart og vekeplan. Korta, dagsplanen og gruppeinndelinga er framleis eigne per side.',
+  'f.eks. 7B, 5. trinn, Valgfag…': 't.d. 7B, 5. trinn, Valfag…',
   // Fanemenyene og sidemaler (v2.51)
   'Klikk for å gi nytt navn eller lagre som mal': 'Klikk for å gi nytt namn eller lagre som mal',
   'Ny side, tom eller fra mal': 'Ny side, tom eller frå mal',
@@ -386,6 +412,12 @@ const BRUKERVEILEDNING_NN = `
   <p>Timerar høyrer til sida dei er laga på, men held fram med å gå når du byter side. Vil du til dømes vise eit bilete på ei eiga side medan nedteljinga går, går det heilt fint, og du får beskjed når tida er ute.</p>
   <p>Ei <strong>ny side startar heilt tom</strong>, utan synlege kort. Du hentar sjølv fram akkurat dei korta du vil ha via <strong>⊞ Kort</strong>-menyen, så kvar side blir nøyaktig slik du vil ha ho.</p>
   <p><strong>Side 1 startar med eit lite utval</strong> første gongen du opnar appen: klokke og tilfeldig elev til venstre, dagsplan og notat i midten, og elevlista til høgre. Det er med vilje få kort, så heile sida får plass på skjermen med ein gong. Ordenselevar, klassebamse, terning og grupper ligg klare i <strong>⊞ Kort</strong> og dukkar opp på den faste plassen sin når du kryssar dei av.</p>
+
+  <h4>📚 Klassar: fleire sider for same klasse</h4>
+  <p>Ein klasse har sitt eige sett med sider: «Matte», «Norsk» og «Stasjonar» for <strong>7B</strong>. Klikk <strong>Utan klasse ▾</strong> til venstre for fanene, vel <strong>➕ Ny klasse</strong> og gi klassen eit namn. <strong>Har du sider utan klasse, spør dialogen om dei skal bli med.</strong> Det er førehandsvalt, så sidene du har brukt tid på, ikkje blir liggjande gøymde bak «Utan klasse». Elevlista blir den frå sida du står på, og du får beskjed om elevar frå dei andre sidene som ikkje stod der. Vel du å starte tomt, får klassen éi tom side: legg til elevar eller hent ei liste, og trykk <strong>+</strong> for fleire sider, tomme eller frå malane dine. Har du alt ei side for klassen, bruker du <strong>Flytt til klasse</strong> eller <strong>Ny klasse med denne sida</strong> i menyen på sidenamnet, så tek sida med seg elevane sine.</p>
+  <p><strong>Klassen eig</strong> elevlista, oppmøtet i dag, koplinga til 📋 Lister (og dermed trekka), klassekartet og vekeplanen. Legg du til ein elev eller merkjer nokon borte på éi side, gjeld det på alle sidene i klassen. <strong>Sida eig</strong> korta og oppsettet, dagsplanen (éin plan), gruppeinndelinga, notat og timerar, så kvart fag kan ha sitt.</p>
+  <p>Fanene viser berre sidene i klassen du står i. Klasseknappen byter til ein annan klasse eller til sidene utan klasse. Flyttar du ei side inn i ein klasse som alt har elevar, er det lista til klassen som gjeld, og du får beskjed om kven på sida som ikkje stod der. Flyttar du ei side ut, eller vel <strong>Løys opp klassen</strong>, får sida sin eigen kopi av elevane, så ingenting forsvinn. Ein klasse utan sider forsvinn av seg sjølv.</p>
+  <p>Har du ingen klassar, er alt som før: kvar side har si eiga elevliste.</p>
 
   <h4>📑 Sidemalar</h4>
   <p>Har du sett opp ei side slik du vil ha ho, kan du ta vare på oppsettet som ein mal: klikk på sidenamnet i fana og vel <strong>📑 Lagre som mal</strong>. Malen tek med korta og kvar dei står, kva som blir vist, eigne kortnamn, namnet på klassebamsen og innstillingane i korta (tida på timeren, instruksjonstekstar, notat, YouTube-lenkje). Elevar, grupper, dagsplan, trekk og oppmøte blir <strong>ikkje</strong> med: malen er bordet, ikkje klassen.</p>

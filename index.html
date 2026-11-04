@@ -451,6 +451,18 @@
     </div>
   </div>
 
+  <div id="modal-klasse-navn" class="modal hidden">
+    <h3 id="klasse-navn-tittel">Ny klasse</h3>
+    <p>Sidene i en klasse deler elevliste, oppmøte, klassekart og ukeplan. Kortene, dagsplanen og gruppeinndelingen er fortsatt egne per side.</p>
+    <input type="text" id="input-klasse-navn" placeholder="f.eks. 7B, 5. trinn, Valgfag…" maxlength="40">
+    <!-- Vises bare når det finnes sider uten klasse (fylles av åpneKlasseNavn) -->
+    <div id="klasse-navn-valg" class="klasse-valg hidden"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btn-klasse-navn-avbryt">Avbryt</button>
+      <button class="btn btn-success" id="btn-klasse-navn-bekreft">Lagre</button>
+    </div>
+  </div>
+
   <div id="modal-lagre-mal" class="modal hidden">
     <h3>📑 Lagre siden som mal</h3>
     <p>Malen tar med oppsettet av kortene og innstillingene i dem, men ikke elever, grupper, dagsplan eller trekk.</p>

@@ -507,6 +507,37 @@ header h1 {
     position: relative;
     display: inline-flex;
 }
+/* Klasseknappen (v2.56) står først i raden og skiller seg fra fanene: avrundet pille,
+   dempet når sidene ikke har klasse. */
+.side-klasse {
+    background: rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 999px;
+    padding: 4px 12px;
+    margin-right: 6px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--header-tekst);
+    opacity: 0.75;
+    white-space: nowrap;
+}
+.side-klasse.har-klasse {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.22);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+.side-klasse:hover {
+    opacity: 1;
+}
+.side-meny .kl-dropdown-item.valgt {
+    font-weight: 700;
+}
+.side-meny .kl-dropdown-item.valgt::after {
+    content: ' ✓';
+    color: var(--primary);
+}
 .side-meny {
     position: absolute;
     top: calc(100% + 8px);
@@ -1840,6 +1871,20 @@ textarea[id^="notat-textarea"]:focus {
 .klassekart-chip.borte {
     opacity: 0.5;
     text-decoration: line-through;
+}
+/* Valget i Ny klasse-dialogen: ta med sidene uten klasse, eller start tomt. */
+.klasse-valg {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 10px 0 2px;
+    font-size: 0.88rem;
+}
+.klasse-valg label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
 }
 #btn-klassekart-rom.aktiv {
     background: var(--primary-l);

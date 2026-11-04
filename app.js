@@ -19,7 +19,7 @@ let sletterAlt = false;
 // dataene feil, slik v2.36 ville gjort med elevobjektene fra v2.37. Finner appen data
 // med høyere versjon enn sin egen, lagrer den ingenting (se lagringSperre), så en
 // tilbakerulling ikke skriver over nyere data.
-const LAGRINGSVERSJON = 2; // 2: timere som egne kort per side (v2.48)
+const LAGRINGSVERSJON = 3; // 2: timere som egne kort per side (v2.48). 3: klasser (v2.56)
 // Når appen ikke skal lagre: null, 'annen-fane' (en annen fane har lagret noe nyere,
 // se «Flere faner») eller 'nyere-versjon' (dataene er fra en nyere versjon av appen).
 let lagringSperre = null;
@@ -324,6 +324,11 @@ function defaultState() {
     lagringsversjon: LAGRINGSVERSJON,
     aktiv_side: 0,
     sider: [ førsteSide() ],
+    // Klasser (v2.56): «klasse-N» → { navn, elever, oppmøte, liste, klassekart, ukeplan,
+    // trekk ... }. Sidene i en klasse peker på den med s.klasse. Se «Klasser».
+    klasser:        {},
+    klasse_teller:  0,
+    klasse_oppsett: [], // rekkefølgen i menyen
     // Sidemaler (v2.51): oppsettet til en side uten klassen. Liste, ikke objekt, så
     // rekkefølgen er den læreren lagret i (tallnavn ville ellers havnet først).
     // Se «Sidemaler».
@@ -353,6 +358,9 @@ function førsteSide() {
 function nySide(navn) {
   return {
     navn,
+    // Klassen siden hører til (v2.56), eller null. Har siden klasse, ligger elever,
+    // oppmøte, liste, klassekart, ukeplan og trekk i klassen; feltene her ligger brakk.
+    klasse:              null,
     // kolonner/kol_bredder/col brukes ikke lenger (fri flate fra v2.35), men står
     // igjen så en eldre versjon fortsatt finner et oppsett ved tilbakerulling.
     kolonner: 3,
@@ -516,7 +524,7 @@ function nyElevId(brukt) {
 
 // ===================== Trekk per liste =====================
 // Backlogene og hvem som er trukket (tilfeldig, ordenselev, klassebamse) hører til
-// klassen, ikke til siden. En side som er koblet til en lagret liste (s.liste), bruker
+// klassen, ikke til siden. En side som er koblet til en lagret liste (klasse(s).liste), bruker
 // listas trekk i state.liste_trekk, og alle sider med samme liste deler dem. Bytter
 // siden til en annen liste og tilbake, er trekkene der fortsatt. En side uten liste
 // har trekkene på seg selv, slik alle sider hadde før v2.39.
@@ -537,7 +545,7 @@ function tomtTrekk() {
 // Hvor mange av id-ene som står på siden. Tellerne i trekkekortene bruker denne, så en
 // elev som er tatt ut av siden, men fortsatt står i lista, ikke telles med.
 function påSiden(s, ider) {
-  const her = new Set(s.elever.map(e => e.id));
+  const her = new Set(klasse(s).elever.map(e => e.id));
   return ider.filter(id => her.has(id)).length;
 }
 
@@ -545,7 +553,7 @@ function påSiden(s, ider) {
 // sidens egne.
 function trekk(s = aktivSide()) {
   const liste = sidensListe(s);
-  return liste ? (state.liste_trekk[liste] ??= tomtTrekk()) : s;
+  return liste ? (state.liste_trekk[liste] ??= tomtTrekk()) : klasse(s);
 }
 
 // Kopi av trekkene (fra en liste eller en side) med bare elevene `behold` godtar, og
@@ -564,7 +572,7 @@ function kopierTrekk(fra, behold = () => true, bytt = id => id) {
 
 // Setter sidens egne trekkfelt til tomme. Brukes når trekkene flyttes inn i en liste.
 function tømSidensTrekk(s) {
-  Object.assign(s, tomtTrekk());
+  Object.assign(klasse(s), tomtTrekk());
 }
 
 // Gyldige trekk fra lagringen eller en importert fil: bare id-er med riktig form.
@@ -667,7 +675,7 @@ function rensRåState(raw) {
       if ('dagsplan' in side && !Array.isArray(side.dagsplan)) side.dagsplan = [];
     }
   }
-  for (const felt of ['notater', 'bilder', 'youtube', 'lister', 'liste_begrensninger', 'liste_trekk', 'widget_størrelser']) {
+  for (const felt of ['notater', 'bilder', 'youtube', 'lister', 'liste_begrensninger', 'liste_trekk', 'widget_størrelser', 'klasser']) {
     if (felt in raw && !erObjekt(raw[felt])) delete raw[felt];
   }
   if ('widget_layout' in raw && !Array.isArray(raw.widget_layout)) delete raw.widget_layout;
@@ -769,8 +777,39 @@ function migrerFellesTimer(s) {
   s.timer_teller = teller;
 }
 
+// Én klasse fra lagring eller fil: samme vask som sidens klassefelt. Lista sjekkes mot
+// de lagrede listene lenger ned i normaliserState.
+function normaliserKlasse(k) {
+  const elever = normaliserElever(k.elever);
+  const tilId = elevOppslag(elever);
+  const idListe = v => [...new Set((Array.isArray(v) ? v : []).map(tilId).filter(Boolean))];
+  const ut = { navn: (tekstEllerNull(k.navn, 40) || '').trim() || 'Klasse', elever, ...tomtTrekk() };
+  for (const f of TREKK_LISTER) ut[f] = idListe(k[f]);
+  ut.ordenselev_valgte = ut.ordenselev_valgte.slice(0, 2);
+  for (const f of TREKK_ENKLE) ut[f] = tilId(k[f]);
+  ut.ordenselev_antall = k.ordenselev_antall === 1 ? 1 : 2;
+  ut.tilfeldig_flere = normaliserTrekk({ tilfeldig_flere: k.tilfeldig_flere }).tilfeldig_flere;
+  ut.gruppe_begrensninger = (Array.isArray(k.gruppe_begrensninger) ? k.gruppe_begrensninger : [])
+    .filter(par => Array.isArray(par) && par.length === 2)
+    .map(par => par.map(tilId))
+    .filter(([a, b]) => a && b && a !== b);
+  ut.oppmøte = normaliserOppmøte(k.oppmøte, tilId);
+  ut.klassekart = normaliserKlassekart(k.klassekart, tilId);
+  const uke = erObjekt(k.ukeplan) ? k.ukeplan : {};
+  ut.ukeplan = Object.fromEntries(UKEPLAN_DAGER.map(d => [d, normaliserDagsplan(uke[d])]));
+  ut.ukeplan_dato = typeof k.ukeplan_dato === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(k.ukeplan_dato) ? k.ukeplan_dato : null;
+  ut.liste = typeof k.liste === 'string' ? k.liste : null;
+  return ut;
+}
+
 function normaliserState(s) {
   migrerFellesTimer(s);
+  // --- Klasser (v2.56): før sidene, fordi en side med klasse peker på klassens elever ---
+  const klasser = {};
+  for (const [id, k] of Object.entries(erObjekt(s.klasser) ? s.klasser : {})) {
+    if (/^klasse-\d{1,6}$/.test(id) && erObjekt(k)) klasser[id] = normaliserKlasse(k);
+  }
+  s.klasser = klasser;
   // --- Sider ---
   s.sider = s.sider.map((side, i) => {
     side.navn = tekstEllerNull(side.navn, 60) || `Side ${i + 1}`;
@@ -780,9 +819,10 @@ function normaliserState(s) {
       side.kol_bredder = standardBredder(side.kolonner);
     }
     side.elever = normaliserElever(side.elever);
+    side.klasse = typeof side.klasse === 'string' && Object.hasOwn(klasser, side.klasse) ? side.klasse : null;
     // Alle referanser til elever blir id-er, uten duplikater, og bare til elever som
-    // faktisk står i lista.
-    const tilId = elevOppslag(side.elever);
+    // faktisk står i lista. Har siden klasse, er det klassens elever som gjelder.
+    const tilId = elevOppslag(side.klasse ? klasser[side.klasse].elever : side.elever);
     const idListe = v => [...new Set((Array.isArray(v) ? v : []).map(tilId).filter(Boolean))];
     const grupper = Array.isArray(side.grupper)
       ? side.grupper.filter(Array.isArray).map(idListe).filter(g => g.length)
@@ -862,10 +902,18 @@ function normaliserState(s) {
   // --- Oppsett i Lister-menyen: nye objekter, så ukjente felt fra en fil ikke blir med ---
   s.liste_oppsett = normaliserOppsett((Array.isArray(s.liste_oppsett) ? s.liste_oppsett : [])
     .map(x => (erObjekt(x) ? { gruppe: x.gruppe, lister: x.lister, åpen: x.åpen } : x)), lister);
-  // Sidens kobling til en liste gjelder bare hvis lista finnes.
-  for (const side of s.sider) {
+  // Sidens (og klassens) kobling til en liste gjelder bare hvis lista finnes.
+  for (const side of [...s.sider, ...Object.values(s.klasser)]) {
     side.liste = typeof side.liste === 'string' && Object.hasOwn(lister, side.liste) ? side.liste : null;
   }
+  // En klasse uten sider finnes ikke: den slettes når siste side går ut (se Klasser).
+  const brukteKlasser = new Set(s.sider.map(side => side.klasse).filter(Boolean));
+  for (const id of Object.keys(s.klasser)) if (!brukteKlasser.has(id)) delete s.klasser[id];
+  const oppsett = [...new Set(tekstliste(s.klasse_oppsett, 20).filter(id => s.klasser[id]))];
+  for (const id of Object.keys(s.klasser)) if (!oppsett.includes(id)) oppsett.push(id);
+  s.klasse_oppsett = oppsett;
+  s.klasse_teller = Math.max(heltall(s.klasse_teller, 0, 999999, 0),
+    ...Object.keys(s.klasser).map(id => parseInt(id.split('-')[1], 10)));
 
   // --- Flerinstans-widgets. Bare gyldige ID-er overlever ---
   const notater = {};
@@ -2060,7 +2108,7 @@ function storForbokstav(navn) {
 // Navnet til eleven med id-en, på aktiv side eller siden `s`. Tom tekst hvis eleven
 // ikke finnes. Alt som viser et trukket navn, en gruppe eller et par, går via denne.
 function elevNavn(id, s = aktivSide()) {
-  return s.elever.find(e => e.id === id)?.navn ?? '';
+  return klasse(s).elever.find(e => e.id === id)?.navn ?? '';
 }
 
 // Legger en elev til den aktive sidens roster. Returnerer true ved suksess, false
@@ -2070,16 +2118,16 @@ function leggTilElev(navn) {
   navn = storForbokstav(navn);
   if (!navn) return;
   const s = aktivSide();
-  if (s.elever.length >= 35) {
+  if (klasse(s).elever.length >= 35) {
     notify(t('Klasselisten er full (maks 35 elever)'), 'warning');
     return false;
   }
-  if (s.elever.some(e => e.navn.toLowerCase() === navn.toLowerCase())) {
+  if (klasse(s).elever.some(e => e.navn.toLowerCase() === navn.toLowerCase())) {
     notify(t('{navn} er allerede inne', { navn }), 'warning');
     return false;
   }
-  const elev = { id: nyElevId(new Set(s.elever.map(e => e.id))), navn };
-  s.elever = [...s.elever, elev];
+  const elev = { id: nyElevId(new Set(klasse(s).elever.map(e => e.id))), navn };
+  klasse(s).elever = [...klasse(s).elever, elev];
   const gruppe = plasserIGruppe(elev.id); // null hvis det ikke finnes grupper
   saveState();
   renderElever();
@@ -2124,11 +2172,11 @@ function plasserIGruppe(id) {
 // ikke er lagret i en liste, er borte etterpå: derfor sier bekreftelsen fra om det.
 function tømElevlista() {
   const s = aktivSide();
-  s.elever  = [];
+  klasse(s).elever  = [];
   s.grupper = null;
-  s.oppmøte = null;
-  s.gruppe_begrensninger = [];
-  s.liste   = null;
+  klasse(s).oppmøte = null;
+  klasse(s).gruppe_begrensninger = [];
+  klasse(s).liste   = null;
   tømSidensTrekk(s);
   saveState();
   renderElever();
@@ -2143,13 +2191,13 @@ function elevlistaErLagret(s = aktivSide()) {
   const liste = sidensListe(s);
   if (!liste) return false;
   const lagret = state.lister[liste];
-  return lagret.length === s.elever.length &&
-    lagret.every((e, i) => e.id === s.elever[i].id && e.navn === s.elever[i].navn);
+  return lagret.length === klasse(s).elever.length &&
+    lagret.every((e, i) => e.id === klasse(s).elever[i].id && e.navn === klasse(s).elever[i].navn);
 }
 
 // Fjerner én elev ved listeindeks fra aktiv side og oppdaterer visningen.
 function fjernElev(idx) {
-  const elev = aktivSide().elever[idx];
+  const elev = klasse().elever[idx];
   if (elev) fjernEleverBatch(new Set([elev.id]));
 }
 
@@ -2157,7 +2205,7 @@ function fjernElev(idx) {
 // Brukes av ✕ i lista og av «Fjern elever»-modalen.
 function fjernEleverBatch(fjernSett) {
   const s = aktivSide();
-  s.elever = s.elever.filter(e => !fjernSett.has(e.id));
+  klasse(s).elever = klasse(s).elever.filter(e => !fjernSett.has(e.id));
   // Er siden koblet til en liste, deler den trekkene med andre sider som bruker lista.
   // Elever som fortsatt står i lista, beholder turen sin der (en side kan være en
   // mindre gruppe av klassen). Trekkene ryddes når lista selv oppdateres (🔄) eller
@@ -2195,9 +2243,9 @@ function fjernElevReferanser(s, fjernSett, { medTrekk = true } = {}) {
     const r = trekk(s);
     Object.assign(r, kopierTrekk(r, behold));
   }
-  s.gruppe_begrensninger = (s.gruppe_begrensninger ?? []).filter(par => par.every(behold));
-  for (const [key, id] of Object.entries(s.klassekart?.plasser ?? {})) if (!behold(id)) delete s.klassekart.plasser[key];
-  if (s.oppmøte) for (const id of fjernSett) delete s.oppmøte.status[id];
+  klasse(s).gruppe_begrensninger = (klasse(s).gruppe_begrensninger ?? []).filter(par => par.every(behold));
+  for (const [key, id] of Object.entries(klasse(s).klassekart?.plasser ?? {})) if (!behold(id)) delete klasse(s).klassekart.plasser[key];
+  if (klasse(s).oppmøte) for (const id of fjernSett) delete klasse(s).oppmøte.status[id];
 }
 
 // Bytter id-er i alt på siden som peker på elever, etter et kart gammel id → ny id.
@@ -2208,13 +2256,13 @@ function fjernElevReferanser(s, fjernSett, { medTrekk = true } = {}) {
 function byttElevIder(s, kart) {
   const bytt = id => kart.get(id) ?? id;
   if (s.grupper) s.grupper = s.grupper.map(g => g.map(bytt));
-  s.gruppe_begrensninger = (s.gruppe_begrensninger ?? []).map(par => par.map(bytt));
-  for (const key of Object.keys(s.klassekart?.plasser ?? {})) s.klassekart.plasser[key] = bytt(s.klassekart.plasser[key]);
+  klasse(s).gruppe_begrensninger = (klasse(s).gruppe_begrensninger ?? []).map(par => par.map(bytt));
+  for (const key of Object.keys(klasse(s).klassekart?.plasser ?? {})) klasse(s).klassekart.plasser[key] = bytt(klasse(s).klassekart.plasser[key]);
 }
 
 // ===================== Klassekart =====================
 // 🪑 Klassekart (v2.54): rommet som et rutenett av pulter, med tavla øverst. Rommet
-// (rader, kolonner, ruter som ikke er pulter) og plassene bor i s.klassekart. Flytting
+// (rader, kolonner, ruter som ikke er pulter) og plassene bor i klasse(s).klassekart. Flytting
 // er klikk-klikk, så det virker på tavler uten mus: klikk en elev (på en pult eller i
 // «uten plass»-lista), så pulten eleven skal til. To elever bytter plass. 🎲 Trekk
 // plasser setter alle tilfeldig, uten at «hold fra hverandre»-par sitter inntil
@@ -2250,10 +2298,10 @@ function renderKlassekart() {
   const bunn = document.getElementById('klassekart-bunn');
   if (!rom || !bunn) return;
   const s = aktivSide();
-  const k = s.klassekart;
+  const k = klasse(s).klassekart;
   // Plasser som peker på elever som ikke står på siden lenger (lista byttet), vises
   // som ledige; normaliseringen rydder dem ved neste lasting.
-  const påSiden = new Set(s.elever.map(e => e.id));
+  const påSiden = new Set(klasse(s).elever.map(e => e.id));
   const status = oppmøteIdag(s);
   const gruppeKart = new Map();
   if (s.grupper) s.grupper.forEach((g, gi) => g.forEach(id => gruppeKart.set(id, gi)));
@@ -2288,9 +2336,9 @@ function renderKlassekart() {
 
   // Under rommet: elever uten pult, og hva som skjer med den valgte eleven.
   const plassert = new Set(Object.values(k.plasser));
-  const utenPlass = s.elever.filter(e => !plassert.has(e.id));
+  const utenPlass = klasse(s).elever.filter(e => !plassert.has(e.id));
   let html = '';
-  if (!s.elever.length) {
+  if (!klasse(s).elever.length) {
     html = `<p class="tom-tekst">${t('Ingen elever på siden')}</p>`;
   } else {
     if (klassekartValg) {
@@ -2315,7 +2363,7 @@ function lagreKlassekart() {
 // Klikk på en pult. I redigering slås ruta av eller på; ellers velges eleven som
 // sitter der, eller den valgte eleven settes dit (bytter med den som satt der).
 function klikkPult(key) {
-  const k = aktivSide().klassekart;
+  const k = klasse().klassekart;
   if (klassekartRedigerer) {
     if (k.av.includes(key)) k.av = k.av.filter(x => x !== key);
     else { k.av.push(key); delete k.plasser[key]; }
@@ -2323,7 +2371,7 @@ function klikkPult(key) {
     return;
   }
   if (k.av.includes(key)) return;
-  const der = aktivSide().elever.some(e => e.id === k.plasser[key]) ? k.plasser[key] : null;
+  const der = klasse().elever.some(e => e.id === k.plasser[key]) ? k.plasser[key] : null;
   if (!klassekartValg) {
     if (der) { klassekartValg = der; renderKlassekart(); }
     return;
@@ -2343,7 +2391,7 @@ function velgElevIKlassekart(id) {
 }
 
 function taAvPult() {
-  const k = aktivSide().klassekart;
+  const k = klasse().klassekart;
   const fra = pultFor(k, klassekartValg);
   if (fra) delete k.plasser[fra];
   klassekartValg = null;
@@ -2352,7 +2400,7 @@ function taAvPult() {
 
 // 🛠-knappene: rader og kolonner. Ruter som faller utenfor, forsvinner med det som sto der.
 function endreRom(hva) {
-  const k = aktivSide().klassekart;
+  const k = klasse().klassekart;
   const felt = hva.startsWith('rader') ? 'rader' : 'kolonner';
   const ny = k[felt] + (hva.endsWith('+') ? 1 : -1);
   if (ny < 1 || ny > KLASSEKART_MAKS[felt]) return;
@@ -2367,8 +2415,8 @@ function endreRom(hva) {
 // par får ikke sitte vegg i vegg. Samme prøv-igjen-løkke som gruppeinndelingen.
 function trekkPlasser() {
   const s = aktivSide();
-  const k = s.klassekart;
-  const elever = s.elever.map(e => e.id);
+  const k = klasse(s).klassekart;
+  const elever = klasse(s).elever.map(e => e.id);
   const pulter = pulterI(k);
   if (!elever.length) { notify(t('Ingen elever å plassere'), 'warning'); return; }
   if (elever.length > pulter.length) {
@@ -2415,6 +2463,238 @@ function setupKlassekart() {
   renderKlassekart();
 }
 
+// ===================== Klasser =====================
+// En klasse (v2.56) samler sidene for én klasse eller ett trinn: «7B Matte», «7B Norsk»
+// og «7B Stasjoner» er aktivitetene, 7B er klassen. Klassen eier elevlista, oppmøtet,
+// koblingen til 📋 Lister (og dermed trekkene), klassekartet og ukeplanen. Siden eier
+// kortene, dagsplanen (én plan), gruppeinndelingen, notater og timere.
+//
+// Oppslaget klasse(s) gir klassen når siden har en, ellers siden selv. Alt som leser
+// eller skriver klassefeltene, går via det (og trekk(s) via sidensListe). En side uten
+// klasse oppfører seg derfor nøyaktig som før. Sidens egne klassefelt ligger brakk så
+// lenge den har klasse, og fylles med en kopi når den går ut.
+//
+// Regler for flytting (docs/klasser.md): første side inn i en tom klasse tar med seg
+// feltene sine. Senere sider får klassens liste, med varsel om hvem som ikke sto der.
+// En side ut får en kopi. En klasse uten sider slettes.
+const KLASSE_FELT = ['elever', 'oppmøte', 'liste', 'gruppe_begrensninger', 'klassekart',
+  'ukeplan', 'ukeplan_dato', ...Object.keys(tomtTrekk())];
+
+function klasse(s = aktivSide()) {
+  return s.klasse && state.klasser[s.klasse] ? state.klasser[s.klasse] : s;
+}
+
+// Alle som eier en elevliste: klassene og sidene uten klasse.
+function eiere() {
+  return [...Object.values(state.klasser), ...state.sider.filter(x => !x.klasse)];
+}
+
+function klassensSider(id) {
+  return state.sider.map((side, idx) => ({ side, idx })).filter(x => (x.side.klasse ?? null) === id);
+}
+
+function tomKlasseFelt() {
+  return { elever: [], oppmøte: null, liste: null, gruppe_begrensninger: [],
+    klassekart: nyttKlassekart(), ukeplan: tomUkeplan(), ukeplan_dato: null, ...tomtTrekk() };
+}
+
+function kopierKlasseFelt(fra) {
+  return structuredClone(Object.fromEntries(KLASSE_FELT.map(f => [f, fra[f]])));
+}
+
+function nyKlasse(navn) {
+  const id = `klasse-${++state.klasse_teller}`;
+  state.klasser[id] = { navn: navn.trim().slice(0, 40) || t('Klasse'), ...tomKlasseFelt() };
+  state.klasse_oppsett.push(id);
+  return id;
+}
+
+function slettKlasseHvisTom(id) {
+  if (!state.klasser[id] || klassensSider(id).length) return false;
+  delete state.klasser[id];
+  state.klasse_oppsett = state.klasse_oppsett.filter(x => x !== id);
+  return true;
+}
+
+// Flytter side nr. idx inn i klassen (id), eller ut av klassen sin (null). Med
+// { stille: true } varsles og tegnes det ikke; navnene på elever som ikke fantes i
+// klassen, returneres i stedet (førsteKlasseMedAlleSider samler dem).
+function flyttSideTilKlasse(idx, id, { stille = false } = {}) {
+  const side = state.sider[idx];
+  if (!side || (side.klasse ?? null) === id) return [];
+  let mangler = [];
+  const gammel = side.klasse;
+  if (gammel) {
+    Object.assign(side, kopierKlasseFelt(state.klasser[gammel])); // ut med en kopi
+    side.klasse = null;
+    slettKlasseHvisTom(gammel);
+  }
+  if (id) {
+    const k = state.klasser[id];
+    if (!k) { saveState(); byttSide(idx); return []; }
+    const egne = side['elever'];
+    if (!klassensSider(id).length && !k.elever.length) {
+      // Første side inn i en tom klasse: klassen blir en kopi av siden.
+      Object.assign(k, kopierKlasseFelt(side));
+    } else {
+      // Klassens liste vinner. Elever med samme navn får klassens id, så gruppe-
+      // inndelingen på siden følger med; elever som ikke står i klassen, tas ut av den.
+      const fraNavn = new Map(k.elever.map(e => [e.navn.toLowerCase(), e.id]));
+      const kart = new Map();
+      for (const e of egne) {
+        const nyId = fraNavn.get(e.navn.toLowerCase());
+        if (!nyId) mangler.push(e.navn);
+        else if (nyId !== e.id) kart.set(e.id, nyId);
+      }
+      if (side.grupper) {
+        const ider = new Set(k.elever.map(e => e.id));
+        const igjen = side.grupper.map(g => g.map(x => kart.get(x) ?? x).filter(x => ider.has(x))).filter(g => g.length);
+        side.grupper = igjen.length ? igjen : null;
+      }
+      if (mangler.length && !stille) {
+        notify(t('{klasse} har {antall} elever. {mangler} på siden sto ikke der: {navn}',
+          { klasse: k.navn, antall: k.elever.length, mangler: mangler.length, navn: mangler.join(', ') }), 'warning');
+      }
+    }
+    Object.assign(side, tomKlasseFelt()); // sidens egne felt ligger brakk
+    side.klasse = id;
+  }
+  if (!stille) { saveState(); byttSide(idx); }
+  return mangler;
+}
+
+// Ny klasse med alle sidene uten klasse (valget i dialogen), så ingen side «forsvinner»
+// bak «Uten klasse». Siden læreren står på (idx), går først og gir klassen elevlista;
+// de andre får klassens liste, og elever som ikke sto der, meldes samlet.
+function klasseMedLøseSider(id, idx) {
+  flyttSideTilKlasse(idx, id, { stille: true });
+  const mangler = [];
+  state.sider.forEach((side, i) => {
+    if (i !== idx && !side.klasse) mangler.push(...flyttSideTilKlasse(i, id, { stille: true }));
+  });
+  saveState();
+  byttSide(idx);
+  const unike = [...new Set(mangler)];
+  if (unike.length) {
+    notify(t('Elevlista er fra «{side}». Elever fra de andre sidene som ikke sto der: {navn}',
+      { side: state.sider[idx].navn, navn: unike.join(', ') }), 'warning');
+  }
+}
+
+function løsOppKlasse(id) {
+  const k = state.klasser[id];
+  if (!k) return;
+  for (const { side } of klassensSider(id)) {
+    Object.assign(side, kopierKlasseFelt(k));
+    side.klasse = null;
+  }
+  delete state.klasser[id];
+  state.klasse_oppsett = state.klasse_oppsett.filter(x => x !== id);
+  saveState();
+  byttSide(state.aktiv_side);
+  notify(t('Klassen «{navn}» er løst opp. Sidene har hver sin kopi av elevene', { navn: k.navn }));
+}
+
+function endreKlassenavn(id, navn) {
+  const k = state.klasser[id];
+  navn = navn.trim().slice(0, 40);
+  if (!k || !navn) return;
+  k.navn = navn;
+  saveState();
+  renderSiderNav();
+}
+
+// Bytter til første side i klassen (null = første side uten klasse).
+function byttKlasse(id) {
+  const første = klassensSider(id)[0];
+  if (første) byttSide(første.idx);
+}
+
+// Navnedialogen brukes både for ny klasse (siden flyttes inn) og nytt navn.
+let klasseNavnMål = null;
+function åpneKlasseNavn(modus, idx) {
+  klasseNavnMål = { modus, idx };
+  const input = document.getElementById('input-klasse-navn');
+  const nyKlasse = modus === 'ny' || modus === 'ny-med-side';
+  document.getElementById('klasse-navn-tittel').textContent = nyKlasse ? t('Ny klasse') : t('Nytt navn på klassen');
+  input.value = nyKlasse ? '' : (state.klasser[state.sider[idx]?.klasse]?.navn ?? '');
+  // Finnes det sider uten klasse, spør vi om de skal bli med, så ingen side ser ut
+  // som borte bak «Uten klasse» etterpå. Forhåndsvalgt: ta dem med.
+  const valg = document.getElementById('klasse-navn-valg');
+  const løse = state.sider.filter(s => !s.klasse).length;
+  const andre = modus === 'ny-med-side' ? løse - 1 : løse;
+  valg.classList.toggle('hidden', !nyKlasse || andre < 1);
+  valg.innerHTML = nyKlasse && andre >= 1 ? `
+    <label><input type="radio" name="klasse-sider" value="alle" checked> ${modus === 'ny-med-side'
+      ? t('Ta med de andre sidene uten klasse ({antall})', { antall: andre })
+      : t('Ta med alle sidene uten klasse ({antall})', { antall: andre })}</label>
+    <label><input type="radio" name="klasse-sider" value="tom"> ${modus === 'ny-med-side'
+      ? t('Bare denne siden')
+      : t('Start med en tom side')}</label>` : '';
+  åpneModal('modal-klasse-navn');
+  setTimeout(() => input.select(), 80);
+}
+
+function bekreftKlasseNavn() {
+  const navn = document.getElementById('input-klasse-navn').value.trim();
+  if (!navn) { notify(t('Skriv inn et navn'), 'warning'); return; }
+  const { modus, idx } = klasseNavnMål ?? {};
+  const valgEl = document.querySelector('#klasse-navn-valg input:checked');
+  const medAlle = !document.getElementById('klasse-navn-valg').classList.contains('hidden') && valgEl?.value === 'alle';
+  if (modus === 'ny' && !medAlle) {
+    // En ny klasse er et nytt sett med sider: den starter med én tom side, og + gir
+    // flere, tomme eller fra mal.
+    const id = nyKlasse(navn);
+    leggTilSide(id);
+    notify(t('📚 Klassen «{navn}» er laget. Legg til elever, eller hent en liste', { navn }));
+  } else if (modus === 'ny' || modus === 'ny-med-side') {
+    const id = nyKlasse(navn);
+    if (medAlle) {
+      // Siden læreren står på går først og gir klassen elevlista (står hen på en side
+      // med klasse, går første løse side først).
+      const først = state.sider[idx]?.klasse ? state.sider.findIndex(s => !s.klasse) : idx;
+      klasseMedLøseSider(id, først);
+      notify(t('📚 Klassen «{navn}» er laget med sidene uten klasse', { navn }));
+    } else {
+      flyttSideTilKlasse(idx, id);
+      notify(t('📚 Klassen «{navn}» er laget med denne siden', { navn }));
+    }
+  } else if (modus === 'navn' && state.sider[idx]?.klasse) {
+    endreKlassenavn(state.sider[idx].klasse, navn);
+  }
+  klasseNavnMål = null;
+  lukkModal();
+}
+
+// Menyen på klasseknappen i toppfeltet.
+function visKlasseMeny(wrap) {
+  const aktivId = aktivSide().klasse ?? null;
+  const løse = state.sider.some(x => !x.klasse);
+  let html = state.klasse_oppsett.map(id => `
+    <div class="kl-dropdown-item${id === aktivId ? ' valgt' : ''}" data-valg="klasse" data-id="${id}">📚 ${esc(state.klasser[id].navn)}</div>`).join('');
+  if (løse && state.klasse_oppsett.length) {
+    html += `<div class="kl-dropdown-item${aktivId === null ? ' valgt' : ''}" data-valg="klasse" data-id="">${t('Uten klasse')}</div>`;
+  }
+  if (!state.klasse_oppsett.length) {
+    html += `<div class="side-meny-hint">${t('En klasse samler sidene for én klasse: samme elever, oppmøte, klassekart og ukeplan på alle sidene')}</div>`;
+  }
+  html += `<div class="kl-dropdown-sep"></div>
+    <div class="kl-dropdown-item" data-valg="ny">➕ ${t('Ny klasse')}</div>`;
+  if (aktivId) {
+    html += `<div class="kl-dropdown-item" data-valg="navn">✏️ ${t('Gi klassen nytt navn')}</div>
+      <div class="kl-dropdown-item" data-valg="løs">${t('Løs opp klassen')}</div>`;
+  }
+  lagSideMeny(wrap, html, (valg, el) => {
+    if (valg === 'klasse') { lukkSideMenyer(); byttKlasse(el.dataset.id || null); }
+    else if (valg === 'ny') { lukkSideMenyer(); åpneKlasseNavn('ny', state.aktiv_side); }
+    else if (valg === 'navn') { lukkSideMenyer(); åpneKlasseNavn('navn', state.aktiv_side); }
+    else if (valg === 'løs') {
+      if (el.dataset.bekreft) { lukkSideMenyer(); løsOppKlasse(aktivId); }
+      else { el.dataset.bekreft = '1'; el.textContent = t('Løs opp? Sidene beholder hver sin kopi'); }
+    }
+  });
+}
+
 // ===================== Oppmøte =====================
 // Hver elev kan markeres «her» eller «borte» for dagen. Bare «borte» har en virkning:
 // de elevene er ute av alle trekk og nye gruppeinndelinger. Umarkert og «her» teller
@@ -2448,22 +2728,22 @@ function normaliserOppmøte(o, tilId) {
 // annen dag, starter vi blankt. Det skrives til lagring neste gang noe lagres.
 function oppmøteIdag(s) {
   const idag = dagensDato();
-  if (!s.oppmøte || s.oppmøte.dato !== idag) s.oppmøte = { dato: idag, status: {} };
-  return s.oppmøte.status;
+  if (!klasse(s).oppmøte || klasse(s).oppmøte.dato !== idag) klasse(s).oppmøte = { dato: idag, status: {} };
+  return klasse(s).oppmøte.status;
 }
 
 // Id-ene til elevene som er med i trekk og nye grupper: alle som ikke er markert
 // borte i dag. Trekkene og backlogene jobber med id-er; navnet slås opp ved visning.
 function tilStede(s) {
   const status = oppmøteIdag(s);
-  return s.elever.filter(e => status[e.id] !== 'borte').map(e => e.id);
+  return klasse(s).elever.filter(e => status[e.id] !== 'borte').map(e => e.id);
 }
 
 // Trykk på «her» eller «borte» for eleven ved idx. Trykker du på den som alt er
 // valgt, blir eleven umarkert igjen. Gruppene tegnes på nytt for nedtoningen.
 function settOppmøte(idx, verdi) {
   const s = aktivSide();
-  const elev = s.elever[idx];
+  const elev = klasse(s).elever[idx];
   if (!elev || (verdi !== 'her' && verdi !== 'borte')) return;
   const { id, navn } = elev;
   const status = oppmøteIdag(s);
@@ -2495,11 +2775,11 @@ function settOppmøte(idx, verdi) {
 function renderElever() {
   const s = aktivSide();
   const liste   = document.getElementById('elev-liste');
-  const antall  = s.elever.length;
+  const antall  = klasse(s).elever.length;
   renderKlassekart(); // samme elever, samme oppmøte og gruppefarger
 
   const status = oppmøteIdag(s);
-  const antallBorte = s.elever.filter(e => status[e.id] === 'borte').length;
+  const antallBorte = klasse(s).elever.filter(e => status[e.id] === 'borte').length;
   document.getElementById('elev-antall').textContent = antall;
   document.getElementById('elev-tekst').textContent  = antall === 1 ? t('elev inne') : t('elever inne');
   const borteEl = document.getElementById('elev-borte');
@@ -2517,7 +2797,7 @@ function renderElever() {
     s.grupper.forEach((g, gi) => g.forEach(id => gruppeKart.set(id, gi)));
   }
 
-  liste.innerHTML = s.elever.map(({ id, navn }, i) => {
+  liste.innerHTML = klasse(s).elever.map(({ id, navn }, i) => {
     const gi        = gruppeKart.get(id);
     const harGruppe = gi !== undefined;
     const farge     = harGruppe ? GRUPPE_FARGER[gi % GRUPPE_FARGER.length] : null;
@@ -2585,16 +2865,16 @@ function avbrytRedigerElev() {
 // backlogs, par og oppmøte peker på elevens id, så de følger med av seg selv.
 function endreElevNavn(idx, nyttNavn) {
   const s = aktivSide();
-  const elev = s.elever[idx];
+  const elev = klasse(s).elever[idx];
   if (!elev) { renderElever(); return; }
   nyttNavn = storForbokstav(nyttNavn);
   if (!nyttNavn || nyttNavn === elev.navn) { renderElever(); return; }
-  if (s.elever.some((e, i) => i !== idx && e.navn.toLowerCase() === nyttNavn.toLowerCase())) {
+  if (klasse(s).elever.some((e, i) => i !== idx && e.navn.toLowerCase() === nyttNavn.toLowerCase())) {
     notify(t('{navn} er allerede inne', { navn: nyttNavn }), 'warning');
     renderElever();
     return;
   }
-  s.elever = s.elever.map((e, i) => i === idx ? { ...e, navn: nyttNavn } : e);
+  klasse(s).elever = klasse(s).elever.map((e, i) => i === idx ? { ...e, navn: nyttNavn } : e);
   saveState();
   renderElever();
   renderAlleTrekk();
@@ -2620,14 +2900,14 @@ function shuffle(arr) {
 function trekkbareElever(s) {
   const elever = tilStede(s);
   if (elever.length) return elever;
-  notify(s.elever.length ? t('Alle elevene er markert borte i dag') : t('Ingen elever inne'), 'error');
+  notify(klasse(s).elever.length ? t('Alle elevene er markert borte i dag') : t('Ingen elever inne'), 'error');
   return null;
 }
 
 // Melding når backlogen til «Trekk (bl)» er brukt opp. Står noen som er borte i dag igjen, er det
 // verdt å si: de er ikke glemt, de venter til de er tilbake.
 function backlogTomMelding(s, backlog, tekstAlle) {
-  const borteIgjen = s.elever.some(e => !backlog.includes(e.id));
+  const borteIgjen = klasse(s).elever.some(e => !backlog.includes(e.id));
   notify(borteIgjen ? t('Alle som er her i dag, er trukket. Trykk 🔄 på kortet for å starte på nytt.') : tekstAlle, 'warning');
 }
 
@@ -2724,7 +3004,7 @@ function trekkRunde(r, s, backlogFelt, skyldFelt, antall, elever, passer = () =>
   r[backlogFelt].push(...fraRunden);
   if (valgt.length >= antall) return { valgt, nyRunde: false };
 
-  const utenTur = s.elever.map(e => e.id).filter(id =>
+  const utenTur = klasse(s).elever.map(e => e.id).filter(id =>
     !valgt.includes(id) && !r[backlogFelt].includes(id) && !r[skyldFelt].includes(id));
   r[skyldFelt].push(...utenTur);
   // Var det én elev igjen i runden (ingen sperret), telles den med i den nye runden,
@@ -2760,13 +3040,13 @@ function trekkOrdenselev() {
   const elever = tilStede(s);
   const antall = r.ordenselev_antall;
   if (!elever.length && antall === 1) {
-    notify(s.elever.length ? t('Alle elevene er markert borte i dag') : t('Ingen elever inne'), 'error');
+    notify(klasse(s).elever.length ? t('Alle elevene er markert borte i dag') : t('Ingen elever inne'), 'error');
     return;
   }
   if (elever.length < antall) {
-    notify(elever.length < s.elever.length
+    notify(elever.length < klasse(s).elever.length
       ? t('Trenger minst 2 elever som er her i dag ({antall} her)', { antall: elever.length })
-      : t('Trenger minst 2 elever ({antall} inne)', { antall: s.elever.length }), 'error');
+      : t('Trenger minst 2 elever ({antall} inne)', { antall: klasse(s).elever.length }), 'error');
     return;
   }
   const par = aktivePar(s);
@@ -3566,7 +3846,7 @@ function fjernNotat(instansId) {
 // styrer overstrekingen i visningen.
 // ===================== Ukeplan =====================
 // 🗓 i Dagsplan-kortet (v2.53) bytter mellom én plan (s.dagsplan) og én plan per
-// skoledag (s.ukeplan[man..fre]). Alle dagsplanfunksjonene går via dagsplanListe(),
+// skoledag (klasse(s).ukeplan[man..fre]). Alle dagsplanfunksjonene går via dagsplanListe(),
 // som gir planen for dagen som vises. Dagen som vises, settes én gang når appen
 // åpnes (dagens ukedag, mandag i helga) og bytter aldri av seg selv midt i en dag;
 // læreren kan se og fylle andre dager med fanene i kortet.
@@ -3577,16 +3857,16 @@ function ukedagIdag() {
 }
 
 function dagsplanListe(s = aktivSide()) {
-  return s.dagsplan_modus === 'uke' ? s.ukeplan[ukeplanDag] : s.dagsplan;
+  return s.dagsplan_modus === 'uke' ? klasse(s).ukeplan[ukeplanDag] : s.dagsplan;
 }
 
 // En ny dag: avkryssingene fra sist gjelder ikke lenger, så hele uka starter
 // uavkrysset. Gir true når noe ble endret.
 function nyDagIUkeplan(s) {
   const idag = dagensDato();
-  if (s.ukeplan_dato === idag) return false;
-  for (const d of UKEPLAN_DAGER) for (const p of s.ukeplan[d]) p.ferdig = false;
-  s.ukeplan_dato = idag;
+  if (klasse(s).ukeplan_dato === idag) return false;
+  for (const d of UKEPLAN_DAGER) for (const p of klasse(s).ukeplan[d]) p.ferdig = false;
+  klasse(s).ukeplan_dato = idag;
   return true;
 }
 
@@ -3598,7 +3878,7 @@ function settDagsplanModus(modus) {
     nyDagIUkeplan(s);
     // Første gang: planen som sto der, blir planen for dagen som vises, så ingenting
     // forsvinner. Den ene planen ligger fortsatt i s.dagsplan til læreren bytter tilbake.
-    if (s.dagsplan.length && !s.ukeplan[ukeplanDag].length) s.ukeplan[ukeplanDag] = s.dagsplan.map(p => ({ ...p }));
+    if (s.dagsplan.length && !klasse(s).ukeplan[ukeplanDag].length) klasse(s).ukeplan[ukeplanDag] = s.dagsplan.map(p => ({ ...p }));
   }
   redigerDagsplanIdx = null;
   saveState();
@@ -3713,7 +3993,7 @@ function renderDagsplan() {
   if (uke) {
     const idag = ukedagIdag();
     dager.innerHTML = UKEPLAN_DAGER.map(d => `
-      <button class="dagsplan-dag${d === ukeplanDag ? ' valgt' : ''}${d === idag ? ' idag' : ''}${s.ukeplan[d].length ? ' har-punkter' : ''}"
+      <button class="dagsplan-dag${d === ukeplanDag ? ' valgt' : ''}${d === idag ? ' idag' : ''}${klasse(s).ukeplan[d].length ? ' har-punkter' : ''}"
         data-dag="${d}" role="tab" aria-selected="${d === ukeplanDag}"
         title="${d === idag ? t('I dag') : ''}">${t(UKEPLAN_NAVN[d])}</button>`).join('');
   }
@@ -3884,7 +4164,7 @@ function lagGrupper(antall) {
   // Bare elever som er til stede, fordeles. De som er borte i dag, står utenfor.
   const elever = tilStede(s);
   if (elever.length < 2) {
-    notify(elever.length < s.elever.length
+    notify(elever.length < klasse(s).elever.length
       ? t('Trenger minst 2 elever som er her i dag ({antall} her)', { antall: elever.length })
       : t('Trenger minst 2 elever'), 'warning');
     return;
@@ -3953,20 +4233,20 @@ function renderGrupper() {
 // Å laste eller lagre en liste kopierer elevene; lista og siden endres hver for seg
 // etterpå. Id-ene følger med, så backlogs og par finner eleven igjen. «Hold fra
 // hverandre»-parene bor i lista (state.liste_begrensninger), og siden husker lista
-// den kom fra (s.liste). Se «Gruppebegrensning».
+// den kom fra (klasse(s).liste). Se «Gruppebegrensning».
 
 // Lagrer aktiv sides elevliste som en navngitt liste, og kobler siden til den.
 // Parene siden bruker nå, blir med inn i lista og slås sammen med listas egne.
 function lagreListe(navn) {
   const s = aktivSide();
-  if (!s.elever.length) { notify(t('Ingen elever inne å lagre'), 'warning'); return false; }
+  if (!klasse(s).elever.length) { notify(t('Ingen elever inne å lagre'), 'warning'); return false; }
   navn = navn.slice(0, 60);
   if (FARLIGE_NØKLER.has(navn)) { notify(t('Det navnet kan ikke brukes'), 'warning'); return false; }
   const erNy = !Object.hasOwn(state.lister, navn);
-  const ider = new Set(s.elever.map(e => e.id));
+  const ider = new Set(klasse(s).elever.map(e => e.id));
   // Listas gamle par peker på listas gamle id-er. Samme elev kan ha en annen id på
   // siden, så de oversettes via navnet før de slås sammen.
-  const fraNavn = new Map(s.elever.map(e => [e.navn.toLowerCase(), e.id]));
+  const fraNavn = new Map(klasse(s).elever.map(e => [e.navn.toLowerCase(), e.id]));
   const gammelId = new Map((state.lister[navn] ?? []).map(e => [e.id, fraNavn.get(e.navn.toLowerCase())]));
   const gamlePar = (state.liste_begrensninger[navn] ?? []).map(par => par.map(id => gammelId.get(id)));
   const innenfor = par => par.filter(p => p.every(id => ider.has(id)));
@@ -3974,17 +4254,17 @@ function lagreListe(navn) {
   // Trekkene siden bruker nå (sine egne eller lista den kom fra), blir listas trekk.
   // Lagres siden over en annen liste, erstattes den listas trekk, akkurat som elevene.
   const nyeTrekk = kopierTrekk(trekk(s), id => ider.has(id));
-  state.lister[navn] = s.elever.map(e => ({ ...e })); // kopi: lista og siden endres hver for seg
+  state.lister[navn] = klasse(s).elever.map(e => ({ ...e })); // kopi: lista og siden endres hver for seg
   state.liste_begrensninger[navn] = nyePar;
   state.liste_trekk[navn] = nyeTrekk;
   if (erNy) state.liste_oppsett.push(navn); // nye lister havner nederst i menyen
-  s.liste = navn;
-  s.gruppe_begrensninger = [];
+  klasse(s).liste = navn;
+  klasse(s).gruppe_begrensninger = [];
   tømSidensTrekk(s);
   saveState();
   beOmVarigLagring();
-  notify((erNy ? t("📋 '{navn}' lagret ({antall} elever)", { navn, antall: s.elever.length })
-        : t("📋 '{navn}' oppdatert ({antall} elever)", { navn, antall: s.elever.length })));
+  notify((erNy ? t("📋 '{navn}' lagret ({antall} elever)", { navn, antall: klasse(s).elever.length })
+        : t("📋 '{navn}' oppdatert ({antall} elever)", { navn, antall: klasse(s).elever.length })));
   return true;
 }
 
@@ -4003,7 +4283,7 @@ function lastListe(navn) {
   const nye = elever.map(e => ({ ...e })); // kopi av den globale lista
   const fraNavn = new Map(nye.map(e => [e.navn.toLowerCase(), e.id]));
   const kart = new Map();
-  for (const e of s.elever) {
+  for (const e of klasse(s).elever) {
     const nyId = fraNavn.get(e.navn.toLowerCase());
     if (nyId && nyId !== e.id) kart.set(e.id, nyId);
   }
@@ -4020,18 +4300,18 @@ function lastListe(navn) {
   byttElevIder(s, kart);
   // Trekkene røres ikke her: de gamle hører til den forrige lista (eller er tatt med
   // over), og en delt liste skal ikke miste elever fordi en side bytter liste.
-  fjernElevReferanser(s, new Set(s.elever.map(e => kart.get(e.id) ?? e.id).filter(id => !nyeIder.has(id))),
+  fjernElevReferanser(s, new Set(klasse(s).elever.map(e => kart.get(e.id) ?? e.id).filter(id => !nyeIder.has(id))),
     { medTrekk: false });
   // Sidens egne par (fra før parene hørte til lista) flyttes inn i lista, så de ikke
   // forsvinner. fjernElevReferanser har allerede tatt bort par med elever som ikke
   // står i lista.
-  state.liste_begrensninger[navn] = slåSammenPar(state.liste_begrensninger[navn] ?? [], s.gruppe_begrensninger ?? []);
-  s.gruppe_begrensninger = [];
+  state.liste_begrensninger[navn] = slåSammenPar(state.liste_begrensninger[navn] ?? [], klasse(s).gruppe_begrensninger ?? []);
+  klasse(s).gruppe_begrensninger = [];
   tømSidensTrekk(s);       // sidens egne trekk er tatt med inn i lista over
-  s.liste   = navn;
-  s.elever  = nye;
+  klasse(s).liste   = navn;
+  klasse(s).elever  = nye;
   s.grupper = null;
-  s.oppmøte = null;        // markeringene hørte til den gamle lista
+  klasse(s).oppmøte = null;        // markeringene hørte til den gamle lista
   saveState();
   renderElever();
   renderAlleTrekk();
@@ -4047,7 +4327,7 @@ function lastListe(navn) {
 function slettListe(navn) {
   const par = state.liste_begrensninger[navn] ?? [];
   const listeTrekk = state.liste_trekk[navn] ?? tomtTrekk();
-  for (const side of state.sider) {
+  for (const side of eiere()) {
     if (side.liste !== navn) continue;
     const ider = new Set(side.elever.map(e => e.id));
     side.gruppe_begrensninger = slåSammenPar(side.gruppe_begrensninger ?? [],
@@ -4085,7 +4365,7 @@ function endreListenavn(gammelt, nytt) {
     x.lister = x.lister.map(nyttNavn);
     return x;
   });
-  for (const side of state.sider) if (side.liste === gammelt) side.liste = nytt;
+  for (const side of eiere()) if (side.liste === gammelt) side.liste = nytt;
   saveState();
   notify(t('✓ Lista heter nå {navn}', { navn: nytt }));
   return true;
@@ -4512,7 +4792,7 @@ function renderListerModal() {
     // og den går tilbake av seg selv etter noen sekunder hvis du ikke trykker igjen.
     toTrykk(rad.querySelector('[data-liste="oppdater"]'), {
       spørsmål: t('Overskriv?'),
-      tittel: () => t('Trykk igjen for å erstatte elevene i {navn} med de {antall} elevene på siden', { navn, antall: aktivSide().elever.length }),
+      tittel: () => t('Trykk igjen for å erstatte elevene i {navn} med de {antall} elevene på siden', { navn, antall: klasse().elever.length }),
       utfør: () => { if (lagreListe(navn)) renderListerModal(); },
     });
     toTrykk(rad.querySelector('[data-liste="slett"]'), {
@@ -5501,7 +5781,17 @@ function renderSiderNav() {
     nav.appendChild(wrap);
     return wrap;
   };
+  // Klasseknappen (v2.56): klassen sidene i raden hører til, med meny for å bytte.
+  const aktivKlasse = aktivSide().klasse ?? null;
+  const kb = document.createElement('button');
+  kb.className = 'side-klasse' + (aktivKlasse ? ' har-klasse' : '');
+  kb.textContent = `${aktivKlasse ? state.klasser[aktivKlasse].navn : t('Uten klasse')} ▾`;
+  kb.title = t('Klasse: sidene i raden deler elever, oppmøte, klassekart og ukeplan');
+  const kwrap = pakk(kb);
+  kb.onclick = e => { e.stopPropagation(); visKlasseMeny(kwrap); };
+
   state.sider.forEach((side, idx) => {
+    if ((side.klasse ?? null) !== aktivKlasse) return; // bare sidene i klassen som vises
     const btn = document.createElement('button');
     const aktiv = idx === state.aktiv_side;
     btn.className = 'side-tab' + (aktiv ? ' aktiv' : '');
@@ -5515,7 +5805,7 @@ function renderSiderNav() {
       x.onclick = e => { e.stopPropagation(); fjernSide(idx); };
       btn.appendChild(x);
     }
-    pakk(btn);
+    pakk(btn).dataset.idx = idx;
   });
   const leggTil = document.createElement('button');
   leggTil.className = 'side-legg-til';
@@ -5550,17 +5840,26 @@ function lagSideMeny(wrap, html, onValg) {
 
 // Menyen på den aktive fanen: nytt navn, eller lagre siden som mal.
 function visSideMeny(idx) {
-  const wrap = document.getElementById('sider-nav')?.children[idx];
+  const wrap = document.getElementById('sider-nav')?.querySelector(`.side-tab-wrap[data-idx="${idx}"]`);
   if (!wrap) return;
+  const side = state.sider[idx];
+  // Flytt til klasse (v2.56): de andre klassene, ut av klassen, eller en ny.
+  const andre = state.klasse_oppsett.filter(id => id !== side.klasse);
+  let flytt = `<div class="kl-dropdown-sep"></div><div class="kl-dropdown-label">${t('Flytt til klasse')}</div>` +
+    andre.map(id => `<div class="kl-dropdown-item" data-valg="flytt" data-id="${id}">📚 ${esc(state.klasser[id].navn)}</div>`).join('');
+  if (side.klasse) flytt += `<div class="kl-dropdown-item" data-valg="flytt" data-id="">${t('Ut av klassen')}</div>`;
+  flytt += `<div class="kl-dropdown-item" data-valg="ny-klasse">➕ ${t('Ny klasse med denne siden')}</div>`;
   lagSideMeny(wrap, `
     <div class="kl-dropdown-item" data-valg="navn">✏️ ${t('Gi nytt navn')}</div>
     <div class="kl-dropdown-item" data-valg="mal">📑 ${t('Lagre som mal')}</div>
-    <div class="kl-dropdown-item" data-valg="del">📤 ${t('Del siden')}</div>`,
-  valg => {
+    <div class="kl-dropdown-item" data-valg="del">📤 ${t('Del siden')}</div>${flytt}`,
+  (valg, el) => {
     lukkSideMenyer();
     if (valg === 'navn') startSideRename(idx);
     if (valg === 'mal') åpneLagreMal();
     if (valg === 'del') eksporterMal(malFraSide(aktivSide(), aktivSide().navn));
+    if (valg === 'flytt') flyttSideTilKlasse(idx, el.dataset.id || null);
+    if (valg === 'ny-klasse') åpneKlasseNavn('ny-med-side', idx);
   });
 }
 
@@ -5602,7 +5901,7 @@ function startSideRename(idx) {
   // Klikkene som inngår i dobbeltklikket har allerede kjørt byttSide() →
   // renderSiderNav(), så den opprinnelige fane-knappen er løsrevet fra DOM.
   // Finn derfor den LEVENDE fanen på nytt før vi bytter den ut med tekstfeltet.
-  const tab = nav && nav.children[idx];
+  const tab = nav?.querySelector(`.side-tab-wrap[data-idx="${idx}"]`);
   if (!tab) return;
   lukkSideMenyer();
   const input = document.createElement('input');
@@ -5651,8 +5950,13 @@ function byttSide(idx) {
 // Oppretter en ny, tom side og bytter til den. Den får egne notat- og bilde-
 // instanser (ellers ville den delt innhold med side 1), og starter med alle widgets
 // skjult — læreren henter fram det hun trenger via ⊞ Widgets.
-function leggTilSide() {
-  const nr = state.sider.length + 1;
+function leggTilSide(klasseId) {
+  // Nummeret teller innenfor klassen (eller blant sidene uten klasse), så den første
+  // siden i en ny klasse heter «Side 1». Hopper over navn som alt er i bruk der.
+  const klasseFor = klasseId !== undefined ? klasseId : (aktivSide().klasse ?? null);
+  const navnIBruk = new Set(klassensSider(klasseFor).map(x => x.side.navn));
+  let nr = navnIBruk.size + 1;
+  while (navnIBruk.has(`Side ${nr}`)) nr++;
   const side = nySide(`Side ${nr}`);
   // Gi den nye siden sin EGEN notat-instans, ellers ville den delt card-notat-1
   // (og dermed innholdet) med side 1. Bildekort lages ikke her: de er opt-in via
@@ -5665,6 +5969,7 @@ function leggTilSide() {
   // Ny side starter tom: alle widgets skjules som default. Læreren henter dem
   // fram igjen via ⊞ Widgets-menyen, og de havner da på første ledige flate.
   side.widget_hidden = side.widget_layout.map(w => w.id);
+  side.klasse = klasseFor; // klassen som vises, eller klassen som nettopp ble laget
   state.sider.push(side);
   // Opprett DOM-elementene for de nye instansene (applyLayout plasserer/skjuler dem ved byttSide)
   const notatEl = lagNotatElement(notatId);
@@ -5686,7 +5991,8 @@ function fjernSide(idx) {
     const type = kortType(w.id);
     if (SMÅKORT[type] && state[SMÅKORT[type].felt][id]) kastSmåkort(type, id);
   }
-  state.sider.splice(idx, 1);
+  const [fjernet] = state.sider.splice(idx, 1);
+  if (fjernet.klasse) slettKlasseHvisTom(fjernet.klasse);
   // byttSide lagrer og re-rendrer alt (layout + per-side data) for den nye aktive siden
   byttSide(Math.min(state.aktiv_side, state.sider.length - 1));
 }
@@ -5734,7 +6040,7 @@ function malFraSide(s, navn) {
     kort,
     størrelser,
     // Rommet i klassekartet (rader, kolonner, ruter som ikke er pulter), ikke hvem som sitter hvor.
-    rom: { rader: s.klassekart.rader, kolonner: s.klassekart.kolonner, av: [...s.klassekart.av] },
+    rom: { rader: klasse(s).klassekart.rader, kolonner: klasse(s).klassekart.kolonner, av: [...klasse(s).klassekart.av] },
   };
 }
 
@@ -5839,7 +6145,8 @@ function nySideFraMal(mal) {
   side.widget_layout = widget_layout;
   side.kort_navn = Object.fromEntries(Object.entries(mal.kort_navn).map(([id, n]) => [bytt(id), n]));
   side.ulv_navn = mal.ulv_navn;
-  side.klassekart = { ...mal.rom, av: [...mal.rom.av], plasser: {} };
+  side.klasse = aktivSide().klasse ?? null; // ny side hører til klassen som vises
+  if (!side.klasse) side.klassekart = { ...mal.rom, av: [...mal.rom.av], plasser: {} }; // i en klasse er rommet klassens
   for (const [id, pst] of Object.entries(mal.størrelser)) if (nyId[id]) state.widget_størrelser[nyId[id]] = pst;
   state.sider.push(side);
   byttSide(state.sider.length - 1);
@@ -5950,6 +6257,14 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.56</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>📚 Klasser:</strong> hver klasse har sitt eget sett med sider. Klikk <strong>Uten klasse ▾</strong> til venstre for fanene og velg <strong>Ny klasse</strong>. Finnes det sider uten klasse, spør dialogen om de skal bli med (forhåndsvalgt) eller om klassen skal starte med en tom side. <strong>+</strong> gir flere sider, tomme eller fra mal. Alle sidene i klassen deler elevliste, oppmøte, klassekart og ukeplan, mens kortene, dagsplanen og gruppeinndelingen er egne per side. Sider du alt har, flytter du inn med <strong>Flytt til klasse</strong> i menyen på sidenavnet</li>
+      <li>Har du ingen klasser, er alt som før</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.55</div>
     <div class="logg-dato">4. november 2026</div>
@@ -6572,6 +6887,12 @@ const BRUKERVEILEDNING_HTML = `
   <p>En <strong>ny side starter helt tom</strong> — ingen kort er synlige ennå. Du henter selv fram akkurat de kortene du vil ha via <strong>⊞ Kort</strong>-menyen, så hver side blir nøyaktig slik du ønsker den.</p>
   <p><strong>Side 1 starter med et lite utvalg</strong> første gang du åpner appen: klokke og tilfeldig elev til venstre, dagsplan og notat i midten, og elevlisten til høyre. Det er med vilje få kort — da får hele siden plass på skjermen med én gang. Ordenselever, klassebamse, terning og grupper ligger klare i <strong>⊞ Kort</strong> og dukker opp på sin faste plass når du krysser dem av.</p>
 
+  <h4>📚 Klasser: flere sider for samme klasse</h4>
+  <p>En klasse har sitt eget sett med sider: «Matte», «Norsk» og «Stasjoner» for <strong>7B</strong>. Klikk <strong>Uten klasse ▾</strong> til venstre for fanene, velg <strong>➕ Ny klasse</strong> og gi klassen et navn. <strong>Har du sider uten klasse, spør dialogen om de skal bli med.</strong> Det er forhåndsvalgt, så sidene du har brukt tid på, ikke blir liggende skjult bak «Uten klasse». Elevlista blir den fra siden du står på, og du får beskjed om elever fra de andre sidene som ikke sto der. Velger du å starte tomt, får klassen én tom side: legg til elever eller hent en liste, og trykk <strong>+</strong> for flere sider, tomme eller fra malene dine. Har du alt en side for klassen, bruker du <strong>Flytt til klasse</strong> eller <strong>Ny klasse med denne siden</strong> i menyen på sidenavnet, så tar siden med seg elevene sine.</p>
+  <p><strong>Klassen eier</strong> elevlista, dagens oppmøte, koblingen til 📋 Lister (og dermed trekkene), klassekartet og ukeplanen. Legger du til en elev eller markerer noen borte på én side, gjelder det på alle sidene i klassen. <strong>Siden eier</strong> kortene og oppsettet, dagsplanen (én plan), gruppeinndelingen, notater og timere, så hvert fag kan ha sitt.</p>
+  <p>Fanene viser bare sidene i klassen du står i. Klasseknappen bytter til en annen klasse eller til sidene uten klasse. Flytter du en side inn i en klasse som alt har elever, er det klassens liste som gjelder, og du får beskjed om hvem på siden som ikke sto der. Flytter du en side ut, eller velger <strong>Løs opp klassen</strong>, får siden sin egen kopi av elevene, så ingenting forsvinner. En klasse uten sider forsvinner av seg selv.</p>
+  <p>Har du ingen klasser, er alt som før: hver side har sin egen elevliste.</p>
+
   <h4>📑 Sidemaler</h4>
   <p>Har du satt opp en side slik du vil ha den, kan du ta vare på oppsettet som en mal: klikk på sidenavnet i fanen og velg <strong>📑 Lagre som mal</strong>. Malen tar med kortene og hvor de står, hvilke som vises, egne kortnavn, klassebamsens navn og innstillingene i kortene (timerens tid, instruksjonstekster, notater, YouTube-lenke). Elever, grupper, dagsplan, trekk og oppmøte blir <strong>ikke</strong> med: malen er bordet, ikke klassen.</p>
   <p>Trykk <strong>+</strong> og velg malen for å lage en ny side fra den. Siden får malens navn og helt egne kort, så det du skriver der, endrer ikke malen. Bildekort kommer tomme, og en teller starter på null. Lagrer du en side med et malnavn som finnes fra før, erstattes malen. <strong>✕</strong> ved en mal i +-menyen sletter den (trykk to ganger). Malene blir med i 📤 backup.</p>
@@ -7054,7 +7375,7 @@ function settOppHendelser() {
   // 🧹 Tøm: to trykk. Er ikke elevene lagret i en liste, sier spørsmålet fra om det.
   // Etterpå åpnes «Legg til elev», så læreren kan skrive inn den nye klassen.
   toTrykk(document.getElementById('btn-tom-elever'), {
-    spørsmål: () => elevlistaErLagret() || !aktivSide().elever.length ? t('Tøm?') : t('Ikke lagret. Tøm?'),
+    spørsmål: () => elevlistaErLagret() || !klasse().elever.length ? t('Tøm?') : t('Ikke lagret. Tøm?'),
     tittel: () => elevlistaErLagret()
       ? t('Trykk igjen for å tømme. Lista {navn} er lagret og røres ikke.', { navn: sidensListe() })
       : t('Trykk igjen for å tømme. Elevene er ikke lagret i en liste og blir borte.'),
@@ -7143,7 +7464,7 @@ function settOppHendelser() {
   document.getElementById('importer-liste-fil').addEventListener('change', e => importerListeFil(e.target));
   document.getElementById('importer-side-fil').addEventListener('change', e => importerSideFil(e.target));
   document.getElementById('btn-lister-lagre').onclick = () => {
-    if (!aktivSide().elever.length) { notify(t('Ingen elever inne å lagre'), 'warning'); return; }
+    if (!klasse().elever.length) { notify(t('Ingen elever inne å lagre'), 'warning'); return; }
     lukkModal();
     document.getElementById('input-liste-navn').value = '';
     åpneModal('modal-lagre-liste');
@@ -7156,6 +7477,11 @@ function settOppHendelser() {
   document.getElementById('btn-lagre-liste-bekreft').onclick = bekreftLagreListe;
   document.getElementById('btn-lagre-liste-avbryt').onclick  = lukkModal;
   inputEnter('input-liste-navn', bekreftLagreListe);
+
+  // Klasse (➕ Ny klasse / ✏️ nytt navn i menyene i toppfeltet)
+  document.getElementById('btn-klasse-navn-bekreft').onclick = bekreftKlasseNavn;
+  document.getElementById('btn-klasse-navn-avbryt').onclick  = lukkModal;
+  inputEnter('input-klasse-navn', bekreftKlasseNavn);
 
   // Sidemal (📑 Lagre som mal i fanemenyen)
   const bekreftLagreMal = () => {
@@ -7392,7 +7718,7 @@ function åpneRedigerBacklog(type) {
 
   const chips = document.getElementById('rediger-backlog-chips');
   chips.innerHTML = '';
-  (s.elever || []).forEach(({ id, navn }) => {
+  (klasse(s).elever || []).forEach(({ id, navn }) => {
     const r = trekk(s);
     const erBrukt = r[backlogKey].includes(id);
     const chip = document.createElement('div');
@@ -7992,21 +8318,21 @@ function fjernYoutubeWidget(instansId) {
 // ===================== Gruppebegrensning =====================
 // «Hold fra hverandre»-par lagres i den lagrede klasselista (state.liste_begrensninger:
 // listenavn → par av elev-id-er), så de følger med når lista eksporteres til en vikar
-// eller en kollega. En side husker lista den kom fra (s.liste), og da gjelder listas
+// eller en kollega. En side husker lista den kom fra (klasse(s).liste), og da gjelder listas
 // par når siden deler inn i grupper.
-// Sider kunne ha egne par før v2.38 (s.gruppe_begrensninger). De virker fortsatt, men
+// Sider kunne ha egne par før v2.38 (klasse(s).gruppe_begrensninger). De virker fortsatt, men
 // det kan ikke legges til nye. De flyttes inn i lista når siden lagres som liste, eller
 // når en liste lastes inn på siden.
 
 // Lista siden er koblet til, hvis den fortsatt finnes. Ellers null.
 function sidensListe(s = aktivSide()) {
-  return s.liste && Object.hasOwn(state.lister, s.liste) ? s.liste : null;
+  return klasse(s).liste && Object.hasOwn(state.lister, klasse(s).liste) ? klasse(s).liste : null;
 }
 
 // Parene som gjelder for Del inn og for nye elever på siden.
 function aktivePar(s = aktivSide()) {
   const liste = sidensListe(s);
-  return liste ? (state.liste_begrensninger[liste] ?? []) : (s.gruppe_begrensninger ?? []);
+  return liste ? (state.liste_begrensninger[liste] ?? []) : (klasse(s).gruppe_begrensninger ?? []);
 }
 
 // Slår sammen lister med par til én, uten like par (A+B er det samme som B+A) og uten
@@ -8031,11 +8357,11 @@ let parDialogListe = null;
 
 // Parene og elevene dialogen jobber med.
 function parIDialog() {
-  if (!parDialogListe) return aktivSide().gruppe_begrensninger ?? [];
+  if (!parDialogListe) return klasse().gruppe_begrensninger ?? [];
   return (state.liste_begrensninger[parDialogListe] ??= []);
 }
 function eleverIDialog() {
-  return parDialogListe ? (state.lister[parDialogListe] ?? []) : aktivSide().elever;
+  return parDialogListe ? (state.lister[parDialogListe] ?? []) : klasse().elever;
 }
 
 // Legger til et par i lista dialogen gjelder. a og b er elev-id-er (verdiene i
@@ -8220,6 +8546,9 @@ async function eksporterData() {
       sider:        state.sider,
       aktiv_side:   state.aktiv_side,
       maler:        state.maler,
+      klasser:      state.klasser,
+      klasse_teller: state.klasse_teller,
+      klasse_oppsett: state.klasse_oppsett,
       widgetinnhold: {
         notater:        state.notater,
         bilder:         bilderEksport,
@@ -8352,6 +8681,9 @@ async function bekreftImport() {
   if (innhold.klasseliste_oppsett !== undefined) ny.liste_oppsett = innhold.klasseliste_oppsett;
   if (Array.isArray(innhold.sider) && innhold.sider.length) ny.sider = innhold.sider;
   if (Array.isArray(innhold.maler)) ny.maler = innhold.maler;
+  if (erObjekt(innhold.klasser)) ny.klasser = innhold.klasser;
+  if (innhold.klasse_teller !== undefined) ny.klasse_teller = innhold.klasse_teller;
+  if (Array.isArray(innhold.klasse_oppsett)) ny.klasse_oppsett = innhold.klasse_oppsett;
   const wi = innhold.widgetinnhold ?? {};
   if (wi.notater        !== undefined) ny.notater = wi.notater;
   if (wi.bilder         !== undefined) ny.bilder = wi.bilder;
