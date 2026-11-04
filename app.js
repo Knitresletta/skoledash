@@ -5224,31 +5224,40 @@ function visSideMeny(idx) {
   if (!wrap) return;
   lagSideMeny(wrap, `
     <div class="kl-dropdown-item" data-valg="navn">✏️ ${t('Gi nytt navn')}</div>
-    <div class="kl-dropdown-item" data-valg="mal">📑 ${t('Lagre som mal')}</div>`,
+    <div class="kl-dropdown-item" data-valg="mal">📑 ${t('Lagre som mal')}</div>
+    <div class="kl-dropdown-item" data-valg="del">📤 ${t('Del siden')}</div>`,
   valg => {
     lukkSideMenyer();
     if (valg === 'navn') startSideRename(idx);
     if (valg === 'mal') åpneLagreMal();
+    if (valg === 'del') eksporterMal(malFraSide(aktivSide(), aktivSide().navn));
   });
 }
 
-// Menyen under «+»: ny tom side øverst, så malene. ✕ på en mal spør «Slett?» først,
-// og sletter ved neste klikk.
+// Menyen under «+»: ny tom side øverst, så malene (📤 deler, ✕ spør «Slett?» først og
+// sletter ved neste klikk), og nederst import av en side en kollega har delt.
 function visNySideMeny(wrap) {
   const maler = state.maler.map((m, i) => `
     <div class="kl-dropdown-item side-meny-mal" data-valg="mal" data-idx="${i}">
       <span class="side-meny-malnavn">📑 ${esc(m.navn)}</span>
-      <span class="side-mal-slett" data-valg="slett" data-idx="${i}" title="${t('Slett malen')}">✕</span>
+      <span class="side-mal-knapper">
+        <span class="side-mal-del" data-valg="del" data-idx="${i}" title="${t('Del malen')}">📤</span>
+        <span class="side-mal-slett" data-valg="slett" data-idx="${i}" title="${t('Slett malen')}">✕</span>
+      </span>
     </div>`).join('');
   const hint = `<div class="side-meny-hint">${t('Lagre en side som mal ved å klikke på navnet i fanen')}</div>`;
   lagSideMeny(wrap, `
     <div class="kl-dropdown-item" data-valg="ny">➕ ${t('Ny tom side')}</div>
     <div class="kl-dropdown-sep"></div>
-    ${state.maler.length ? `<div class="kl-dropdown-label">${t('Fra mal')}</div>${maler}` : hint}`,
+    ${state.maler.length ? `<div class="kl-dropdown-label">${t('Fra mal')}</div>${maler}` : hint}
+    <div class="kl-dropdown-sep"></div>
+    <div class="kl-dropdown-item" data-valg="importer">📥 ${t('Importer side fra fil')}</div>`,
   (valg, el) => {
     const idx = Number(el.dataset.idx);
     if (valg === 'ny') { lukkSideMenyer(); leggTilSide(); }
     else if (valg === 'mal') { lukkSideMenyer(); nySideFraMal(state.maler[idx]); }
+    else if (valg === 'del') { lukkSideMenyer(); eksporterMal(state.maler[idx]); }
+    else if (valg === 'importer') { lukkSideMenyer(); document.getElementById('importer-side-fil').click(); }
     else if (valg === 'slett') {
       if (el.dataset.bekreft) { slettMal(idx); lukkSideMenyer(); visNySideMeny(wrap); }
       else { el.dataset.bekreft = '1'; el.textContent = t('Slett?'); }
@@ -5503,6 +5512,81 @@ function nySideFraMal(mal) {
   notify(t('📑 Ny side fra malen «{navn}»', { navn: mal.navn }));
 }
 
+// --- Deling med en kollega (v2.52) ---
+// En delt side er en mal i en fil: samme konvolutt som liste- og backupfilene, med
+// malen under innhold.maler. Elever, grupper, dagsplan og trekk er aldri med (se
+// malFraSide); bilder heller ikke, de bor i IndexedDB.
+function eksporterMal(mal) {
+  const data = {
+    app: 'klasserom-dashboard',
+    format_versjon: EKSPORT_FORMAT_VERSJON,
+    eksportert: new Date().toISOString(),
+    innhold: { maler: [mal] },
+  };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  const filnavn = mal.navn.replace(/[^\p{L}\p{N} _-]/gu, '').trim().replace(/\s+/g, '-') || 'side';
+  a.download = `skoledash-side-${filnavn}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  notify(t('📤 «{navn}» lastet ned, uten elever', { navn: mal.navn }));
+}
+
+// Et malnavn som ikke finnes fra før: «Mattetime», «Mattetime (2)», «Mattetime (3)».
+function unikMalNavn(navn) {
+  const finnes = n => state.maler.some(m => m.navn === n);
+  if (!finnes(navn)) return navn;
+  for (let i = 2; ; i++) {
+    const kandidat = `${navn.slice(0, 40 - ` (${i})`.length)} (${i})`;
+    if (!finnes(kandidat)) return kandidat;
+  }
+}
+
+// 📥 Importer side fra fil i +-menyen. Tar en delt side (eller en backup: da alle
+// malene i den). Malene vaskes som ved lasting. Én mal blir også en ny side med en
+// gang, så læreren ser resultatet; flere legges bare i +-menyen.
+function importerSideFil(input) {
+  const fil = input.files?.[0];
+  input.value = '';
+  if (!fil) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    let data;
+    try {
+      data = trygtJsonParse(e.target.result);
+    } catch (_) {
+      notify(t('Kunne ikke lese fila — er det en gyldig JSON-fil?'), 'error');
+      return;
+    }
+    if (!data || data.app !== 'klasserom-dashboard' || !data.innhold) {
+      notify(t('Dette ser ikke ut som en fil fra Skoledash'), 'error');
+      return;
+    }
+    if (data.format_versjon > EKSPORT_FORMAT_VERSJON) {
+      notify(t('Fila er laget av en nyere versjon av Skoledash. Last siden på nytt og prøv igjen.'), 'error');
+      return;
+    }
+    const funnet = { maler: data.innhold.maler };
+    normaliserMaler(funnet);
+    if (!funnet.maler.length) { notify(t('Fant ingen side i fila'), 'warning'); return; }
+    for (const mal of funnet.maler) {
+      mal.navn = unikMalNavn(mal.navn);
+      state.maler.push(mal);
+    }
+    saveState();
+    if (funnet.maler.length === 1) {
+      nySideFraMal(funnet.maler[0]);
+      notify(t('📥 «{navn}» ligger nå i +-menyen som mal', { navn: funnet.maler[0].navn }));
+    } else {
+      notify(t('📥 {antall} maler lagt i +-menyen', { antall: funnet.maler.length }));
+    }
+  };
+  reader.readAsText(fil);
+}
+
 // ===================== Reset =====================
 // Hver nullstill*-funksjon tømmer ett enkelt trekk/widget på aktiv side: tøm
 // valgt + backlog, lagre, tegn på nytt og varsle. Brukes fra knappene på kortene.
@@ -5521,10 +5605,6 @@ const OPPDATERINGSLOGG_HTML = `
   <details class="logg-roadmap">
     <summary>🗺️ Hva kommer? Se planen videre</summary>
     <p>Dette er ideer, ikke løfter. Rekkefølgen kan endre seg. Savner du noe? Si fra via <strong>💬 Tilbakemelding</strong>.</p>
-    <strong>Neste</strong>
-    <ul>
-      <li>📤 <strong>Deling av en side</strong> med en kollega, uten elevnavn</li>
-    </ul>
     <strong>Senere</strong>
     <ul>
       <li>🔊 Lydnivåmåler med rekord og mål for klassen</li>
@@ -5537,6 +5617,14 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.52</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>📤 Del en side med en kollega:</strong> klikk på sidenavnet og velg <strong>Del siden</strong>, så lastes oppsettet ned som en fil, uten elever. Kollegaen velger <strong>📥 Importer side fra fil</strong> nederst i +-menyen og får siden som mal og som ny side med en gang</li>
+      <li>📤 ved en mal i +-menyen deler malen på samme måte</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.51</div>
     <div class="logg-dato">4. november 2026</div>
@@ -6134,6 +6222,10 @@ const BRUKERVEILEDNING_HTML = `
   <p>Har du satt opp en side slik du vil ha den, kan du ta vare på oppsettet som en mal: klikk på sidenavnet i fanen og velg <strong>📑 Lagre som mal</strong>. Malen tar med kortene og hvor de står, hvilke som vises, egne kortnavn, klassebamsens navn og innstillingene i kortene (timerens tid, instruksjonstekster, notater, YouTube-lenke). Elever, grupper, dagsplan, trekk og oppmøte blir <strong>ikke</strong> med: malen er bordet, ikke klassen.</p>
   <p>Trykk <strong>+</strong> og velg malen for å lage en ny side fra den. Siden får malens navn og helt egne kort, så det du skriver der, endrer ikke malen. Bildekort kommer tomme, og en teller starter på null. Lagrer du en side med et malnavn som finnes fra før, erstattes malen. <strong>✕</strong> ved en mal i +-menyen sletter den (trykk to ganger). Malene blir med i 📤 backup.</p>
 
+  <h4>📤 Del en side med en kollega</h4>
+  <p>Klikk på sidenavnet og velg <strong>📤 Del siden</strong>. Da lastes en fil ned med det samme som en mal har: kortene, oppsettet og innstillingene, men <strong>ingen elever</strong>, grupper, dagsplan, trekk eller bilder. Send fila til kollegaen (e-post, Teams, minnepinne). <strong>📤</strong> ved en mal i +-menyen deler malen på samme måte.</p>
+  <p>Kollegaen trykker <strong>+</strong>, velger <strong>📥 Importer side fra fil</strong> og peker på fila. Siden kommer inn som en mal i +-menyen, og som en ny side med en gang. Finnes navnet fra før, får den nye malen et tall bak navnet.</p>
+
   <h4>Kom i gang</h4>
   <p>Trykk <strong>+ Legg til elev</strong> (eller tasten <kbd>a</kbd>) for å legge inn elevene i klassen din. Du kan ha opptil 35 elever inne samtidig.</p>
   <p><strong>Rette et navn:</strong> klikk rett på elevnavnet i lista — det blir til et lite skrivefelt. Rett opp og trykk <kbd>Enter</kbd> for å lagre, eller <kbd>Esc</kbd> for å avbryte. Endrer du navnet, oppdateres det automatisk overalt eleven er brukt — i grupper, trekk-backlogs og gruppebegrensninger. (Vil du fjerne eleven i stedet, bruk <strong>✕</strong> til høyre.)</p>
@@ -6684,6 +6776,7 @@ function settOppHendelser() {
   document.getElementById('btn-lister-lukk').onclick = lukkModal;
   document.getElementById('btn-lister-importer').onclick = () => document.getElementById('importer-liste-fil').click();
   document.getElementById('importer-liste-fil').addEventListener('change', e => importerListeFil(e.target));
+  document.getElementById('importer-side-fil').addEventListener('change', e => importerSideFil(e.target));
   document.getElementById('btn-lister-lagre').onclick = () => {
     if (!aktivSide().elever.length) { notify(t('Ingen elever inne å lagre'), 'warning'); return; }
     lukkModal();

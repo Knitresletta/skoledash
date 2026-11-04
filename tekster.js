@@ -59,6 +59,14 @@ const NYNORSK = {
   'Malen tar med oppsettet av kortene og innstillingene i dem, men ikke elever, grupper, dagsplan eller trekk.':
     'Malen tek med oppsettet av korta og innstillingane i dei, men ikkje elevar, grupper, dagsplan eller trekk.',
   'f.eks. Mattetime, Stasjoner…': 't.d. Mattetime, Stasjonar…',
+  // Deling av side (v2.52)
+  'Del siden': 'Del sida',
+  'Importer side fra fil': 'Importer side frå fil',
+  '📤 «{navn}» lastet ned, uten elever': '📤 «{navn}» lasta ned, utan elevar',
+  'Dette ser ikke ut som en fil fra Skoledash': 'Dette ser ikkje ut som ei fil frå Skoledash',
+  'Fant ingen side i fila': 'Fann inga side i fila',
+  '📥 «{navn}» ligger nå i +-menyen som mal': '📥 «{navn}» ligg no i +-menyen som mal',
+  '📥 {antall} maler lagt i +-menyen': '📥 {antall} malar lagde i +-menyen',
   'Dra for å endre rekkefølge': 'Dra for å endre rekkjefølgja',
 
   // Temaer
@@ -328,10 +336,6 @@ const ROADMAP_KORT_NN = `
   <details class="logg-roadmap">
     <summary>🗺️ Kva kjem? Sjå planen vidare</summary>
     <p>Dette er idear, ikkje lovnader. Rekkjefølgja kan endre seg. Saknar du noko? Sei frå via <strong>💬 Tilbakemelding</strong>.</p>
-    <strong>Neste</strong>
-    <ul>
-      <li>📤 <strong>Deling av ei side</strong> med ein kollega, utan elevnamn</li>
-    </ul>
     <strong>Seinare</strong>
     <ul>
       <li>🔊 Lydnivåmålar med rekord og mål for klassen</li>
@@ -365,6 +369,10 @@ const BRUKERVEILEDNING_NN = `
   <h4>📑 Sidemalar</h4>
   <p>Har du sett opp ei side slik du vil ha ho, kan du ta vare på oppsettet som ein mal: klikk på sidenamnet i fana og vel <strong>📑 Lagre som mal</strong>. Malen tek med korta og kvar dei står, kva som blir vist, eigne kortnamn, namnet på klassebamsen og innstillingane i korta (tida på timeren, instruksjonstekstar, notat, YouTube-lenkje). Elevar, grupper, dagsplan, trekk og oppmøte blir <strong>ikkje</strong> med: malen er bordet, ikkje klassen.</p>
   <p>Trykk <strong>+</strong> og vel malen for å lage ei ny side frå han. Sida får namnet til malen og heilt eigne kort, så det du skriv der, endrar ikkje malen. Biletkort kjem tomme, og ein teljar startar på null. Lagrar du ei side med eit malnamn som finst frå før, blir malen bytt ut. <strong>✕</strong> ved ein mal i +-menyen slettar han (trykk to gonger). Malane blir med i 📤 backup.</p>
+
+  <h4>📤 Del ei side med ein kollega</h4>
+  <p>Klikk på sidenamnet og vel <strong>📤 Del sida</strong>. Då blir ei fil lasta ned med det same som ein mal har: korta, oppsettet og innstillingane, men <strong>ingen elevar</strong>, grupper, dagsplan, trekk eller bilete. Send fila til kollegaen (e-post, Teams, minnepinne). <strong>📤</strong> ved ein mal i +-menyen deler malen på same måte.</p>
+  <p>Kollegaen trykkjer <strong>+</strong>, vel <strong>📥 Importer side frå fil</strong> og peikar på fila. Sida kjem inn som ein mal i +-menyen, og som ei ny side med ein gong. Finst namnet frå før, får den nye malen eit tal bak namnet.</p>
 
   <h4>Kom i gang</h4>
   <p>Trykk <strong>+ Legg til elev</strong> (eller tasten <kbd>a</kbd>) for å leggje inn elevane i klassen din. Du kan ha opptil 35 elevar inne samtidig.</p>

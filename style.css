@@ -533,12 +533,21 @@ header h1 {
     text-overflow: ellipsis;
     max-width: 240px;
 }
+.side-mal-knapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+.side-mal-del,
 .side-mal-slett {
     font-size: 0.7rem;
     opacity: 0.55;
     padding: 2px 5px;
     border-radius: 4px;
     white-space: nowrap;
+}
+.side-mal-del:hover {
+    opacity: 1;
 }
 .side-mal-slett:hover {
     opacity: 1;
