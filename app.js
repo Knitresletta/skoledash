@@ -483,6 +483,13 @@ function tomtTrekk() {
     ordenselev_antall: 2, tilfeldig_flere: {} };
 }
 
+// Hvor mange av id-ene som står på siden. Tellerne i trekkekortene bruker denne, så en
+// elev som er tatt ut av siden, men fortsatt står i lista, ikke telles med.
+function påSiden(s, ider) {
+  const her = new Set(s.elever.map(e => e.id));
+  return ider.filter(id => her.has(id)).length;
+}
+
 // Trekkene som gjelder for siden: listas hvis siden er koblet til en liste, ellers
 // sidens egne.
 function trekk(s = aktivSide()) {
@@ -703,7 +710,7 @@ function normaliserState(s) {
     .map(x => (erObjekt(x) ? { gruppe: x.gruppe, lister: x.lister, åpen: x.åpen } : x)), lister);
   // Sidens kobling til en liste gjelder bare hvis lista finnes.
   for (const side of s.sider) {
-    side.liste = typeof side.liste === 'string' && lister[side.liste] ? side.liste : null;
+    side.liste = typeof side.liste === 'string' && Object.hasOwn(lister, side.liste) ? side.liste : null;
   }
 
   // --- Flerinstans-widgets. Bare gyldige ID-er overlever ---
@@ -761,6 +768,10 @@ function normaliserState(s) {
       if (/^timer-\d{1,6}$/.test(id) && !timere[id]) timere[id] = { varighet: 300, modus: 'ned', visning: 'bjelke' };
     }
   }
+  // Timere som ikke står på noen side (en side ble slettet før v2.49), slettes: de kunne
+  // ellers tikke videre uten kort.
+  const brukteKort = new Set(s.sider.flatMap(side => side.widget_layout.map(w => w.id)));
+  for (const id of Object.keys(timere)) if (!brukteKort.has(`card-${id}`)) delete timere[id];
   s.timere = timere;
   s.timer_teller = Math.max(heltall(s.timer_teller, 0, 999999, 0), størsteId(s.timere));
   const tilfeldige = {};
@@ -771,6 +782,7 @@ function normaliserState(s) {
       if (/^tilfeldig-\d{1,6}$/.test(id)) tilfeldige[id] = {};
     }
   }
+  for (const id of Object.keys(tilfeldige)) if (!brukteKort.has(`card-${id}`)) delete tilfeldige[id];
   s.tilfeldige = tilfeldige;
   s.tilfeldig_teller = Math.max(heltall(s.tilfeldig_teller, 0, 999999, 0), størsteId(s.tilfeldige));
   s.bilde_teller   = Math.max(heltall(s.bilde_teller, 0, 999999, 0), størsteId(s.bilder));
@@ -975,15 +987,24 @@ let lagringFeilet = false;
 let sidenLukkes = false;
 window.addEventListener('pagehide', () => { sidenLukkes = true; });
 window.addEventListener('pageshow', e => { if (e.persisted) sidenLukkes = false; });
+// En skjult fane (annen fane framme, eller vinduet minimert) har ingen lærer som gjør
+// noe; det eneste den kan ha å lagre, er layoutstøy fra observatørene. Skrev den, kunne
+// den synlige fanen sett det som en endring og sperret seg selv. Derfor venter den med
+// å lagre til den blir synlig igjen.
+let lagringVenter = false;
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && lagringVenter) { lagringVenter = false; if (!lagringSperre) saveState(); }
+});
 function saveState() {
   if (sletterAlt || sidenLukkes) return;
   if (lagringSperre) { varsleLagringSperre(); return; }
+  if (document.hidden) { lagringVenter = true; oppdaterEksportVarsel(); return; }
   try {
     // Har noen andre skrevet siden sist, er denne fanen utdatert. «storage»-hendelsen
     // ville sagt det samme, men den kommer først når nettleseren kommer til den, og en
     // lagring som lå i kø (høydejustering, skalering) kunne rukket å skrive over først.
     const nå = localStorage.getItem(STORAGE_KEY);
-    if (sistLagretTekst !== null && nå !== null && nå !== sistLagretTekst) {
+    if (sistLagretTekst !== null && nå !== sistLagretTekst) {
       lagringSperre = 'annen-fane';
       varsleLagringSperre();
       return;
@@ -1781,7 +1802,22 @@ function fjernElev(idx) {
 function fjernEleverBatch(fjernSett) {
   const s = aktivSide();
   s.elever = s.elever.filter(e => !fjernSett.has(e.id));
-  fjernElevReferanser(s, fjernSett);
+  // Er siden koblet til en liste, deler den trekkene med andre sider som bruker lista.
+  // Elever som fortsatt står i lista, beholder turen sin der (en side kan være en
+  // mindre gruppe av klassen). Trekkene ryddes når lista selv oppdateres (🔄) eller
+  // eleven tas ut av den. Elever som ikke står i lista, ryddes med en gang.
+  const liste = sidensListe(s);
+  if (liste) {
+    const iLista = new Set(state.lister[liste].map(e => e.id));
+    fjernElevReferanser(s, fjernSett, { medTrekk: false });
+    const utenfor = new Set([...fjernSett].filter(id => !iLista.has(id)));
+    if (utenfor.size) {
+      const r = trekk(s);
+      Object.assign(r, kopierTrekk(r, id => !utenfor.has(id)));
+    }
+  } else {
+    fjernElevReferanser(s, fjernSett);
+  }
   saveState();
   renderElever();
   renderAlleTrekk();
@@ -2050,11 +2086,13 @@ function tilfeldigTilstand(r, kort) {
 }
 
 // Kortet r og R gjelder: Tilfeldig elev-kortet musa er over, ellers det første.
+// Kortet r og R gjelder: Tilfeldig elev-kortet musa er over, ellers det første synlige
+// på siden. Er ingen synlige, null (hurtigtasten sier fra).
 function aktivtTilfeldigKort() {
   const side = aktivSide();
   const synlig = id => side.widget_layout.some(w => w.id === id) && !(side.widget_hidden ?? []).includes(id);
   if (sistPekerKort && kortType(sistPekerKort) === 'tilfeldig' && synlig(sistPekerKort)) return sistPekerKort;
-  return 'card-tilfeldig';
+  return ['card-tilfeldig', ...side.widget_layout.map(w => w.id)].find(id => kortType(id) === 'tilfeldig' && synlig(id)) ?? null;
 }
 
 function trekkTilfeldig(kort = 'card-tilfeldig') {
@@ -2213,6 +2251,9 @@ function renderTilfeldig(kort = 'card-tilfeldig') {
   const card = document.getElementById(kort);
   if (!card) return;
   const s = aktivSide();
+  // Kopier på andre sider tegnes ikke mot denne sidens liste (det ville sådd tomme
+  // felt i listas trekk for kort som ikke hører hjemme der).
+  if (kort !== 'card-tilfeldig' && !s.widget_layout.some(w => w.id === kort)) return;
   const x = tilfeldigTilstand(trekk(s), kort);
   const vis = card.querySelector('.tilfeldig-vis');
   const bl  = card.querySelector('.tilfeldig-backlog-count');
@@ -2226,7 +2267,7 @@ function renderTilfeldig(kort = 'card-tilfeldig') {
   }
   if (x.backlog.length) {
     bl.className    = 'tilfeldig-backlog-count backlog-count';
-    bl.textContent  = t('{antall} trukket (backlog)', { antall: x.backlog.length });
+    bl.textContent  = t('{antall} trukket (backlog)', { antall: påSiden(s, x.backlog) });
   } else {
     bl.className    = 'tilfeldig-backlog-count backlog-count hidden';
   }
@@ -2284,8 +2325,8 @@ function leggTilTilfeldig() {
   saveState();
 }
 
-// ✕ på en kopi: kortet og trekkene dets forsvinner (fra alle lister og sider).
-function fjernTilfeldig(id) {
+// Sletter en kopi med trekkene dens (fra alle lister og sider), uten å tegne på nytt.
+function kastTilfeldig(id) {
   const kort = `card-${id}`;
   for (const s of state.sider) {
     s.widget_layout = s.widget_layout.filter(w => w.id !== kort);
@@ -2297,6 +2338,11 @@ function fjernTilfeldig(id) {
   delete state.tilfeldige[id];
   if (fokusKort === kort) lukkFokus();
   fjernKortEl(kort);
+}
+
+// ✕ på en kopi: kortet og trekkene dets forsvinner.
+function fjernTilfeldig(id) {
+  kastTilfeldig(id);
   applyLayout();
   renderWidgetMeny();
   saveState();
@@ -2326,7 +2372,7 @@ function renderOrdenselev() {
   }
   if (r.ordenselev_backlog.length) {
     bl.className   = 'backlog-count';
-    bl.textContent = t('{antall} i backlog', { antall: r.ordenselev_backlog.length });
+    bl.textContent = t('{antall} i backlog', { antall: påSiden(s, r.ordenselev_backlog) });
   } else {
     bl.className   = 'backlog-count hidden';
   }
@@ -2351,7 +2397,7 @@ function renderUlv() {
   }
   if (r.ulv_backlog.length) {
     bl.className   = 'backlog-count';
-    bl.textContent = t('{antall} i backlog', { antall: r.ulv_backlog.length });
+    bl.textContent = t('{antall} i backlog', { antall: påSiden(s, r.ulv_backlog) });
   } else {
     bl.className   = 'backlog-count hidden';
   }
@@ -2781,8 +2827,8 @@ function leggTilTimer() {
   return id;
 }
 
-// ✕ på et timerkort: timeren stoppes og fjernes fra siden og lagringen.
-function fjernTimer(id) {
+// Stopper og sletter en timer, uten å tegne på nytt. Brukes av ✕ og av fjernSide.
+function kastTimer(id) {
   const cardId = `card-${id}`;
   for (const s of state.sider) {
     s.widget_layout = s.widget_layout.filter(w => w.id !== cardId);
@@ -2795,6 +2841,11 @@ function fjernTimer(id) {
   fjernKortEl(cardId);
   oppdaterTimerIntervall();
   lagreTimerØkt();
+}
+
+// ✕ på et timerkort: timeren stoppes og fjernes fra siden og lagringen.
+function fjernTimer(id) {
+  kastTimer(id);
   applyLayout();
   renderWidgetMeny();
   saveState();
@@ -3278,7 +3329,8 @@ function lagreListe(navn) {
   const s = aktivSide();
   if (!s.elever.length) { notify(t('Ingen elever inne å lagre'), 'warning'); return false; }
   navn = navn.slice(0, 60);
-  const erNy = !state.lister[navn];
+  if (FARLIGE_NØKLER.has(navn)) { notify(t('Det navnet kan ikke brukes'), 'warning'); return false; }
+  const erNy = !Object.hasOwn(state.lister, navn);
   const ider = new Set(s.elever.map(e => e.id));
   // Listas gamle par peker på listas gamle id-er. Samme elev kan ha en annen id på
   // siden, så de oversettes via navnet før de slås sammen.
@@ -4904,6 +4956,13 @@ function leggTilSide() {
 // Etterpå byttes det til en gyldig nabo-side, som re-rendrer alt.
 function fjernSide(idx) {
   if (state.sider.length <= 1) return;
+  // Timere og Tilfeldig elev-kopier hører til siden: de må stoppes og slettes, ellers
+  // tikker en timer videre uten kort og piper når tiden er ute.
+  for (const w of state.sider[idx].widget_layout) {
+    const id = w.id.replace(/^card-/, '');
+    if (kortType(w.id) === 'timer' && state.timere[id]) kastTimer(id);
+    if (kortType(w.id) === 'tilfeldig' && state.tilfeldige[id]) kastTilfeldig(id);
+  }
   state.sider.splice(idx, 1);
   // byttSide lagrer og re-rendrer alt (layout + per-side data) for den nye aktive siden
   byttSide(Math.min(state.aktiv_side, state.sider.length - 1));
@@ -4944,6 +5003,19 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.49</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li>Fikset: slettet du en side med en timer som gikk, fortsatte den å gå uten kort og pep når tiden var ute</li>
+      <li>Fikset: tok du en elev ut av en side som er koblet til en klasseliste, mistet eleven turen sin i trekkene på alle sider med samme liste. Nå beholder lista turen så lenge eleven står i lista. Telleren «i backlog» teller bare elever som står på siden</li>
+      <li>Fikset: med Skoledash i to faner kunne den synlige fanen få varselet «endret i en annen fane» uten at noe var endret. En fane som ikke vises, venter nå med å lagre til den vises igjen</li>
+      <li>Fikset: <kbd>r</kbd> trakk i et skjult Tilfeldig elev-kort uten beskjed. Nå gjelder tasten det første synlige kortet, og sier fra hvis det ikke finnes noe</li>
+      <li>Fikset: <kbd>t</kbd> i fokus på en side uten timer lukket fokus og startet en ny timer i det stille</li>
+      <li>Fikset: «Slett alle data» i én fane kunne bli angret av en annen fane som lagret rett etterpå</li>
+      <li>På tavler uten mus står knappene øverst i kortene (✏️ ⛶ 🔄 🧹) alltid framme</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.48</div>
     <div class="logg-dato">4. november 2026</div>
@@ -5930,15 +6002,11 @@ function applyWidgetStørrelser() {
 function renderWidgetStørrelseMeny() {
   const liste = document.getElementById('widget-str-liste');
   if (!liste) return;
-  const skjult = aktivSide().widget_hidden ?? [];
-  const synlige = Object.keys(WIDGET_NAVN)
-    .filter(id => !skjult.includes(id) && !erSkalerKort(id));
+  // Innstillingen gjelder alle sider, så de tre kortene står alltid her, også når de
+  // er skjult på siden som vises.
+  const synlige = Object.keys(WIDGET_NAVN).filter(id => !erSkalerKort(id));
   // Forklarer hvorfor klokka og de andre ikke står i lista.
-  const skalerHint = `<div class="widget-str-tom">${t('Klokke, timer, trekk, klassebamse og terning blir større når du drar kortet større.')}</div>`;
-  if (!synlige.length) {
-    liste.innerHTML = `<div class="widget-str-tom">${t('Ingen kort på denne siden')}</div>${skalerHint}`;
-    return;
-  }
+  const skalerHint = `<div class="widget-str-tom">${t('Bare kort som vokser med innholdet (elever, grupper, dagsplan) har prosent. De andre blir større når du drar kortet større, og notat har A− og A+ i kortet.')}</div>`;
   liste.innerHTML = synlige.map(id => {
     // Kortet kan ha fått eget navn på siden (✏️).
     const navn = kortNavn(id) || t(WIDGET_NAVN[id]);
@@ -6246,12 +6314,13 @@ function settOppHendelser() {
     // Enkelt-tast → handling. Speiler knappene i grensesnittet.
     const hurtigtaster = {
       a: () => document.getElementById('btn-legg-til').click(),
-      r: () => trekkTilfeldig(aktivtTilfeldigKort()),
-      R: () => trekkTilfeldigBacklog(aktivtTilfeldigKort()),
+      r: () => { const k = aktivtTilfeldigKort(); if (k) trekkTilfeldig(k); else notify(t('Ingen Tilfeldig elev-kort på siden'), 'warning'); },
+      R: () => { const k = aktivtTilfeldigKort(); if (k) trekkTilfeldigBacklog(k); else notify(t('Ingen Tilfeldig elev-kort på siden'), 'warning'); },
       o: () => trekkOrdenselev(),
       u: () => trekkUlv(),
-      t: () => timerToggle(aktivTimer({ lag: true })),
-      s: () => åpneTimerSett(aktivTimer({ lag: true })),
+      // I fokus lages det ingen ny timer (det ville lukket fokus); da sier tasten fra.
+      t: () => { const id = aktivTimer({ lag: !fokusKort }); if (id) timerToggle(id); else notify(t('Ingen timer på siden'), 'warning'); },
+      s: () => { const id = aktivTimer({ lag: !fokusKort }); if (id) åpneTimerSett(id); else notify(t('Ingen timer på siden'), 'warning'); },
       d: () => document.getElementById('btn-dagsplan-legg-til').click(),
       p: () => nesteDagsplanPunkt(),
       P: () => nesteDagsplanPunkt(true),
@@ -6899,7 +6968,7 @@ function fjernYoutubeWidget(instansId) {
 
 // Lista siden er koblet til, hvis den fortsatt finnes. Ellers null.
 function sidensListe(s = aktivSide()) {
-  return s.liste && state.lister[s.liste] ? s.liste : null;
+  return s.liste && Object.hasOwn(state.lister, s.liste) ? s.liste : null;
 }
 
 // Parene som gjelder for Del inn og for nye elever på siden.
@@ -7200,7 +7269,7 @@ function flettInnLister(innhold) {
   for (const [navn, elever] of Object.entries(innkommende)) {
     if (!Array.isArray(elever) || FARLIGE_NØKLER.has(navn)) continue;
     const listenavn = navn.slice(0, 60);
-    if (!state.lister[listenavn]) state.liste_oppsett.push(listenavn); // ny: nederst
+    if (!Object.hasOwn(state.lister, listenavn)) state.liste_oppsett.push(listenavn); // ny: nederst
     state.lister[listenavn] = normaliserElever(elever);
     // Parene følger lista, så en vikar som får lista, får parene også. Bare par
     // mellom elever som faktisk står i lista, slipper inn.

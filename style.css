@@ -811,10 +811,14 @@ header h1 {
     outline: 2px solid var(--primary);
     outline-offset: 1px;
 }
+/* Hjelpeteksten skal bryte, ikke bestemme bredden på menyen. */
 .widget-str-tom {
     padding: 4px 12px 8px;
     font-size: 0.8em;
     color: var(--muted);
+    max-width: 300px;
+    white-space: normal;
+    line-height: 1.35;
 }
 
 textarea[id^="notat-textarea"].kursiv {
@@ -3004,10 +3008,11 @@ textarea[id^="notat-textarea"]:focus {
 /* Egen rad rett over #action-bar. body er flex-kolonne, så align-self sentrerer
    pillen horisontalt; margin gir luft over hurtigtast-baren. .hidden (display:none)
    gjør at raden kollapser helt når det ikke finnes ulagrede endringer. */
+/* Temaets hovedfarge, ikke --amber (brun i noen temaer). */
 #eksport-varsel {
     border: none;
-    background: var(--amber);
-    color: #422006;
+    background: var(--primary);
+    color: var(--on-primary);
     font-size: 0.73rem;
     font-weight: 700;
     padding: 3px 11px;
@@ -3066,6 +3071,21 @@ textarea[id^="notat-textarea"]:focus {
     border-radius: 4px;
     padding: 1px 5px;
     outline: none;
+}
+
+/* Skjermer uten mus (touch-tavler): ingen hover, så knappene øverst i kortene må stå
+   framme hele tiden. Da ligger de i flyten ved siden av tittelen i stedet for oppå. */
+@media (hover: none) {
+    .card-controls,
+    .card:hover .card-controls {
+        opacity: 1;
+    }
+    .card-header .card-controls {
+        position: static;
+        padding-left: 0;
+        background: none;
+        pointer-events: auto;
+    }
 }
 
 /* ===================== Fokusmodus ===================== */
