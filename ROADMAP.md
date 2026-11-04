@@ -31,7 +31,7 @@ Gruppert så det som hører til samme kort eller samme mekanisme, bygges sammen.
 | Lydnivåmåler | Mikrofonen viser hvor høyt det er i rommet | Middels | Skal være sjarmerende, med gjennomsnitt, rekord og et mål klassen kan nå. Lyden behandles lokalt |
 | «Øyne hit»-signal | Stor beskjed over hele skjermen med en mild lyd | Lett | Læreren skriver meldingen selv |
 | Skjermteppe | Dekk til deler av skjermen og avdekk litt etter litt | Middels | |
-| Klassekart | Pultene i rommet med elevnavn, flytt eller trekk ny plassering | Stor | Eget kort (avgjort 4. november 2026, se under): rutenett av pulter, fokusmodus fyller skjermen. Kan bruke begrensningene fra Grupper |
+| Klassekart | Pultene i rommet med elevnavn, flytt eller trekk ny plassering | Stor | Ferdig i v2.54 (4. november 2026) som eget kort: rutenett av pulter, klikk-klikk-flytting, trekk med «hold fra hverandre»-par, fokusmodus fyller skjermen |
 | Ukeplan | Én dagsplan per ukedag, viser dagens når appen åpnes | Middels | Ferdig i v2.53 (4. november 2026), som 🗓-bryter i Dagsplan-kortet. Bytter aldri plan midt i en dag |
 | Lykkehjul | Tilfeldig elev som et hjul som snurrer | Middels | Bryter i Tilfeldig elev-kortet: «Enkel» (som i dag) eller «Hjul» |
 | Poengtavle | Poeng per gruppe eller lag | Lett | Vanlig widget + fokusmodus. Kan hente gruppene fra Grupper |

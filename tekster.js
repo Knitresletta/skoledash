@@ -247,6 +247,19 @@ const NYNORSK = {
 
   // ---------- Dagsplan og notat ----------
   'Legg til punkt i dagsplan': 'Legg til punkt i dagsplanen',
+  // Klassekart (v2.54)
+  '🎲 Trekk plasser': '🎲 Trekk plassar',
+  'Trekk nye plasser til alle': 'Trekk nye plassar til alle',
+  'Endre rommet: rader, kolonner og hvilke ruter som er pulter': 'Endre rommet: rader, kolonnar og kva ruter som er pultar',
+  'Kolonner': 'Kolonnar',
+  'Klikk på en rute for å slå pulten av eller på': 'Klikk på ei rute for å slå pulten av eller på',
+  'Uten plass': 'Utan plass',
+  'Ingen elever på siden': 'Ingen elevar på sida',
+  'Klikk på en pult for å sette {navn} der': 'Klikk på ein pult for å setje {navn} der',
+  'Ingen elever å plassere': 'Ingen elevar å plassere',
+  'For få pulter: {pulter} pulter til {elever} elever': 'For få pultar: {pulter} pultar til {elever} elevar',
+  'Klarte ikke å plassere uten at par sitter ved siden av hverandre. Prøv igjen, eller gi rommet flere pulter':
+    'Klarte ikkje å plassere utan at par sit ved sida av kvarandre. Prøv igjen, eller gi rommet fleire pultar',
   // Ukeplan (v2.53)
   'Ukeplan: én plan per ukedag': 'Vekeplan: éin plan per vekedag',
   'Ukeplan er på: én plan per ukedag. Klikk for én plan': 'Vekeplan er på: éin plan per vekedag. Klikk for éin plan',
@@ -347,7 +360,6 @@ const ROADMAP_KORT_NN = `
     <ul>
       <li>🔊 Lydnivåmålar med rekord og mål for klassen</li>
       <li>👀 «Auge hit»-melding over heile skjermen, med din eigen tekst</li>
-      <li>🪑 Klassekart</li>
       <li>🎡 Lykkehjul som val i Tilfeldig elev</li>
       <li>🃏 Kortbunke med framside og bakside</li>
       <li>🏆 Poengtavle, 🙂 exit-avstemming og rask handsopprekning</li>
@@ -422,6 +434,11 @@ const BRUKERVEILEDNING_NN = `
   <h4>Grupper</h4>
   <p>Trykk <strong>🎲 Del inn</strong> i Grupper-kortet (eller tasten <kbd>g</kbd>). Skriv inn kor mange grupper du vil ha, og elevane blir fordelte tilfeldig. Gruppefargane blir òg viste i elevlista. Trykk <strong>✕</strong> for å fjerne gruppeinndelinga.</p>
   <p><strong>Ny elev når gruppene er laga:</strong> eleven hamnar i den minste gruppa, og dei andre blir verande der dei er. Er fleire grupper like små, blir ei av dei vald tilfeldig. Gruppeavgrensingar blir følgde: passar eleven ikkje i nokon gruppe utan å bryte ei, står eleven utanfor til du deler inn på nytt.</p>
+
+  <h4>🪑 Klassekart</h4>
+  <p>Hent fram <strong>Klassekart</strong> under <strong>⊞ Kort</strong>. Kortet viser rommet som eit rutenett av pultar, med tavla øvst. Trykk <strong>🛠</strong> for å gjere rommet likt ditt: + og − endrar rader og kolonnar, og eit klikk på ei rute slår pulten av eller på (døra, kateteret, ein tom plass). Trykk 🛠 ein gong til når du er ferdig.</p>
+  <p><strong>Setje elevar på plass:</strong> klikk på ein elev (på ein pult, eller i lista <strong>Utan plass</strong> under rommet), og så på pulten eleven skal ha. Klikkar du på ein pult der nokon alt sit, byter dei to plass. <strong>Ta av pulten</strong> set den valde eleven tilbake i lista. <strong>🎲 Trekk plassar</strong> gir alle ein tilfeldig pult, og «hald frå kvarandre»-para frå klasselista får ikkje sitje vegg i vegg, verken ved sida av eller framfor og bak kvarandre.</p>
+  <p>Pultane viser gruppefargane når klassen er delt inn, og elevar som er merkte borte i dag, blir viste nedtona. Trykk <strong>⛶</strong> eller <kbd>f</kbd> for å fylle heile skjermen med rommet. Rommet (rader, kolonnar og kva ruter som er pultar) blir med i malar og når du deler sida, men ikkje kven som sit kvar.</p>
 
   <h4>⛔ Gruppeavgrensing</h4>
   <p>Klikk <strong>⛔</strong> ved ei liste i <strong>📋 Klasselister</strong>, eller <strong>⛔ Par</strong> i hjørnet av Grupper-kortet. Vel to elevar i nedtrekkslistene og klikk <strong>Legg til</strong>. Paret hamnar aldri i same gruppe. Du kan leggje til så mange par du vil. Fjern eit par ved å klikke <strong>✕</strong> ved sida av det.</p>

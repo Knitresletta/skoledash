@@ -345,6 +345,21 @@
     </div>
   </div>
 
+  <!-- Card: Klassekart (v2.54). Rommet og lista under fylles av renderKlassekart(). -->
+  <div class="card" id="card-klassekart">
+    <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-klassekart" title="Fjern fra siden">✕</button>
+    <div class="card-header">
+      <span class="drag-handle" title="Dra for å flytte">⠿</span>
+      <h2>Klassekart</h2>
+      <div class="card-controls">
+        <button class="btn btn-ghost btn-sm" id="btn-klassekart-trekk" title="Trekk nye plasser til alle">🎲 Trekk plasser</button>
+        <button class="btn btn-ghost btn-sm btn-icon" id="btn-klassekart-rom" title="Endre rommet: rader, kolonner og hvilke ruter som er pulter">🛠</button>
+      </div>
+    </div>
+    <div id="klassekart-rom" class="klassekart-rom"></div>
+    <div id="klassekart-bunn" class="klassekart-bunn hidden"></div>
+  </div>
+
 </main>
 
 <!-- Vises kun når det finnes ulagrede endringer siden siste eksport (oppdaterEksportVarsel).

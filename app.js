@@ -73,6 +73,7 @@ const WIDGET_NAVN = {
   'card-terning':    'Terning',
   'card-arbeid':     'Arbeidssymboler',
   'card-trafikklys': 'Trafikklys',
+  'card-klassekart': 'Klassekart',
 };
 // ⏱️ har variasjonstegnet U+FE0F med vilje: uten det tegner flere nettlesere symbolet
 // som smal tekst i stedet for som emoji.
@@ -87,6 +88,7 @@ const WIDGET_IKON = {
   'card-terning':    '🎲',
   'card-arbeid':     '🤫',
   'card-trafikklys': '🚦',
+  'card-klassekart': '🪑',
 };
 
 // Fri flate: magneter, minstestørrelser og standardstørrelser. Står her oppe fordi
@@ -103,7 +105,7 @@ const MIN_STØRRELSE = {
   klokke: [160, 100], tilfeldig: [200, 150], ordenselev: [200, 150], ulv: [200, 150],
   terning: [200, 160], timer: [200, 150], dagsplan: [220, 160], elever: [200, 180],
   grupper: [220, 160], notat: [180, 120], bilde: [160, 120], youtube: [220, 170],
-  arbeid: [200, 150], trafikklys: [100, 180],
+  arbeid: [200, 150], trafikklys: [100, 180], klassekart: [260, 200],
   teller: [160, 130], instruksjon: [220, 110], dato: [180, 130],
 };
 // Standardstørrelse i prosent (bredde, høyde) når et kort plasseres automatisk.
@@ -111,7 +113,7 @@ const STANDARD_STØRRELSE = {
   klokke: [26, 30], tilfeldig: [26, 32], ordenselev: [26, 32], ulv: [26, 30],
   terning: [26, 34], timer: [26, 32], dagsplan: [34, 50], elever: [26, 70],
   grupper: [34, 45], notat: [30, 35], bilde: [28, 38], youtube: [34, 45],
-  arbeid: [26, 36], trafikklys: [12, 40],
+  arbeid: [26, 36], trafikklys: [12, 40], klassekart: [43, 60],
   teller: [18, 28], instruksjon: [34, 22], dato: [22, 28],
 };
 // Hvor stor andel av en gammel kolonne hvert kort fikk ved migreringen: omtrent hvor
@@ -121,7 +123,7 @@ const STANDARD_STØRRELSE = {
 const HØYDEVEKT = {
   klokke: 3.2, tilfeldig: 1.6, ordenselev: 1.6, ulv: 1.6, terning: 2.6, timer: 2.1,
   dagsplan: 2.5, elever: 3.5, grupper: 1.8, notat: 1.8, bilde: 2, youtube: 2.5,
-  arbeid: 2.2, trafikklys: 2.6, teller: 1.8, instruksjon: 1.4, dato: 1.8,
+  arbeid: 2.2, trafikklys: 2.6, teller: 1.8, instruksjon: 1.4, dato: 1.8, klassekart: 3,
 };
 
 // Guidekortene nye brukere møter på et tomt bord, ett ved hver meny. De er vanlige
@@ -136,7 +138,7 @@ const GUIDE_KORT = ['card-guide-meny', 'card-guide-widgets', 'card-guide-taster'
 // større kort plass til flere linjer.
 const SKALER_MED_KORT = ['card-klokke', 'card-tilfeldig',
   'card-ordenselev', 'card-ulv', 'card-terning', 'card-arbeid',
-  'card-trafikklys'];
+  'card-trafikklys', 'card-klassekart'];
 
 // Kort som skalerer med størrelsen, også kopier som «card-timer-3» (se kortType).
 function erSkalerKort(id) {
@@ -257,6 +259,10 @@ const UKEDAGER = ['søndag', 'mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag',
 const UKEPLAN_DAGER = ['man', 'tir', 'ons', 'tor', 'fre'];
 const UKEPLAN_NAVN  = { man: 'Man', tir: 'Tir', ons: 'Ons', tor: 'Tor', fre: 'Fre' };
 const tomUkeplan = () => Object.fromEntries(UKEPLAN_DAGER.map(d => [d, []]));
+// Klassekartet (v2.54): rutenett av pulter. av = ruter som ikke er pulter («rad,kol»,
+// fra 0), plasser = «rad,kol» → elev-id. Står her oppe av samme grunn som ukeplanen.
+const KLASSEKART_MAKS = { rader: 10, kolonner: 12 };
+const nyttKlassekart = () => ({ rader: 4, kolonner: 6, av: [], plasser: {} });
 const MÅNEDER  = ['januar', 'februar', 'mars', 'april', 'mai', 'juni',
                   'juli', 'august', 'september', 'oktober', 'november', 'desember'];
 
@@ -385,6 +391,8 @@ function nySide(navn) {
     // Dagens oppmøte (v2.36): { dato: 'ÅÅÅÅ-MM-DD', status: { navn: 'her' | 'borte' } }.
     // null eller en annen dato betyr at ingen er markert i dag. Se «Oppmøte».
     oppmøte:             null,
+    // Klassekart (v2.54): rommet og hvem som sitter hvor. Se «Klassekart».
+    klassekart:          nyttKlassekart(),
     // Posisjon og størrelse i prosent av flata (se «Fri flate»). Alle enkeltinstans-
     // widgets skal stå oppført, også de som er skjult fra start: applyLayout() tvinger
     // inn manglende, og widget_hidden styrer hva som vises. Et kort som slås på, får
@@ -399,6 +407,7 @@ function nySide(navn) {
       { id: 'card-terning',    col: 1, x: 0,  y: 64, b: 27, h: 34,  z: 5 },
       { id: 'card-arbeid',     col: 2, x: 28, y: 0,  b: 26, h: 36,  z: 11 },
       { id: 'card-trafikklys', col: 2, x: 56, y: 0,  b: 12, h: 40,  z: 12 },
+      { id: 'card-klassekart', col: 2, x: 28, y: 0,  b: 43, h: 60,  z: 13 },
       { id: 'card-dagsplan',   col: 2, x: 28, y: 0,  b: 43, h: 58,  z: 6 },
       { id: 'card-notat-1',    col: 2, x: 28, y: 60, b: 43, h: 40,  z: 7 },
       { id: 'card-elever',     col: 3, x: 72, y: 0,  b: 28, h: 100, z: 9 },
@@ -408,7 +417,7 @@ function nySide(navn) {
     // (leggTilSide) og nye brukere (førsteSide) starter med alt skjult.
     widget_hidden: [
       'card-ordenselev', 'card-ulv', 'card-terning', 'card-grupper',
-      'card-arbeid', 'card-trafikklys',
+      'card-arbeid', 'card-trafikklys', 'card-klassekart',
     ],
   };
 }
@@ -559,6 +568,27 @@ function tømSidensTrekk(s) {
 }
 
 // Gyldige trekk fra lagringen eller en importert fil: bare id-er med riktig form.
+// Klassekartet fra lagring: rom innenfor grensene, bare ruter som finnes, og hver
+// elev på høyst én pult. tilId gjør referanser om til elev-id-er (null = ukjent).
+function normaliserKlassekart(k, tilId) {
+  const o = erObjekt(k) ? k : {};
+  const rader    = heltall(o.rader, 1, KLASSEKART_MAKS.rader, 4);
+  const kolonner = heltall(o.kolonner, 1, KLASSEKART_MAKS.kolonner, 6);
+  const gyldig = key => /^\d{1,2},\d{1,2}$/.test(key) &&
+    Number(key.split(',')[0]) < rader && Number(key.split(',')[1]) < kolonner;
+  const av = [...new Set(tekstliste(o.av, 5).filter(gyldig))];
+  const plasser = {};
+  const brukt = new Set();
+  for (const [key, ref] of Object.entries(erObjekt(o.plasser) ? o.plasser : {})) {
+    if (!gyldig(key) || av.includes(key)) continue;
+    const id = tilId(ref);
+    if (!id || brukt.has(id)) continue;
+    brukt.add(id);
+    plasser[key] = id;
+  }
+  return { rader, kolonner, av, plasser };
+}
+
 // En dagsplan fra lagring: bare punkter med tekst, og «ferdig» som ekte boolsk.
 // Strenger er punkter fra før v2.1x.
 function normaliserDagsplan(v) {
@@ -707,6 +737,7 @@ function normaliserMaler(s) {
         ulv_navn: tekstEllerNull(m.ulv_navn, 40) || 'Klassebamse',
         kort,
         størrelser,
+        rom: normaliserKlassekart(m.rom, () => null), // plasser blir alltid tomme
       };
     })
     .filter(Boolean)
@@ -785,6 +816,7 @@ function normaliserState(s) {
       .map(par => par.map(tilId))
       .filter(([a, b]) => a && b && a !== b);
     side.oppmøte = normaliserOppmøte(side.oppmøte, tilId);
+    side.klassekart = normaliserKlassekart(side.klassekart, tilId);
     side.widget_hidden = tekstliste(side.widget_hidden).filter(erGyldigKortId);
     side.widget_layout = side.widget_layout
       .filter(w => erObjekt(w) && erGyldigKortId(w.id))
@@ -2164,6 +2196,7 @@ function fjernElevReferanser(s, fjernSett, { medTrekk = true } = {}) {
     Object.assign(r, kopierTrekk(r, behold));
   }
   s.gruppe_begrensninger = (s.gruppe_begrensninger ?? []).filter(par => par.every(behold));
+  for (const [key, id] of Object.entries(s.klassekart?.plasser ?? {})) if (!behold(id)) delete s.klassekart.plasser[key];
   if (s.oppmøte) for (const id of fjernSett) delete s.oppmøte.status[id];
 }
 
@@ -2176,6 +2209,210 @@ function byttElevIder(s, kart) {
   const bytt = id => kart.get(id) ?? id;
   if (s.grupper) s.grupper = s.grupper.map(g => g.map(bytt));
   s.gruppe_begrensninger = (s.gruppe_begrensninger ?? []).map(par => par.map(bytt));
+  for (const key of Object.keys(s.klassekart?.plasser ?? {})) s.klassekart.plasser[key] = bytt(s.klassekart.plasser[key]);
+}
+
+// ===================== Klassekart =====================
+// 🪑 Klassekart (v2.54): rommet som et rutenett av pulter, med tavla øverst. Rommet
+// (rader, kolonner, ruter som ikke er pulter) og plassene bor i s.klassekart. Flytting
+// er klikk-klikk, så det virker på tavler uten mus: klikk en elev (på en pult eller i
+// «uten plass»-lista), så pulten eleven skal til. To elever bytter plass. 🎲 Trekk
+// plasser setter alle tilfeldig, uten at «hold fra hverandre»-par sitter inntil
+// hverandre (samme rad eller kolonne, vegg i vegg). Innholdet skaleres med kortet
+// (SKALER_MED_KORT), så rommet fyller kortet og hele skjermen i fokus.
+let klassekartValg = null;       // elev-id som er valgt for flytting, eller null
+let klassekartRedigerer = false; // 🛠: ruter slås av og på, rader og kolonner endres
+
+function pultNøkkel(r, c) { return `${r},${c}`; }
+
+function pulterI(k) {
+  const ut = [];
+  for (let r = 0; r < k.rader; r++) for (let c = 0; c < k.kolonner; c++) {
+    const key = pultNøkkel(r, c);
+    if (!k.av.includes(key)) ut.push(key);
+  }
+  return ut;
+}
+
+// Vegg i vegg: samme rad og nabo-kolonne, eller samme kolonne og nabo-rad.
+function pulterInntil(a, b) {
+  const [r1, c1] = a.split(',').map(Number);
+  const [r2, c2] = b.split(',').map(Number);
+  return (r1 === r2 && Math.abs(c1 - c2) === 1) || (c1 === c2 && Math.abs(r1 - r2) === 1);
+}
+
+function pultFor(k, elevId) {
+  return Object.keys(k.plasser).find(key => k.plasser[key] === elevId) ?? null;
+}
+
+function renderKlassekart() {
+  const rom = document.getElementById('klassekart-rom');
+  const bunn = document.getElementById('klassekart-bunn');
+  if (!rom || !bunn) return;
+  const s = aktivSide();
+  const k = s.klassekart;
+  // Plasser som peker på elever som ikke står på siden lenger (lista byttet), vises
+  // som ledige; normaliseringen rydder dem ved neste lasting.
+  const påSiden = new Set(s.elever.map(e => e.id));
+  const status = oppmøteIdag(s);
+  const gruppeKart = new Map();
+  if (s.grupper) s.grupper.forEach((g, gi) => g.forEach(id => gruppeKart.set(id, gi)));
+  if (klassekartValg && !påSiden.has(klassekartValg)) klassekartValg = null;
+
+  const ruter = [];
+  for (let r = 0; r < k.rader; r++) for (let c = 0; c < k.kolonner; c++) {
+    const key = pultNøkkel(r, c);
+    const erAv = k.av.includes(key);
+    const id = påSiden.has(k.plasser[key]) ? k.plasser[key] : null;
+    const gi = id !== null ? gruppeKart.get(id) : undefined;
+    const klasser = ['pult', erAv ? 'av' : (id ? 'opptatt' : 'ledig')];
+    if (id && status[id] === 'borte') klasser.push('borte');
+    if (id && id === klassekartValg) klasser.push('valgt');
+    if (gi !== undefined) klasser.push('gruppe-farget');
+    const stil = gi !== undefined ? ` style="--gf:${GRUPPE_FARGER[gi % GRUPPE_FARGER.length]}"` : '';
+    const tittel = erAv ? t('Ingen pult her') : id ? elevNavn(id, s) : t('Ledig pult');
+    ruter.push(`<button class="${klasser.join(' ')}" data-pult="${key}"${stil} title="${esc(tittel)}">${id ? esc(elevNavn(id, s)) : ''}</button>`);
+  }
+  const redigering = klassekartRedigerer ? `
+    <div class="klassekart-redigering">
+      <span>${t('Rader')} <button class="btn btn-ghost btn-sm btn-icon" data-rom="rader-">−</button> <strong>${k.rader}</strong> <button class="btn btn-ghost btn-sm btn-icon" data-rom="rader+">+</button></span>
+      <span>${t('Kolonner')} <button class="btn btn-ghost btn-sm btn-icon" data-rom="kolonner-">−</button> <strong>${k.kolonner}</strong> <button class="btn btn-ghost btn-sm btn-icon" data-rom="kolonner+">+</button></span>
+      <span class="klassekart-hint">${t('Klikk på en rute for å slå pulten av eller på')}</span>
+    </div>` : '';
+  rom.classList.toggle('redigerer', klassekartRedigerer);
+  rom.innerHTML = `
+    <div class="klassekart-tavle">${t('Tavle')}</div>
+    <div class="klassekart-grid" style="--kol:${k.kolonner}">${ruter.join('')}</div>
+    ${redigering}`;
+  document.getElementById('btn-klassekart-rom').classList.toggle('aktiv', klassekartRedigerer);
+
+  // Under rommet: elever uten pult, og hva som skjer med den valgte eleven.
+  const plassert = new Set(Object.values(k.plasser));
+  const utenPlass = s.elever.filter(e => !plassert.has(e.id));
+  let html = '';
+  if (!s.elever.length) {
+    html = `<p class="tom-tekst">${t('Ingen elever på siden')}</p>`;
+  } else {
+    if (klassekartValg) {
+      const navn = esc(elevNavn(klassekartValg, s));
+      html += `<span class="klassekart-valg">${t('Klikk på en pult for å sette {navn} der', { navn })}</span>`;
+      if (pultFor(k, klassekartValg)) html += `<button class="btn btn-ghost btn-sm" data-klikk="ta-av-pult">${t('Ta av pulten')}</button>`;
+    }
+    if (utenPlass.length) {
+      html += `<span class="klassekart-label">${t('Uten plass')}:</span>` +
+        utenPlass.map(e => `<button class="klassekart-chip${e.id === klassekartValg ? ' valgt' : ''}${status[e.id] === 'borte' ? ' borte' : ''}" data-elev="${e.id}">${esc(e.navn)}</button>`).join('');
+    }
+  }
+  bunn.innerHTML = html;
+  bunn.classList.toggle('hidden', !html);
+}
+
+function lagreKlassekart() {
+  saveState();
+  renderKlassekart();
+}
+
+// Klikk på en pult. I redigering slås ruta av eller på; ellers velges eleven som
+// sitter der, eller den valgte eleven settes dit (bytter med den som satt der).
+function klikkPult(key) {
+  const k = aktivSide().klassekart;
+  if (klassekartRedigerer) {
+    if (k.av.includes(key)) k.av = k.av.filter(x => x !== key);
+    else { k.av.push(key); delete k.plasser[key]; }
+    lagreKlassekart();
+    return;
+  }
+  if (k.av.includes(key)) return;
+  const der = aktivSide().elever.some(e => e.id === k.plasser[key]) ? k.plasser[key] : null;
+  if (!klassekartValg) {
+    if (der) { klassekartValg = der; renderKlassekart(); }
+    return;
+  }
+  if (der === klassekartValg) { klassekartValg = null; renderKlassekart(); return; }
+  const fra = pultFor(k, klassekartValg);
+  if (fra) delete k.plasser[fra];
+  if (der && fra) k.plasser[fra] = der; // bytte
+  k.plasser[key] = klassekartValg;
+  klassekartValg = null;
+  lagreKlassekart();
+}
+
+function velgElevIKlassekart(id) {
+  klassekartValg = klassekartValg === id ? null : id;
+  renderKlassekart();
+}
+
+function taAvPult() {
+  const k = aktivSide().klassekart;
+  const fra = pultFor(k, klassekartValg);
+  if (fra) delete k.plasser[fra];
+  klassekartValg = null;
+  lagreKlassekart();
+}
+
+// 🛠-knappene: rader og kolonner. Ruter som faller utenfor, forsvinner med det som sto der.
+function endreRom(hva) {
+  const k = aktivSide().klassekart;
+  const felt = hva.startsWith('rader') ? 'rader' : 'kolonner';
+  const ny = k[felt] + (hva.endsWith('+') ? 1 : -1);
+  if (ny < 1 || ny > KLASSEKART_MAKS[felt]) return;
+  k[felt] = ny;
+  const innenfor = key => Number(key.split(',')[0]) < k.rader && Number(key.split(',')[1]) < k.kolonner;
+  k.av = k.av.filter(innenfor);
+  for (const key of Object.keys(k.plasser)) if (!innenfor(key)) delete k.plasser[key];
+  lagreKlassekart();
+}
+
+// 🎲 Trekk plasser: alle elevene på siden får en tilfeldig pult. «Hold fra hverandre»-
+// par får ikke sitte vegg i vegg. Samme prøv-igjen-løkke som gruppeinndelingen.
+function trekkPlasser() {
+  const s = aktivSide();
+  const k = s.klassekart;
+  const elever = s.elever.map(e => e.id);
+  const pulter = pulterI(k);
+  if (!elever.length) { notify(t('Ingen elever å plassere'), 'warning'); return; }
+  if (elever.length > pulter.length) {
+    notify(t('For få pulter: {pulter} pulter til {elever} elever', { pulter: pulter.length, elever: elever.length }), 'warning');
+    return;
+  }
+  const par = aktivePar(s);
+  let plasser = null;
+  for (let forsøk = 0; forsøk < 200; forsøk++) {
+    const valgtePulter = shuffle(pulter).slice(0, elever.length);
+    const kandidat = Object.fromEntries(valgtePulter.map((key, i) => [key, elever[i]]));
+    const hvor = id => valgtePulter[elever.indexOf(id)];
+    const ok = par.every(([a, b]) => !hvor(a) || !hvor(b) || !pulterInntil(hvor(a), hvor(b)));
+    if (ok) { plasser = kandidat; break; }
+  }
+  if (!plasser) {
+    notify(t('Klarte ikke å plassere uten at par sitter ved siden av hverandre. Prøv igjen, eller gi rommet flere pulter'), 'warning');
+    return;
+  }
+  k.plasser = plasser;
+  klassekartValg = null;
+  lagreKlassekart();
+  notify(t('🪑 Alle har fått plass'));
+}
+
+function setupKlassekart() {
+  document.getElementById('klassekart-rom').addEventListener('click', e => {
+    const pult = e.target.closest('[data-pult]');
+    if (pult) { klikkPult(pult.dataset.pult); return; }
+    const rom = e.target.closest('[data-rom]');
+    if (rom) endreRom(rom.dataset.rom);
+  });
+  document.getElementById('klassekart-bunn').addEventListener('click', e => {
+    const chip = e.target.closest('[data-elev]');
+    if (chip) { velgElevIKlassekart(chip.dataset.elev); return; }
+    if (e.target.closest('[data-klikk="ta-av-pult"]')) taAvPult();
+  });
+  document.getElementById('btn-klassekart-trekk').onclick = trekkPlasser;
+  document.getElementById('btn-klassekart-rom').onclick = () => {
+    klassekartRedigerer = !klassekartRedigerer;
+    klassekartValg = null;
+    renderKlassekart();
+  };
+  renderKlassekart();
 }
 
 // ===================== Oppmøte =====================
@@ -2259,6 +2496,7 @@ function renderElever() {
   const s = aktivSide();
   const liste   = document.getElementById('elev-liste');
   const antall  = s.elever.length;
+  renderKlassekart(); // samme elever, samme oppmøte og gruppefarger
 
   const status = oppmøteIdag(s);
   const antallBorte = s.elever.filter(e => status[e.id] === 'borte').length;
@@ -5397,6 +5635,7 @@ function byttSide(idx) {
   renderDagsplan();
   renderArbeid();
   renderTrafikklys();
+  renderKlassekart();
   oppdaterBegrensningSelecter();
   renderWidgetMeny();
   renderSiderNav();
@@ -5487,6 +5726,8 @@ function malFraSide(s, navn) {
     ulv_navn: s.ulv_navn,
     kort,
     størrelser,
+    // Rommet i klassekartet (rader, kolonner, ruter som ikke er pulter), ikke hvem som sitter hvor.
+    rom: { rader: s.klassekart.rader, kolonner: s.klassekart.kolonner, av: [...s.klassekart.av] },
   };
 }
 
@@ -5591,6 +5832,7 @@ function nySideFraMal(mal) {
   side.widget_layout = widget_layout;
   side.kort_navn = Object.fromEntries(Object.entries(mal.kort_navn).map(([id, n]) => [bytt(id), n]));
   side.ulv_navn = mal.ulv_navn;
+  side.klassekart = { ...mal.rom, av: [...mal.rom.av], plasser: {} };
   for (const [id, pst] of Object.entries(mal.størrelser)) if (nyId[id]) state.widget_størrelser[nyId[id]] = pst;
   state.sider.push(side);
   byttSide(state.sider.length - 1);
@@ -5694,7 +5936,6 @@ const OPPDATERINGSLOGG_HTML = `
     <ul>
       <li>🔊 Lydnivåmåler med rekord og mål for klassen</li>
       <li>👀 «Øyne hit»-beskjed over hele skjermen, med din egen tekst</li>
-      <li>🪑 Klassekart</li>
       <li>🎡 Lykkehjul som valg i Tilfeldig elev</li>
       <li>🃏 Kortbunke med forside og bakside</li>
       <li>🏆 Poengtavle, 🙂 exit-avstemning og rask håndsopprekning</li>
@@ -5702,6 +5943,13 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.54</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>🪑 Klassekart,</strong> nytt kort under ⊞ Kort: rommet som et rutenett av pulter med tavla øverst. Klikk en elev og så en pult for å flytte, to elever bytter plass. <strong>🎲 Trekk plasser</strong> setter alle tilfeldig, uten at «hold fra hverandre»-par sitter inntil hverandre. <strong>🛠</strong> endrer rader, kolonner og hvilke ruter som er pulter. Gruppefarger og «borte i dag» vises på pultene, og rommet blir med i maler og deling</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.53</div>
     <div class="logg-dato">4. november 2026</div>
@@ -6359,6 +6607,11 @@ const BRUKERVEILEDNING_HTML = `
   <h4>Grupper</h4>
   <p>Trykk <strong>🎲 Del inn</strong> i Grupper-kortet (eller tasten <kbd>g</kbd>). Skriv inn antall grupper, og elevene fordeles tilfeldig. Gruppefarger vises også i elevlisten. Trykk <strong>✕</strong> for å fjerne gruppeinndelingen.</p>
   <p><strong>Ny elev når gruppene er laget:</strong> eleven havner i den minste gruppen, og de andre blir der de er. Er flere grupper like små, velges en av dem tilfeldig. Gruppebegrensninger følges: passer eleven ikke i noen gruppe uten å bryte en, står eleven utenfor til du deler inn på nytt.</p>
+
+  <h4>🪑 Klassekart</h4>
+  <p>Hent fram <strong>Klassekart</strong> under <strong>⊞ Kort</strong>. Kortet viser rommet som et rutenett av pulter, med tavla øverst. Trykk <strong>🛠</strong> for å gjøre rommet likt ditt: + og − endrer rader og kolonner, og et klikk på en rute slår pulten av eller på (døra, kateteret, en tom plass). Trykk 🛠 igjen når du er ferdig.</p>
+  <p><strong>Sette elever på plass:</strong> klikk på en elev (på en pult, eller i lista <strong>Uten plass</strong> under rommet), og så på pulten eleven skal ha. Klikker du på en pult der noen alt sitter, bytter de to plass. <strong>Ta av pulten</strong> setter den valgte eleven tilbake i lista. <strong>🎲 Trekk plasser</strong> gir alle en tilfeldig pult, og «hold fra hverandre»-parene fra klasselista får ikke sitte vegg i vegg, verken ved siden av eller foran og bak hverandre.</p>
+  <p>Pultene viser gruppefargene når klassen er delt inn, og elever som er markert borte i dag, vises nedtonet. Trykk <strong>⛶</strong> eller <kbd>f</kbd> for å fylle hele skjermen med rommet. Rommet (rader, kolonner og hvilke ruter som er pulter) blir med i maler og når du deler siden, men ikke hvem som sitter hvor.</p>
 
   <h4>⛔ Gruppebegrensning</h4>
   <p>Klikk <strong>⛔</strong> ved en liste i <strong>📋 Klasselister</strong>, eller <strong>⛔ Par</strong> i Grupper-kortets hjørne. Velg to elever fra nedtrekksmenyene og klikk <strong>Legg til</strong>. Paret vil aldri havne i samme gruppe. Du kan legge til så mange par du vil. Fjern et par ved å klikke <strong>✕</strong> ved siden av det.</p>
@@ -8205,6 +8458,7 @@ function init() {
   renderAlleTimere();
   setupTerning();
   setupArbeid();
+  setupKlassekart();
   følgAndreFaner();
   setupListeDra();
   visLagringVarsel(); // bare synlig hvis dataene er fra en nyere versjon

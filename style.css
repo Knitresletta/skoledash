@@ -1713,6 +1713,139 @@ textarea[id^="notat-textarea"]:focus {
     margin: -2px 0;
 }
 
+/* ===================== Klassekart (v2.54) ===================== */
+/* Rommet har fast størrelse i piksler og skaleres med kortet (.kl-skaler), så det
+   fyller kortet og hele skjermen i fokus. Fargene følger temaet. */
+.klassekart-rom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+.klassekart-tavle {
+    width: 60%;
+    text-align: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-top: 4px solid var(--primary);
+    border-radius: 2px;
+    padding-top: 3px;
+}
+.klassekart-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--kol), 84px);
+    gap: 6px;
+}
+.pult {
+    height: 46px;
+    min-width: 0;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 0 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.12s, transform 0.12s;
+}
+.pult.ledig {
+    background: var(--bg);
+    border-style: dashed;
+}
+.pult.av {
+    visibility: hidden;
+}
+.klassekart-rom.redigerer .pult.av {
+    visibility: visible;
+    opacity: 0.55;
+    border-style: dotted;
+    background: transparent;
+    color: var(--muted);
+}
+.klassekart-rom.redigerer .pult.av::before {
+    content: '×';
+    font-size: 1.1rem;
+    font-weight: 400;
+}
+.pult.borte {
+    opacity: 0.45;
+    text-decoration: line-through;
+}
+.pult.valgt,
+.klassekart-chip.valgt {
+    outline: 3px solid var(--primary);
+    outline-offset: 1px;
+}
+.pult:hover {
+    transform: translateY(-1px);
+}
+.pult.gruppe-farget {
+    background: color-mix(in srgb, var(--gf) var(--gruppe-tone, 16%), var(--card));
+    color: color-mix(in srgb, var(--gf) 40%, var(--text));
+    border-color: color-mix(in srgb, var(--gf) 30%, var(--card));
+}
+.klassekart-redigering {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px 14px;
+    font-size: 0.8rem;
+    color: var(--text);
+}
+.klassekart-redigering strong {
+    display: inline-block;
+    min-width: 1.4em;
+    text-align: center;
+}
+.klassekart-hint {
+    width: 100%;
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--muted);
+}
+.klassekart-bunn {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 6px;
+    font-size: 0.8rem;
+}
+.klassekart-label,
+.klassekart-valg {
+    color: var(--muted);
+}
+.klassekart-valg {
+    width: 100%;
+    color: var(--text);
+}
+.klassekart-chip {
+    padding: 2px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+.klassekart-chip.borte {
+    opacity: 0.5;
+    text-decoration: line-through;
+}
+#btn-klassekart-rom.aktiv {
+    background: var(--primary-l);
+    color: var(--primary-tekst);
+}
+
 /* ===================== Groups ===================== */
 #grupper-vis {
     display: flex;
