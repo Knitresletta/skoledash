@@ -134,6 +134,19 @@ const NYNORSK = {
   'Gi nytt navn': 'Gi nytt namn',
   'Par som ikke skal i samme gruppe': 'Par som ikkje skal i same gruppe',
   'Slett?': 'Slette?',
+  'Arbeidssymboler': 'Arbeidssymbol',
+  '🤫 Arbeidssymboler': '🤫 Arbeidssymbol',
+  'Hviskestemme': 'Kviskrestemme',
+  'Rekk opp hånda': 'Rekk opp handa',
+  'Se hit': 'Sjå hit',
+  'Velg et symbol under': 'Vel eit symbol under',
+  'Eget symbol': 'Eige symbol',
+  'Ingen egne symboler ennå.': 'Ingen eigne symbol enno.',
+  'Skriv inn en tekst': 'Skriv inn ein tekst',
+  'Du har nådd grensen på 30 egne symboler': 'Du har nådd grensa på 30 eigne symbol',
+  'Egne arbeidssymboler': 'Eigne arbeidssymbol',
+  'Rødt lys': 'Raudt lys',
+  'F.eks. Lesestund': 'T.d. Lesestund',
   'Hold musa over et kort og trykk f': 'Hald musa over eit kort og trykk f',
   '📋 Alle punktene er ferdige': '📋 Alle punkta er ferdige',
   '▶ Nå: {punkt}': '▶ No: {punkt}',
@@ -283,7 +296,6 @@ const ROADMAP_KORT_NN = `
     <p>Dette er idear, ikkje lovnader. Rekkjefølgja kan endre seg. Saknar du noko? Sei frå via <strong>💬 Tilbakemelding</strong>.</p>
     <strong>Neste</strong>
     <ul>
-      <li>🤫 <strong>Arbeidssymbol og trafikklys</strong> i same kort</li>
       <li>🔢 <strong>Teljar, instruksjonskort, nedteljing til ein dato og vekenummer</strong></li>
       <li>📑 <strong>Malar for sider,</strong> og deling av ei side med ein kollega, utan elevnamn</li>
     </ul>
@@ -381,6 +393,13 @@ const BRUKERVEILEDNING_NN = `
   <p><strong>Vel stad for vêret.</strong> Første gongen kan du trykkje <strong>📍 Vis vêret der du er</strong> i velkomstmeldinga. Då spør nettlesaren om å få bruke posisjonen din, og vêret blir sett til staden der du er. Under stadnamnet står det kvar staden kom frå, så du aldri er i tvil.</p>
   <p><strong>Vil du byte stad?</strong> Nedst i vêrvindauget ligg <strong>📍 Bruk posisjonen min</strong>, og eit søkjefelt der du kan skrive inn kva stad som helst og trykkje <kbd>Enter</kbd>. Fylke og land står under kvart treff, så du ikkje hamnar i feil land. Staden blir ståande til du byter han sjølv. Appen spør ikkje om posisjonen din kvar gong du opnar han.</p>
   <p>Har du ikkje valt nokon stad, eller seier nei til posisjon, blir <strong>Eidsvoll</strong> brukt til du vel noko anna. Har du valt ein stad tidlegare, blir han brukt.</p>
+
+  <h4>🤫 Arbeidssymbol</h4>
+  <p>Hent kortet fram under <strong>⊞ Kort</strong>. Trykk på eit symbol i rada nedst for å vise det stort: 🤫 Stille arbeid, 🗣️ Kviskrestemme, 👫 Pararbeid, 👥 Gruppearbeid, 🙋 Rekk opp handa eller 👀 Sjå hit. Trykk på det same symbolet igjen for å fjerne det.</p>
+  <p><strong>＋</strong> lagar eit eige symbol med emoji og tekst, til dømes «📖 Lesestund». Eigne symbol finst på alle sidene dine, og blir sletta med ✕ i det same vindauget. Kvar side hugsar sitt eige symbol.</p>
+
+  <h4>🚦 Trafikklys</h4>
+  <p>Eit eige kort under <strong>⊞ Kort</strong>, med raudt, gult og grønt lys og ingen tekst. Kva fargane tyder, avtaler du med klassen. Trykk på eit lys for å tenne det, og igjen for å sløkkje. Kvar side hugsar sitt eige lys.</p>
 
   <h4>🔍 Fokus: eitt kort på heile skjermen</h4>
   <p>Hald musa over eit kort og trykk <strong>⛶</strong> øvst i kortet, eller tasten <kbd>f</kbd>. Kortet fyller heile vindauget, og innhaldet blir så stort det får plass til: timeren for heile klassen, elevlista, dagsplanen eller trekket. Alt verkar som vanleg inne i fokus, så du kan starte timeren og krysse av dagsplanen der.</p>

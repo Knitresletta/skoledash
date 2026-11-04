@@ -2441,6 +2441,111 @@ textarea[id^="notat-textarea"]:focus {
 }
 
 /* ===================== Terning-widget ===================== */
+/* ===================== Arbeidssymboler og Trafikklys ===================== */
+/* Arbeidssymboler: symbolet øverst, velgeren under. Begge kortene ligger i SKALER_MED_KORT,
+   så alt blir større når kortet blir større. */
+.arbeid-vis {
+    text-align: center;
+    padding: 10px 6px;
+    border-radius: var(--r-sm);
+    background: var(--primary-l);
+}
+.arbeid-emoji {
+    font-size: 3rem;
+    line-height: 1.1;
+}
+.arbeid-tekst {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--primary);
+}
+.arbeid-vis.tom {
+    background: none;
+    border: 2px dashed var(--border);
+}
+.arbeid-tom {
+    color: var(--muted);
+    font-size: 0.85rem;
+    padding: 18px 0;
+}
+/* Trafikklyset (eget kort): et loddrett hus med tre lys, midt i kortet. Fargene er faste med vilje (de er
+   beskjeden); huset følger temaet. Slukkede lys er svake, det tente lyser. */
+.trafikklys {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 9px;
+    border-radius: 999px;
+    background: var(--bg);
+    border: 2px solid var(--border);
+    align-self: center;
+}
+.lys {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    opacity: 0.22;
+    transition: opacity 0.15s, box-shadow 0.15s;
+}
+.lys-rød   { background: #ef4444; }
+.lys-gul   { background: #facc15; }
+.lys-grønn { background: #22c55e; }
+.lys:hover { opacity: 0.45; }
+.lys.på {
+    opacity: 1;
+    box-shadow: 0 0 14px 2px currentColor;
+}
+.lys-rød.på   { color: #ef4444; }
+.lys-gul.på   { color: #facc15; }
+.lys-grønn.på { color: #22c55e; }
+.arbeid-velger {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+}
+.arbeid-valg {
+    border: 1px solid transparent;
+    background: var(--bg);
+    border-radius: 8px;
+    font-size: 1.05rem;
+    line-height: 1;
+    padding: 5px 6px;
+    cursor: pointer;
+    color: var(--text);
+}
+.arbeid-valg:hover {
+    border-color: var(--border);
+}
+.arbeid-valg.valgt {
+    background: var(--primary-l);
+    border-color: var(--primary);
+}
+.arbeid-nytt {
+    color: var(--primary);
+    font-weight: 800;
+}
+.arbeid-nytt-felt {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+/* Mer spesifikk enn «.modal input[type="text"]» (width: 100%), ellers tar begge feltene
+   hele bredden og tekstfeltet skyves ut av vinduet. */
+.modal .arbeid-nytt-felt input[type="text"] {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+}
+.modal .arbeid-nytt-felt input.arbeid-emoji-input {
+    flex: none;
+    width: 4.5em;
+    text-align: center;
+}
+
 /* Terningflatene er SVG i et 100×100-rutenett. Størrelsen styres av --terning-str,
    som JS setter etter hvor mange terninger som ligger på bordet. */
 #terning-flater {

@@ -345,6 +345,27 @@
       <button class="btn btn-primary flex-1" id="btn-terning-kast" title="Kast (k)">🎲 Kast</button>
     </div>
   </div>
+  <div class="card" id="card-arbeid">
+    <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-arbeid" title="Fjern fra siden">✕</button>
+    <div class="card-header">
+      <span class="drag-handle" title="Dra for å flytte">⠿</span>
+      <h2>🤫 Arbeidssymboler</h2>
+    </div>
+    <div id="arbeid-vis" class="arbeid-vis"></div>
+    <div id="arbeid-velger" class="arbeid-velger"></div>
+  </div>
+  <div class="card" id="card-trafikklys">
+    <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-trafikklys" title="Fjern fra siden">✕</button>
+    <div class="card-header">
+      <span class="drag-handle" title="Dra for å flytte">⠿</span>
+      <h2>🚦 Trafikklys</h2>
+    </div>
+    <div id="trafikklys" class="trafikklys" role="group" aria-label="Trafikklys">
+      <button class="lys lys-rød" data-lys="rød" title="Rødt lys" aria-label="Rødt lys"></button>
+      <button class="lys lys-gul" data-lys="gul" title="Gult lys" aria-label="Gult lys"></button>
+      <button class="lys lys-grønn" data-lys="grønn" title="Grønt lys" aria-label="Grønt lys"></button>
+    </div>
+  </div>
 
 </main>
 
@@ -458,6 +479,20 @@
       <button class="btn btn-ghost" id="btn-slett-alt-avbryt">Avbryt</button>
       <button class="btn btn-ghost" id="btn-slett-alt-eksporter">📤 Eksporter først</button>
       <button class="btn btn-danger" id="btn-slett-alt-bekreft">Slett alt</button>
+    </div>
+  </div>
+
+  <!-- Egne arbeidssymboler -->
+  <div id="modal-arbeid" class="modal hidden">
+    <h3>Egne arbeidssymboler</h3>
+    <div id="arbeid-egne-liste" class="modal-list"></div>
+    <div class="arbeid-nytt-felt">
+      <input type="text" id="input-arbeid-emoji" class="modal-input arbeid-emoji-input" maxlength="8" placeholder="📖" aria-label="Emoji" />
+      <input type="text" id="input-arbeid-tekst" class="modal-input" maxlength="30" placeholder="F.eks. Lesestund" aria-label="Tekst" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btn-arbeid-lukk">Lukk</button>
+      <button class="btn btn-primary" id="btn-arbeid-lagre">Legg til</button>
     </div>
   </div>
 

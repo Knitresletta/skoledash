@@ -72,6 +72,8 @@ const WIDGET_NAVN = {
   'card-dagsplan':   'Dagsplan',
   'card-klokke':     'Klokke',
   'card-terning':    'Terning',
+  'card-arbeid':     'Arbeidssymboler',
+  'card-trafikklys': 'Trafikklys',
 };
 // ⏱️ har variasjonstegnet U+FE0F med vilje: uten det tegner flere nettlesere symbolet
 // som smal tekst i stedet for som emoji.
@@ -85,6 +87,8 @@ const WIDGET_IKON = {
   'card-dagsplan':   '📋',
   'card-klokke':     '🕐',
   'card-terning':    '🎲',
+  'card-arbeid':     '🤫',
+  'card-trafikklys': '🚦',
 };
 
 // Fri flate: magneter, minstestørrelser og standardstørrelser. Står her oppe fordi
@@ -101,12 +105,14 @@ const MIN_STØRRELSE = {
   klokke: [160, 100], tilfeldig: [200, 150], ordenselev: [200, 150], ulv: [200, 150],
   terning: [200, 160], timer: [200, 150], dagsplan: [220, 160], elever: [200, 180],
   grupper: [220, 160], notat: [180, 120], bilde: [160, 120], youtube: [220, 170],
+  arbeid: [200, 150], trafikklys: [100, 180],
 };
 // Standardstørrelse i prosent (bredde, høyde) når et kort plasseres automatisk.
 const STANDARD_STØRRELSE = {
   klokke: [26, 30], tilfeldig: [26, 32], ordenselev: [26, 32], ulv: [26, 30],
   terning: [26, 34], timer: [26, 32], dagsplan: [34, 50], elever: [26, 70],
   grupper: [34, 45], notat: [30, 35], bilde: [28, 38], youtube: [34, 45],
+  arbeid: [26, 36], trafikklys: [12, 40],
 };
 // Hvor stor andel av en gammel kolonne hvert kort fikk ved migreringen: omtrent hvor
 // høyt kortet er naturlig, i hundre piksler (klokka med urskive og tall er ca. 320).
@@ -115,6 +121,7 @@ const STANDARD_STØRRELSE = {
 const HØYDEVEKT = {
   klokke: 3.2, tilfeldig: 1.6, ordenselev: 1.6, ulv: 1.6, terning: 2.6, timer: 2.1,
   dagsplan: 2.5, elever: 3.5, grupper: 1.8, notat: 1.8, bilde: 2, youtube: 2.5,
+  arbeid: 2.2, trafikklys: 2.6,
 };
 
 // Guidekortene nye brukere møter på et tomt bord, ett ved hver meny. De er vanlige
@@ -128,7 +135,21 @@ const GUIDE_KORT = ['card-guide-meny', 'card-guide-widgets', 'card-guide-taster'
 // voksende innhold (elever, dagsplan, grupper, notat) står ikke her: der betyr
 // større kort plass til flere linjer.
 const SKALER_MED_KORT = ['card-klokke', 'card-timer', 'card-tilfeldig',
-  'card-ordenselev', 'card-ulv', 'card-terning'];
+  'card-ordenselev', 'card-ulv', 'card-terning', 'card-arbeid',
+  'card-trafikklys'];
+
+// Arbeidssymbolene i Arbeidssymboler-kortet (v2.47). Læreren kan legge til egne
+// (state.arbeid_egne), som deles av alle sider. Står her oppe fordi loadState() og
+// normaliserState() bruker lista.
+const ARBEID_SYMBOLER = [
+  { id: 'stille', emoji: '🤫', tekst: 'Stille arbeid' },
+  { id: 'hviske', emoji: '🗣️', tekst: 'Hviskestemme' },
+  { id: 'par',    emoji: '👫', tekst: 'Pararbeid' },
+  { id: 'gruppe', emoji: '👥', tekst: 'Gruppearbeid' },
+  { id: 'hand',   emoji: '🙋', tekst: 'Rekk opp hånda' },
+  { id: 'se',     emoji: '👀', tekst: 'Se hit' },
+];
+const TRAFIKKLYS = ['rød', 'gul', 'grønn'];
 
 // Visningene klokka går gjennom når man klikker på overskrifta, i denne rekkefølgen.
 // Står her oppe fordi loadState() sjekker lagret verdi mot lista.
@@ -247,6 +268,7 @@ function defaultState() {
     // alltid først). Se «Oppsett i Lister-menyen».
     liste_oppsett:       [],
     timer_varighet:      300,
+    arbeid_egne:         [],        // lærerens egne arbeidssymboler { id, emoji, tekst }, v2.47
     timer_modus:         'ned',     // 'ned' (nedtelling) eller 'opp' (stoppeklokke), v2.43
     timer_visning:       'bjelke',  // 'bjelke' eller 'skive' (timeglass), v2.43
     tema: 'lyst',
@@ -314,6 +336,8 @@ function nySide(navn) {
     ulv_valgt:           null,
     ulv_skyldig:         [],
     ulv_navn:            'Klassebamse',
+    arbeid_symbol:       null,   // id fra ARBEID_SYMBOLER eller state.arbeid_egne (v2.47)
+    arbeid_lys:          null,   // 'rød' | 'gul' | 'grønn' | null
     // Par fra før v2.38, da parene hørte til siden. Nye par lagres i lista (se
     // «Gruppebegrensning»). Gamle par virker til de flyttes inn i en liste.
     gruppe_begrensninger: [],
@@ -334,6 +358,8 @@ function nySide(navn) {
       { id: 'card-ordenselev', col: 1, x: 0,  y: 64, b: 27, h: 32,  z: 3 },
       { id: 'card-ulv',        col: 1, x: 0,  y: 64, b: 27, h: 30,  z: 4 },
       { id: 'card-terning',    col: 1, x: 0,  y: 64, b: 27, h: 34,  z: 5 },
+      { id: 'card-arbeid',     col: 2, x: 28, y: 0,  b: 26, h: 36,  z: 11 },
+      { id: 'card-trafikklys', col: 2, x: 56, y: 0,  b: 12, h: 40,  z: 12 },
       { id: 'card-dagsplan',   col: 2, x: 28, y: 0,  b: 43, h: 58,  z: 6 },
       { id: 'card-notat-1',    col: 2, x: 28, y: 60, b: 43, h: 40,  z: 7 },
       { id: 'card-timer',      col: 2, x: 28, y: 60, b: 26, h: 32,  z: 8 },
@@ -344,6 +370,7 @@ function nySide(navn) {
     // (leggTilSide) og nye brukere (førsteSide) starter med alt skjult.
     widget_hidden: [
       'card-ordenselev', 'card-ulv', 'card-terning', 'card-timer', 'card-grupper',
+      'card-arbeid', 'card-trafikklys',
     ],
   };
 }
@@ -566,6 +593,9 @@ function normaliserState(s) {
     side.ordenselev_skyldig = idListe(side.ordenselev_skyldig);
     side.ulv_skyldig        = idListe(side.ulv_skyldig);
     side.ordenselev_antall  = side.ordenselev_antall === 1 ? 1 : 2;
+    side.arbeid_symbol = typeof side.arbeid_symbol === 'string' && /^[a-z0-9-]{1,30}$/.test(side.arbeid_symbol)
+      ? side.arbeid_symbol : null;
+    side.arbeid_lys = TRAFIKKLYS.includes(side.arbeid_lys) ? side.arbeid_lys : null;
     side.tilfeldig_valgt    = tilId(side.tilfeldig_valgt);
     side.ulv_valgt          = tilId(side.ulv_valgt);
     side.ulv_navn           = tekstEllerNull(side.ulv_navn, 40) || 'Klassebamse';
@@ -672,6 +702,13 @@ function normaliserState(s) {
   s.timer_varighet = heltall(s.timer_varighet, 1, 86400, 300);
   s.timer_modus   = s.timer_modus === 'opp' ? 'opp' : 'ned';
   s.timer_visning = s.timer_visning === 'skive' ? 'skive' : 'bjelke';
+  // Egne arbeidssymboler: bare emoji og tekst med fornuftig lengde, unike id-er.
+  const egneIder = new Set();
+  s.arbeid_egne = (Array.isArray(s.arbeid_egne) ? s.arbeid_egne : [])
+    .filter(x => erObjekt(x) && typeof x.id === 'string' && /^eget-[a-z0-9]{4,12}$/.test(x.id) && !egneIder.has(x.id) && egneIder.add(x.id))
+    .map(x => ({ id: x.id, emoji: tekstEllerNull(x.emoji, 8) || '⭐', tekst: tekstEllerNull(x.tekst, 30) || '' }))
+    .filter(x => x.tekst)
+    .slice(0, 30);
   if (!SKRIFT_NØKLER.includes(s.skrift_størrelse)) s.skrift_størrelse = 'normal';
   if (typeof s.tema !== 'string') s.tema = 'lyst';  // settTema() sjekker mot gyldige temaer
   if (typeof s.font !== 'string') s.font = 'system'; // settFont() sjekker mot FONTER
@@ -1145,6 +1182,117 @@ function tegnVærPopup() {
 // Id-en til den pågående kast-animasjonen. Ligger utenfor funksjonen så et nytt kast
 // kan avbryte et som fortsatt ruller — ellers ville to setInterval-er tegne om hverandre.
 let terningAnimasjon = null;
+
+// ===================== Arbeidssymboler og Trafikklys =====================
+// To kort. 🤫 Arbeidssymboler viser et stort arbeidssymbol (🤫 Stille arbeid, 👫 Pararbeid ...).
+// 🚦 Trafikklys har tre lys. Begge velges per side (s.arbeid_symbol, s.arbeid_lys);
+// trykker man på det som alt er valgt, slukkes det. Trafikklyset har bare farger, ingen
+// tekst: hva rødt og grønt betyr, avtaler læreren med klassen. Lysfargene er faste
+// (rødt, gult, grønt), fordi de er selve beskjeden; resten av kortene følger temaet.
+
+function arbeidSymboler() {
+  return [...ARBEID_SYMBOLER.map(x => ({ ...x, tekst: t(x.tekst) })), ...state.arbeid_egne];
+}
+
+function renderArbeid() {
+  const s = aktivSide();
+  const symboler = arbeidSymboler();
+  const valgt = symboler.find(x => x.id === s.arbeid_symbol) ?? null;
+  const vis = document.getElementById('arbeid-vis');
+  vis.innerHTML = valgt
+    ? `<div class="arbeid-emoji" aria-hidden="true">${esc(valgt.emoji)}</div><div class="arbeid-tekst">${esc(valgt.tekst)}</div>`
+    : `<div class="arbeid-tom">${t('Velg et symbol under')}</div>`;
+  vis.classList.toggle('tom', !valgt);
+  document.getElementById('arbeid-velger').innerHTML = symboler.map(x =>
+    `<button class="arbeid-valg${x.id === s.arbeid_symbol ? ' valgt' : ''}" data-symbol="${esc(x.id)}"
+       title="${esc(x.tekst)}" aria-label="${esc(x.tekst)}" aria-pressed="${x.id === s.arbeid_symbol}">${esc(x.emoji)}</button>`).join('') +
+    `<button class="arbeid-valg arbeid-nytt" data-symbol="" title="${t('Eget symbol')}" aria-label="${t('Eget symbol')}">＋</button>`;
+}
+
+function renderTrafikklys() {
+  const s = aktivSide();
+  document.querySelectorAll('.lys').forEach(l => {
+    const på = l.dataset.lys === s.arbeid_lys;
+    l.classList.toggle('på', på);
+    l.setAttribute('aria-pressed', på);
+  });
+}
+
+function velgArbeidSymbol(id) {
+  const s = aktivSide();
+  s.arbeid_symbol = s.arbeid_symbol === id ? null : id;
+  saveState();
+  renderArbeid();
+}
+
+function velgTrafikklys(farge) {
+  const s = aktivSide();
+  s.arbeid_lys = s.arbeid_lys === farge ? null : farge;
+  saveState();
+  renderTrafikklys();
+}
+
+// «＋ Eget symbol»: vinduet viser lærerens egne symboler med ✕, og felt for et nytt.
+function åpneEgneSymboler() {
+  document.getElementById('input-arbeid-emoji').value = '';
+  document.getElementById('input-arbeid-tekst').value = '';
+  renderEgneSymboler();
+  åpneModal('modal-arbeid');
+}
+
+function renderEgneSymboler() {
+  const liste = document.getElementById('arbeid-egne-liste');
+  liste.innerHTML = state.arbeid_egne.length
+    ? state.arbeid_egne.map(x => `<div class="modal-list-item"><span>${esc(x.emoji)} ${esc(x.tekst)}</span>
+        <button class="liste-knapp liste-slett" data-slett-symbol="${esc(x.id)}" title="${t('Slett')}" aria-label="${t('Slett')}">✕</button></div>`).join('')
+    : `<p class="tom-tekst">${t('Ingen egne symboler ennå.')}</p>`;
+}
+
+function leggTilEgetSymbol() {
+  const emoji = document.getElementById('input-arbeid-emoji').value.trim().slice(0, 8);
+  const tekst = document.getElementById('input-arbeid-tekst').value.trim().slice(0, 30);
+  if (!tekst) { notify(t('Skriv inn en tekst'), 'warning'); return; }
+  if (state.arbeid_egne.length >= 30) { notify(t('Du har nådd grensen på 30 egne symboler'), 'warning'); return; }
+  let id;
+  do { id = 'eget-' + Math.random().toString(36).slice(2, 8).padEnd(6, '0'); }
+  while (state.arbeid_egne.some(x => x.id === id));
+  state.arbeid_egne.push({ id, emoji: emoji || '⭐', tekst });
+  aktivSide().arbeid_symbol = id; // det nye symbolet vises med en gang
+  saveState();
+  lukkModal();
+  renderArbeid();
+}
+
+// Sletter et eget symbol. Sider som viste det, viser ingenting i stedet.
+function slettEgetSymbol(id) {
+  state.arbeid_egne = state.arbeid_egne.filter(x => x.id !== id);
+  for (const side of state.sider) if (side.arbeid_symbol === id) side.arbeid_symbol = null;
+  saveState();
+  renderEgneSymboler();
+  renderArbeid();
+}
+
+function setupArbeid() {
+  document.getElementById('arbeid-velger').addEventListener('click', e => {
+    const knapp = e.target.closest('.arbeid-valg');
+    if (!knapp) return;
+    if (knapp.classList.contains('arbeid-nytt')) åpneEgneSymboler();
+    else velgArbeidSymbol(knapp.dataset.symbol);
+  });
+  document.getElementById('trafikklys').addEventListener('click', e => {
+    const lys = e.target.closest('.lys');
+    if (lys) velgTrafikklys(lys.dataset.lys);
+  });
+  document.getElementById('arbeid-egne-liste').addEventListener('click', e => {
+    const k = e.target.closest('[data-slett-symbol]');
+    if (k) slettEgetSymbol(k.dataset.slettSymbol);
+  });
+  document.getElementById('btn-arbeid-lagre').onclick = leggTilEgetSymbol;
+  document.getElementById('btn-arbeid-lukk').onclick = lukkModal;
+  inputEnter('input-arbeid-tekst', leggTilEgetSymbol);
+  renderArbeid();
+  renderTrafikklys();
+}
 
 // Trekker ett terningkast: et helt tall fra 1 til og med antall sider.
 function trilleTall(sider) {
@@ -4341,6 +4489,8 @@ function byttSide(idx) {
   renderAlleTrekk();
   renderGrupper();
   renderDagsplan();
+  renderArbeid();
+  renderTrafikklys();
   oppdaterBegrensningSelecter();
   renderWidgetMeny();
   renderSiderNav();
@@ -4400,7 +4550,6 @@ const OPPDATERINGSLOGG_HTML = `
     <p>Dette er ideer, ikke løfter. Rekkefølgen kan endre seg. Savner du noe? Si fra via <strong>💬 Tilbakemelding</strong>.</p>
     <strong>Neste</strong>
     <ul>
-      <li>🤫 <strong>Arbeidssymboler og trafikklys</strong> i samme kort</li>
       <li>🔢 <strong>Teller, instruksjonskort, nedtelling til en dato og ukenummer</strong></li>
       <li>📑 <strong>Maler for sider,</strong> og deling av en side med en kollega, uten elevnavn</li>
     </ul>
@@ -4416,6 +4565,15 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.47</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>Nytt kort: 🤫 Arbeidssymboler.</strong> Vis et stort arbeidssymbol: Stille arbeid, Hviskestemme, Pararbeid, Gruppearbeid, Rekk opp hånda eller Se hit. Lag egne symboler med ＋</li>
+      <li><strong>Nytt kort: 🚦 Trafikklys</strong> med rødt, gult og grønt. Hva fargene betyr, avtaler du med klassen</li>
+      <li>Begge finnes under ⊞ Kort</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.46</div>
     <div class="logg-dato">4. november 2026</div>
@@ -5023,6 +5181,13 @@ const BRUKERVEILEDNING_HTML = `
   <p><strong>Velg sted for været.</strong> Første gang kan du trykke <strong>📍 Vis været der du er</strong> i velkomstmeldingen. Da spør nettleseren om å få bruke posisjonen din, og været settes til stedet du er. Under stedsnavnet står det hvor stedet kom fra, så du aldri er i tvil.</p>
   <p><strong>Vil du bytte sted?</strong> Nederst i vær-vinduet ligger <strong>📍 Bruk min posisjon</strong>, og et søkefelt der du kan skrive inn et hvilket som helst sted og trykke <kbd>Enter</kbd>. Fylke og land står under hvert treff, så du ikke havner i feil land. Stedet blir stående til du bytter det selv. Appen spør ikke om posisjonen din hver gang du åpner den.</p>
   <p>Har du ikke valgt noe sted, eller sier nei til posisjon, brukes <strong>Eidsvoll</strong> til du velger noe annet. Har du valgt et sted tidligere, brukes det.</p>
+
+  <h4>🤫 Arbeidssymboler</h4>
+  <p>Hent kortet fram under <strong>⊞ Kort</strong>. Trykk på et symbol i raden nederst for å vise det stort: 🤫 Stille arbeid, 🗣️ Hviskestemme, 👫 Pararbeid, 👥 Gruppearbeid, 🙋 Rekk opp hånda eller 👀 Se hit. Trykk på det samme symbolet igjen for å fjerne det.</p>
+  <p><strong>＋</strong> lager et eget symbol med emoji og tekst, for eksempel «📖 Lesestund». Egne symboler finnes på alle sidene dine, og slettes med ✕ i det samme vinduet. Hver side husker sitt eget symbol.</p>
+
+  <h4>🚦 Trafikklys</h4>
+  <p>Et eget kort under <strong>⊞ Kort</strong>, med rødt, gult og grønt lys og ingen tekst. Hva fargene betyr, avtaler du med klassen. Trykk på et lys for å tenne det, og igjen for å slukke. Hver side husker sitt eget lys.</p>
 
   <h4>🔍 Fokus: ett kort på hele skjermen</h4>
   <p>Hold musa over et kort og trykk <strong>⛶</strong> øverst i kortet, eller tasten <kbd>f</kbd>. Kortet fyller hele vinduet, og innholdet blir så stort det får plass til: timeren for hele klassen, elevlista, dagsplanen eller trekket. Alt virker som vanlig inne i fokus, så du kan starte timeren og krysse av dagsplanen der.</p>
@@ -6603,6 +6768,7 @@ async function eksporterData() {
         notat_teller:   state.notat_teller,
         bilde_teller:   state.bilde_teller,
         youtube_teller: state.youtube_teller,
+        arbeid_egne:    state.arbeid_egne,
       },
     },
   };
@@ -6726,6 +6892,7 @@ async function bekreftImport() {
   if (wi.notat_teller   !== undefined) ny.notat_teller = wi.notat_teller;
   if (wi.bilde_teller   !== undefined) ny.bilde_teller = wi.bilde_teller;
   if (wi.youtube_teller !== undefined) ny.youtube_teller = wi.youtube_teller;
+  if (wi.arbeid_egne    !== undefined) ny.arbeid_egne = wi.arbeid_egne;
   ny.aktiv_side = Math.min(
     typeof innhold.aktiv_side === 'number' ? innhold.aktiv_side : 0,
     ny.sider.length - 1,
@@ -6816,6 +6983,7 @@ function init() {
   hentTimerØkt(); // en nedtelling som gikk før omlastingen, fortsetter
   renderTimer();
   setupTerning();
+  setupArbeid();
   følgAndreFaner();
   setupListeDra();
   visLagringVarsel(); // bare synlig hvis dataene er fra en nyere versjon
