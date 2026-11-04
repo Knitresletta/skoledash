@@ -1353,7 +1353,7 @@ body.kl-endrer-storrelse {
 }
 
 /* ===================== Timer ===================== */
-#timer-display {
+.timer-display {
     font-size: 2.6rem;
     font-weight: 800;
     text-align: center;
@@ -1362,13 +1362,13 @@ body.kl-endrer-storrelse {
     line-height: 1;
     padding: 6px 0;
 }
-#timer-display.running {
+.timer-display.running {
     color: var(--primary);
 }
-#timer-display.ferdig {
+.timer-display.ferdig {
     color: var(--red);
 }
-#timer-bar-wrap {
+.timer-bar-wrap {
     background: var(--border);
     border-radius: 999px;
     height: 7px;
@@ -1376,7 +1376,7 @@ body.kl-endrer-storrelse {
 }
 /* Framdriftsbjelken. JS setter width i prosent hvert sekund; width-transition gjør at
    den glir jevnt nedover i stedet for å hoppe. Fargen byttes når den kjører/er ferdig. */
-#timer-bar {
+.timer-bar {
     height: 100%;
     border-radius: 999px;
     width: 100%;
@@ -1417,7 +1417,7 @@ body.kl-endrer-storrelse {
 }
 /* Skiva (timeglass): fargen dekker det som er igjen, fra klokka tolv og med klokka.
    Den krymper mot tolv mens tiden går. JS setter --andel (grader) og --skive-farge. */
-#timer-skive {
+.timer-skive {
     --andel: 360deg;
     --skive-farge: var(--primary);
     width: min(100%, 170px);
@@ -1428,8 +1428,8 @@ body.kl-endrer-storrelse {
     border: 3px solid var(--border);
     box-sizing: border-box;
 }
-#timer-skive.hidden,
-#timer-bar-wrap.hidden {
+.timer-skive.hidden,
+.timer-bar-wrap.hidden {
     display: none;
 }
 .timer-status {
@@ -1442,7 +1442,7 @@ body.kl-endrer-storrelse {
     gap: 8px;
 }
 /* Mens tiden går: den myke varianten av hovedfargen, så «Stopp» skiller seg fra «Start». */
-#btn-timer-toggle.timer-kjører {
+.btn-timer-toggle.timer-kjører {
     background: var(--primary-l);
     border-color: var(--primary-l);
     color: var(--primary-tekst);
@@ -3052,6 +3052,20 @@ textarea[id^="notat-textarea"]:focus {
     color: var(--red);
     border: none;
     font-weight: 700;
+}
+
+/* Skrivefeltet når et kort får nytt navn: samme plass og skrift som tittelen. */
+.kort-navn-input {
+    width: 100%;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: none;
+    color: var(--text);
+    background: var(--card);
+    border: 1px solid var(--primary);
+    border-radius: 4px;
+    padding: 1px 5px;
+    outline: none;
 }
 
 /* ===================== Fokusmodus ===================== */

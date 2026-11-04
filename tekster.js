@@ -134,6 +134,10 @@ const NYNORSK = {
   'Gi nytt navn': 'Gi nytt namn',
   'Par som ikke skal i samme gruppe': 'Par som ikkje skal i same gruppe',
   'Slett?': 'Slette?',
+  '⏰ {navn}: tiden er ute!': '⏰ {navn}: tida er ute!',
+  'Bilde': 'Bilete',
+  'Gi kortet et navn': 'Gi kortet eit namn',
+  'Navn på kortet': 'Namn på kortet',
   'Arbeidssymboler': 'Arbeidssymbol',
   '🤫 Arbeidssymboler': '🤫 Arbeidssymbol',
   'Hviskestemme': 'Kviskrestemme',
@@ -324,10 +328,10 @@ const BRUKERVEILEDNING_NN = `
   <p>Klikk <strong>+</strong> midt i toppfeltet for å leggje til ei ny side, klikk på eit sidenamn for å byte, og <strong>✕</strong> på ei fane for å slette. Tanken er at <strong>kvar side er sin eigen klasse</strong>: lag side 1 for 1A og side 2 for 1B, og byt fritt mellom dei gjennom dagen utan at noko blir blanda.</p>
   <p><strong>Gi ei side nytt namn</strong> ved å dobbeltklikke på fana. Då blir ho til eit lite skrivefelt. Skriv inn namnet (t.d. «1A» eller «Mattegruppe») og trykk <kbd>Enter</kbd> for å lagre. <kbd>Esc</kbd> avbryt utan å endre namnet.</p>
   <p><strong>Per side</strong> (eiga for kvar klasse): elevlista, grupper, dagsplanen, namnet på klassebamsen, og i tillegg oppsettet av korta, notat og bilete.</p>
-  <p><strong>Felles for alle sider:</strong> lagra klasselister (📋 Lister, eit felles bibliotek du kan laste inn på kva side som helst) med trekka sine, tema, font, skriftstorleik, målform og timeren.</p>
-  <p>Timeren er felles og held fram med å gå sjølv om du byter side. Vil du til dømes vise eit bilete på ei eiga side medan nedteljinga går, går det heilt fint. Timeren tel vidare i bakgrunnen.</p>
+  <p><strong>Felles for alle sider:</strong> lagra klasselister (📋 Lister, eit felles bibliotek du kan laste inn på kva side som helst) med trekka sine, tema, font, skriftstorleik og målform.</p>
+  <p>Timerar høyrer til sida dei er laga på, men held fram med å gå når du byter side. Vil du til dømes vise eit bilete på ei eiga side medan nedteljinga går, går det heilt fint, og du får beskjed når tida er ute.</p>
   <p>Ei <strong>ny side startar heilt tom</strong>, utan synlege kort. Du hentar sjølv fram akkurat dei korta du vil ha via <strong>⊞ Kort</strong>-menyen, så kvar side blir nøyaktig slik du vil ha ho.</p>
-  <p><strong>Side 1 startar med eit lite utval</strong> første gongen du opnar appen: klokke og tilfeldig elev til venstre, dagsplan og notat i midten, og elevlista til høgre. Det er med vilje få kort, så heile sida får plass på skjermen med ein gong. Ordenselevar, klassebamse, terning, timer og grupper ligg klare i <strong>⊞ Kort</strong> og dukkar opp på den faste plassen sin når du kryssar dei av.</p>
+  <p><strong>Side 1 startar med eit lite utval</strong> første gongen du opnar appen: klokke og tilfeldig elev til venstre, dagsplan og notat i midten, og elevlista til høgre. Det er med vilje få kort, så heile sida får plass på skjermen med ein gong. Ordenselevar, klassebamse, terning og grupper ligg klare i <strong>⊞ Kort</strong> og dukkar opp på den faste plassen sin når du kryssar dei av.</p>
 
   <h4>Kom i gang</h4>
   <p>Trykk <strong>+ Legg til elev</strong> (eller tasten <kbd>a</kbd>) for å leggje inn elevane i klassen din. Du kan ha opptil 35 elevar inne samtidig.</p>
@@ -354,6 +358,7 @@ const BRUKERVEILEDNING_NN = `
 
   <h4>Trekke elevar</h4>
   <p><strong>🙋 Tilfeldig elev</strong>: trykk <strong>Trekk</strong> for å velje ein tilfeldig elev frå lista. Vanleg trekk unngår å velje same elev to gonger på rad.</p>
+  <p><strong>Fleire Tilfeldig elev:</strong> <strong>+ 🙋 Tilfeldig elev</strong> under ⊞ Kort lagar eit kort til, med sin eigen backlog, til dømes «Les høgt» og «Svarar på tavla». <kbd>r</kbd> og <kbd>R</kbd> trekkjer i kortet musa er over.</p>
   <p><strong>Trekk (bl)</strong> trekkjer utan repetisjon (backlog). Kvar elev blir trekt éin gong før nokon blir trekt på nytt. Talet på trekte står under knappen. Når alle er trekte, trykkjer du <strong>🔄</strong> øvst i kortet (blir vist når du held musa over) for å starte på nytt.</p>
   <p><strong>⭐ Ordenselevar</strong> vel to elevar som har ordenselev-ansvar. Alle får tur før nokon blir gjentekne, og når alle har vore ordenselev, startar ein ny runde av seg sjølv, med ei melding om det. Er det éin elev att, kjem den eleven med i første trekket i den nye runden. To elevar som ikkje skal i same gruppe (⛔), blir heller aldri ordenselevar saman. Vil du berre ha éin ordenselev, trykkjer du <strong>👥</strong> øvst i kortet, så blir han til <strong>👤</strong>. Valet gjeld lista, som trekka.</p>
   <p><strong>Klassebamse</strong> vel kven som får bamsen (eller ein annan gjenstand) med heim. Går òg i rundar av seg sjølv.</p>
@@ -363,8 +368,8 @@ const BRUKERVEILEDNING_NN = `
   <h4>📝 Redigere backlog for ordenselev og klassebamse</h4>
   <p>Trykk på blyantikonet (📝) i hjørnet av kortet. Du ser alle elevane som brikker, og grå brikker er alt «brukte». Trykk på ein elev for å setje eller fjerne merket. Nyttig om du har mista lokale data og må finne ut att kven som har vore ordenselev eller hatt med bamsen.</p>
 
-  <h4>✏️ Gi klassebamsen eit eige namn</h4>
-  <p>Trykk på blyantikonet (✏️) i hjørnet av Klassebamse-kortet, skriv inn det nye namnet og trykk Lagre. Namnet blir hugsa sjølv etter at du lukkar nettlesaren.</p>
+  <h4>✏️ Gi eit kort eit eige namn</h4>
+  <p>Hald musa over kortet og trykk <strong>✏️</strong> øvst. Tittelen blir eit skrivefelt: skriv namnet og trykk <kbd>Enter</kbd>, eller <kbd>Esc</kbd> for å avbryte. Tømer du feltet, får kortet standardnamnet tilbake. Namnet gjeld sida du er på. Gir du Klassebamse eit namn, blir det òg brukt i meldingane («Bo tek med Teddy heim»). Klokka har ikkje ✏️, fordi overskrifta der byter visning.</p>
 
   <h4>Grupper</h4>
   <p>Trykk <strong>🎲 Del inn</strong> i Grupper-kortet (eller tasten <kbd>g</kbd>). Skriv inn kor mange grupper du vil ha, og elevane blir fordelte tilfeldig. Gruppefargane blir òg viste i elevlista. Trykk <strong>✕</strong> for å fjerne gruppeinndelinga.</p>
@@ -379,7 +384,7 @@ const BRUKERVEILEDNING_NN = `
   <p><strong>Vel terningtype</strong> i knappraden: <strong>d4, d6, d8, d10, d12</strong> eller <strong>d20</strong>. Talet seier kor mange sider terningen har. Den vanlege sekssida terningen (d6) har prikkar, slik elevane kjenner han att frå brettspel. Dei andre har tal på flatene, akkurat som ekte terningar av den typen.</p>
   <p><strong>Fleire terningar:</strong> bruk <strong>−</strong> og <strong>+</strong> ved sida av kast-knappen for å kaste opptil 36 om gongen. Terningane blir lagde i rader som er så kvadratiske som mogleg, og kortet tilpassar seg. Då blir <strong>summen</strong> vist under terningane. Nyttig i matte, eller når to terningar skal gi eit tal mellom 2 og 12.</p>
   <p>Byter du type eller tal, blir det kasta på nytt automatisk, så det aldri ligg att eit gammalt resultat som ikkje passar terningen. Siste kast blir hugsa til neste gong du opnar sida.</p>
-  <p>Terningoppsettet er <strong>felles for alle sider</strong>, på same måte som timeren.</p>
+  <p>Terningoppsettet er <strong>felles for alle sider</strong>.</p>
 
   <h4>🕐 Klokke</h4>
   <p>Viser ei <strong>analog urskive</strong> med tala 1–12 og tre visarar, og den <strong>digitale tida</strong> rett under. Time- og minuttvisaren glir jamt slik ekte klokker gjer. Er ho 09:55, står timevisaren nesten på 10, ikkje rett på 9. Det gjer kortet trygt å bruke når klassen øver på å lese klokka.</p>
@@ -406,7 +411,9 @@ const BRUKERVEILEDNING_NN = `
   <p>Lukk med <kbd>Esc</kbd>, <kbd>f</kbd>, <strong>✕ Lukk fokus</strong> øvst til høgre eller eit klikk utanfor kortet. Kortet ligg der det låg på bordet, med same storleik. Vil du ha heile skjermen utan fanene og adressefeltet, trykkjer du <kbd>F11</kbd> i tillegg.</p>
 
   <h4>Timer</h4>
+  <p>Legg til ein timer med <strong>+ ⏱ Timer</strong> under <strong>⊞ Kort</strong>. Du kan ha så mange du vil på ei side, til dømes éin for gruppearbeidet og éin for pausen. Gi dei namn med ✏️, så seier varselet kva for ein som er ferdig. Kvar timer har si eiga tid, og ✕ fjernar han.</p>
   <p>Standard er 5 minutt. Trykk <strong>Set tid</strong> (eller <kbd>s</kbd>) for å velje ei anna lengd (1–60 min). Start og stopp med <strong>▶ Start</strong> (eller <kbd>t</kbd>). Det kjem ein lyd når tida er ute.</p>
+  <p>Med fleire timerar gjeld <kbd>t</kbd> og <kbd>s</kbd> timeren musa er over, elles den første på sida. Har sida ingen timer, lagar <kbd>t</kbd> ein ny og startar han.</p>
   <p>Startar du timeren med <kbd>t</kbd> medan timerkortet ikkje er framme, blir kortet henta fram av seg sjølv og lagt øvst, så klassen ser nedteljinga.</p>
   <p>Timeren går rett sjølv om du viser noko i ei anna fane ei stund, og lastar du sida inn på nytt, held han fram der han var.</p>
   <p><strong>⏱ Stoppeklokke:</strong> vel fana øvst i kortet for å telje oppover i staden. Start og stopp på same måte, og ↺ set ho tilbake til null. Nedteljinga og stoppeklokka går kvar for seg: ei nedteljing du har starta, held fram og pip når tida er ute, sjølv om du ser på stoppeklokka.</p>

@@ -199,16 +199,16 @@
     <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-tilfeldig" title="Fjern fra siden">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
-      <h2>🙋 Tilfeldig elev</h2>
+      <h2>Tilfeldig elev</h2>
       <div class="card-controls">
-        <button class="btn btn-ghost btn-sm btn-icon" id="btn-tilfeldig-tom" title="Tøm backlog: alle kan trekkes igjen">🔄</button>
+        <button class="btn btn-ghost btn-sm btn-icon btn-tilfeldig-tom" title="Tøm backlog: alle kan trekkes igjen">🔄</button>
       </div>
     </div>
-    <div id="tilfeldig-vis" class="draw-placeholder">Trykk Trekk for å velge en tilfeldig elev</div>
-    <div id="tilfeldig-backlog-count" class="backlog-count hidden"></div>
+    <div class="tilfeldig-vis draw-placeholder">Trykk Trekk for å velge en tilfeldig elev</div>
+    <div class="tilfeldig-backlog-count backlog-count hidden"></div>
     <div class="flex gap-2">
-      <button class="btn btn-primary flex-1" id="btn-tilfeldig" title="Trekk tilfeldig (r)">Trekk</button>
-      <button class="btn btn-ghost flex-1" id="btn-tilfeldig-backlog" title="Trekk uten repetisjon (R)">Trekk (bl)</button>
+      <button class="btn btn-primary flex-1 btn-tilfeldig" title="Trekk tilfeldig (r)">Trekk</button>
+      <button class="btn btn-ghost flex-1 btn-tilfeldig-backlog" title="Trekk uten repetisjon (R)">Trekk (bl)</button>
     </div>
   </div>
 
@@ -217,7 +217,7 @@
     <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-ordenselev" title="Fjern fra siden">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
-      <h2>⭐ Ordenselever</h2>
+      <h2>Ordenselever</h2>
       <div class="card-controls">
         <button class="btn btn-ghost btn-sm btn-icon" id="btn-ordenselev-antall" title="To ordenselever per trekk. Trykk for én.">👥</button>
         <button class="btn btn-ghost btn-sm btn-icon" id="btn-rediger-ordenselev" title="Rediger backlog">📝</button>
@@ -236,7 +236,6 @@
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
       <h2>Klassebamse</h2>
       <div class="card-controls">
-        <button class="btn btn-ghost btn-sm btn-icon" id="btn-ulv-rename" title="Endre navn">✏️</button>
         <button class="btn btn-ghost btn-sm btn-icon" id="btn-rediger-ulv" title="Rediger backlog">📝</button>
         <button class="btn btn-ghost btn-sm btn-icon" id="btn-ulv-tom" title="Nullstill bamse-trekket: alle kan trekkes igjen">🔄</button>
       </div>
@@ -247,29 +246,6 @@
   </div>
 
   <!-- Card: Timer -->
-  <div class="card" id="card-timer">
-    <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-timer" title="Fjern fra siden">✕</button>
-    <div class="card-header">
-      <span class="drag-handle" title="Dra for å flytte">⠿</span>
-      <h2>⏱ Timer</h2>
-      <div class="card-controls">
-        <button class="btn btn-ghost btn-sm btn-icon" id="btn-timer-visning" title="Vis som skive">◔</button>
-      </div>
-    </div>
-    <div class="timer-faner" role="tablist">
-      <button class="timer-fane" data-modus="ned" role="tab">⏳ Nedtelling</button>
-      <button class="timer-fane" data-modus="opp" role="tab">⏱ Stoppeklokke</button>
-    </div>
-    <div id="timer-display">05:00</div>
-    <div id="timer-bar-wrap"><div id="timer-bar"></div></div>
-    <div id="timer-skive" class="hidden" aria-hidden="true"></div>
-    <div id="timer-status" class="timer-status">⏸ Pauset</div>
-    <div class="timer-controls">
-      <button class="btn btn-primary flex-1" id="btn-timer-toggle" title="Start/stopp (t)">▶ Start</button>
-      <button class="btn btn-ghost" id="btn-timer-sett" title="Sett tid (s)">Sett tid</button>
-      <button class="btn btn-ghost btn-icon" id="btn-timer-reset" title="Nullstill timer">↺</button>
-    </div>
-  </div>
 
   <!-- Card: Notat — har INGEN statisk mal her. Notat- og bilde-kort er flerinstans
        og bygges i sin helhet av JS (lagNotatElement/lagBildeElement), én per instans. -->
@@ -278,7 +254,7 @@
     <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-dagsplan" title="Fjern fra siden">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
-      <h2>📋 Dagsplan</h2>
+      <h2>Dagsplan</h2>
       <div class="card-controls">
         <button class="btn btn-ghost btn-sm btn-icon" id="btn-dagsplan-tom" title="Tøm dagsplanen">🧹</button>
       </div>
@@ -326,7 +302,7 @@
     <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-terning" title="Fjern fra siden">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
-      <h2>🎲 Terning</h2>
+      <h2>Terning</h2>
     </div>
 
     <div id="terning-flater"></div>
@@ -349,7 +325,7 @@
     <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-arbeid" title="Fjern fra siden">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
-      <h2>🤫 Arbeidssymboler</h2>
+      <h2>Arbeidssymboler</h2>
     </div>
     <div id="arbeid-vis" class="arbeid-vis"></div>
     <div id="arbeid-velger" class="arbeid-velger"></div>
@@ -358,7 +334,7 @@
     <button class="kl-widget-close" data-klikk="skjul-widget" data-widget="card-trafikklys" title="Fjern fra siden">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
-      <h2>🚦 Trafikklys</h2>
+      <h2>Trafikklys</h2>
     </div>
     <div id="trafikklys" class="trafikklys" role="group" aria-label="Trafikklys">
       <button class="lys lys-rød" data-lys="rød" title="Rødt lys" aria-label="Rødt lys"></button>
@@ -496,14 +472,6 @@
     </div>
   </div>
 
-  <!-- Rename klassebamse -->
-  <div id="modal-ulv-rename" class="modal hidden">
-    <h3>Endre navn på klassebamsen</h3>
-    <input type="text" id="rename-input" class="modal-input" maxlength="30" placeholder="Nytt navn…" />
-    <div class="modal-actions">
-      <button class="btn btn-ghost" id="btn-rename-avbryt">Avbryt</button>
-      <button class="btn btn-primary" id="btn-rename-lagre">Lagre</button>
-    </div>
   </div>
 
   <!-- Backlog-editor -->

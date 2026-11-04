@@ -19,7 +19,7 @@ let sletterAlt = false;
 // dataene feil, slik v2.36 ville gjort med elevobjektene fra v2.37. Finner appen data
 // med høyere versjon enn sin egen, lagrer den ingenting (se lagringSperre), så en
 // tilbakerulling ikke skriver over nyere data.
-const LAGRINGSVERSJON = 1;
+const LAGRINGSVERSJON = 2; // 2: timere som egne kort per side (v2.48)
 // Når appen ikke skal lagre: null, 'annen-fane' (en annen fane har lagret noe nyere,
 // se «Flere faner») eller 'nyere-versjon' (dataene er fra en nyere versjon av appen).
 let lagringSperre = null;
@@ -68,7 +68,6 @@ const WIDGET_NAVN = {
   'card-tilfeldig':  'Tilfeldig elev',
   'card-ordenselev': 'Ordenselever',
   'card-ulv':        'Klassebamse',
-  'card-timer':      'Timer',
   'card-dagsplan':   'Dagsplan',
   'card-klokke':     'Klokke',
   'card-terning':    'Terning',
@@ -83,7 +82,6 @@ const WIDGET_IKON = {
   'card-tilfeldig':  '🙋',
   'card-ordenselev': '⭐',
   'card-ulv':        '🧸',
-  'card-timer':      '⏱️',
   'card-dagsplan':   '📋',
   'card-klokke':     '🕐',
   'card-terning':    '🎲',
@@ -134,9 +132,14 @@ const GUIDE_KORT = ['card-guide-meny', 'card-guide-widgets', 'card-guide-taster'
 // innstillingen under Skriftstørrelse → Enkelt widget for disse. Widgets med
 // voksende innhold (elever, dagsplan, grupper, notat) står ikke her: der betyr
 // større kort plass til flere linjer.
-const SKALER_MED_KORT = ['card-klokke', 'card-timer', 'card-tilfeldig',
+const SKALER_MED_KORT = ['card-klokke', 'card-tilfeldig',
   'card-ordenselev', 'card-ulv', 'card-terning', 'card-arbeid',
   'card-trafikklys'];
+
+// Kort som skalerer med størrelsen, også kopier som «card-timer-3» (se kortType).
+function erSkalerKort(id) {
+  return SKALER_MED_KORT.includes(id) || ['timer', 'tilfeldig'].includes(kortType(id));
+}
 
 // Arbeidssymbolene i Arbeidssymboler-kortet (v2.47). Læreren kan legge til egne
 // (state.arbeid_egne), som deles av alle sider. Står her oppe fordi loadState() og
@@ -267,6 +270,14 @@ function defaultState() {
     // Egen liste fordi rekkefølgen i et objekt ikke kan styres (navn som «8» havner
     // alltid først). Se «Oppsett i Lister-menyen».
     liste_oppsett:       [],
+    // Timerne (v2.48): «timer-N» → { varighet, modus, visning }. Kortene står i sidenes
+    // oppsett. timer_varighet/_modus/_visning under er den gamle felles timeren; de
+    // brukes bare når gamle data gjøres om (se migrerFellesTimer).
+    timere:              {},
+    timer_teller:        0,
+    // Ekstra Tilfeldig elev-kort (v2.48): «tilfeldig-N» → {}. Backlogene ligger i trekkene.
+    tilfeldige:          {},
+    tilfeldig_teller:    0,
     timer_varighet:      300,
     arbeid_egne:         [],        // lærerens egne arbeidssymboler { id, emoji, tekst }, v2.47
     timer_modus:         'ned',     // 'ned' (nedtelling) eller 'opp' (stoppeklokke), v2.43
@@ -336,6 +347,9 @@ function nySide(navn) {
     ulv_valgt:           null,
     ulv_skyldig:         [],
     ulv_navn:            'Klassebamse',
+    // Egne navn på kortene på denne siden (v2.48): kortId → navn. Klassebamse bruker
+    // ulv_navn, som også står i meldingene.
+    kort_navn:           {},
     arbeid_symbol:       null,   // id fra ARBEID_SYMBOLER eller state.arbeid_egne (v2.47)
     arbeid_lys:          null,   // 'rød' | 'gul' | 'grønn' | null
     // Par fra før v2.38, da parene hørte til siden. Nye par lagres i lista (se
@@ -362,14 +376,13 @@ function nySide(navn) {
       { id: 'card-trafikklys', col: 2, x: 56, y: 0,  b: 12, h: 40,  z: 12 },
       { id: 'card-dagsplan',   col: 2, x: 28, y: 0,  b: 43, h: 58,  z: 6 },
       { id: 'card-notat-1',    col: 2, x: 28, y: 60, b: 43, h: 40,  z: 7 },
-      { id: 'card-timer',      col: 2, x: 28, y: 60, b: 26, h: 32,  z: 8 },
       { id: 'card-elever',     col: 3, x: 72, y: 0,  b: 28, h: 100, z: 9 },
       { id: 'card-grupper',    col: 3, x: 72, y: 0,  b: 28, h: 45,  z: 10 },
     ],
     // Gjelder bare hvis noe kaller nySide() uten å skjule alt selv. Nye sider
     // (leggTilSide) og nye brukere (førsteSide) starter med alt skjult.
     widget_hidden: [
-      'card-ordenselev', 'card-ulv', 'card-terning', 'card-timer', 'card-grupper',
+      'card-ordenselev', 'card-ulv', 'card-terning', 'card-grupper',
       'card-arbeid', 'card-trafikklys',
     ],
   };
@@ -416,7 +429,7 @@ function trygtJsonParse(tekst) {
 
 // Gyldige ID-er for flerinstans-widgets. ID-ene havner i element-ID-er og onclick, så
 // alt annet enn «type-tall» forkastes.
-const INSTANS_ID = /^(notat|bilde|youtube)-\d{1,6}$/;
+const INSTANS_ID = /^(notat|bilde|youtube|timer|tilfeldig)-\d{1,6}$/;
 const YOUTUBE_VIDEO_ID = /^[\w-]{11}$/;
 const SKRIFT_NØKLER = ['liten', 'normal', 'stor', 'xl']; // speiler STØRRELSER lenger ned
 
@@ -462,9 +475,12 @@ const TREKK_LISTER = ['tilfeldig_backlog', 'ordenselev_backlog', 'ordenselev_val
 const TREKK_ENKLE  = ['tilfeldig_valgt', 'ulv_valgt'];
 
 // ordenselev_antall: 2 som standard, 1 for klasser med bare én ordenselev.
+// tilfeldig_flere: backlog og trukket for hver ekstra Tilfeldig elev-kopi på siden
+// (v2.48), «card-tilfeldig-N» → { backlog, valgt }. Det første kortet bruker
+// tilfeldig_backlog/tilfeldig_valgt som før.
 function tomtTrekk() {
   return { ...Object.fromEntries([...TREKK_LISTER.map(f => [f, []]), ...TREKK_ENKLE.map(f => [f, null])]),
-    ordenselev_antall: 2 };
+    ordenselev_antall: 2, tilfeldig_flere: {} };
 }
 
 // Trekkene som gjelder for siden: listas hvis siden er koblet til en liste, ellers
@@ -481,6 +497,10 @@ function kopierTrekk(fra, behold = () => true, bytt = id => id) {
   for (const f of TREKK_LISTER) ut[f] = [...new Set((fra[f] ?? []).map(bytt))].filter(behold);
   for (const f of TREKK_ENKLE) ut[f] = fra[f] && behold(bytt(fra[f])) ? bytt(fra[f]) : null;
   ut.ordenselev_antall = fra.ordenselev_antall === 1 ? 1 : 2;
+  for (const [kort, x] of Object.entries(fra.tilfeldig_flere ?? {})) {
+    const valgt = x?.valgt && behold(bytt(x.valgt)) ? bytt(x.valgt) : null;
+    ut.tilfeldig_flere[kort] = { backlog: [...new Set((x?.backlog ?? []).map(bytt))].filter(behold), valgt };
+  }
   return ut;
 }
 
@@ -497,6 +517,10 @@ function normaliserTrekk(r) {
   ut.ordenselev_valgte = ut.ordenselev_valgte.slice(0, 2);
   for (const f of TREKK_ENKLE) ut[f] = id(r[f]);
   ut.ordenselev_antall = r.ordenselev_antall === 1 ? 1 : 2;
+  for (const [kort, x] of Object.entries(erObjekt(r.tilfeldig_flere) ? r.tilfeldig_flere : {})) {
+    if (!/^card-tilfeldig-\d{1,6}$/.test(kort) || !erObjekt(x)) continue;
+    ut.tilfeldig_flere[kort] = { backlog: [...new Set((Array.isArray(x.backlog) ? x.backlog : []).map(id).filter(Boolean))], valgt: id(x.valgt) };
+  }
   return ut;
 }
 
@@ -564,7 +588,31 @@ function rensRåState(raw) {
 
 // Endelig pass etter migreringene: hvert felt får riktig type. Endrer på stedet og
 // returnerer samme objekt. Ukjente felt får stå, de brukes ikke til noe.
+// Den felles timeren fra før v2.48 («card-timer», samme timer på alle sider) blir én
+// vanlig timer per side der den var synlig, med samme plass og innstillinger. Kjøres
+// først i normaliserState, før kort-id-ene sjekkes: «card-timer» er ikke gyldig lenger.
+function migrerFellesTimer(s) {
+  if (!Array.isArray(s.sider) || !s.sider.some(side => Array.isArray(side.widget_layout) &&
+      side.widget_layout.some(w => w?.id === 'card-timer'))) return;
+  s.timere = erObjekt(s.timere) ? s.timere : {};
+  let teller = Number.isFinite(s.timer_teller) ? s.timer_teller : 0;
+  for (const side of s.sider) {
+    if (!Array.isArray(side.widget_layout)) continue;
+    const w = side.widget_layout.find(x => x?.id === 'card-timer');
+    if (!w) continue;
+    const skjult = Array.isArray(side.widget_hidden) && side.widget_hidden.includes('card-timer');
+    side.widget_layout = side.widget_layout.filter(x => x?.id !== 'card-timer');
+    if (Array.isArray(side.widget_hidden)) side.widget_hidden = side.widget_hidden.filter(x => x !== 'card-timer');
+    if (skjult) continue;
+    const id = `timer-${++teller}`;
+    s.timere[id] = { varighet: s.timer_varighet, modus: s.timer_modus, visning: s.timer_visning };
+    side.widget_layout.push({ ...w, id: `card-${id}` });
+  }
+  s.timer_teller = teller;
+}
+
 function normaliserState(s) {
+  migrerFellesTimer(s);
   // --- Sider ---
   s.sider = s.sider.map((side, i) => {
     side.navn = tekstEllerNull(side.navn, 60) || `Side ${i + 1}`;
@@ -596,7 +644,11 @@ function normaliserState(s) {
     side.arbeid_symbol = typeof side.arbeid_symbol === 'string' && /^[a-z0-9-]{1,30}$/.test(side.arbeid_symbol)
       ? side.arbeid_symbol : null;
     side.arbeid_lys = TRAFIKKLYS.includes(side.arbeid_lys) ? side.arbeid_lys : null;
+    side.kort_navn = Object.fromEntries(Object.entries(erObjekt(side.kort_navn) ? side.kort_navn : {})
+      .filter(([id, navn]) => erGyldigKortId(id) && !FARLIGE_NØKLER.has(id) && typeof navn === 'string' && navn.trim())
+      .map(([id, navn]) => [id, navn.trim().slice(0, 40)]));
     side.tilfeldig_valgt    = tilId(side.tilfeldig_valgt);
+    side.tilfeldig_flere    = normaliserTrekk({ tilfeldig_flere: side.tilfeldig_flere }).tilfeldig_flere;
     side.ulv_valgt          = tilId(side.ulv_valgt);
     side.ulv_navn           = tekstEllerNull(side.ulv_navn, 40) || 'Klassebamse';
     side.gruppe_begrensninger = (Array.isArray(side.gruppe_begrensninger) ? side.gruppe_begrensninger : [])
@@ -695,6 +747,32 @@ function normaliserState(s) {
   // ID som allerede er i bruk.
   const størsteId = (obj) => Math.max(0, ...Object.keys(obj).map(k => parseInt(k.split('-')[1], 10)));
   s.notat_teller   = Math.max(heltall(s.notat_teller, 0, 999999, 0), størsteId(s.notater));
+  // Timere: gyldige innstillinger, og en timer for hvert timerkort som står i et oppsett
+  // (et kort uten innstillinger får standardene i stedet for å forsvinne).
+  const timere = {};
+  for (const [id, x] of Object.entries(erObjekt(s.timere) ? s.timere : {})) {
+    if (!/^timer-\d{1,6}$/.test(id) || !erObjekt(x)) continue;
+    timere[id] = { varighet: heltall(x.varighet, 1, 86400, 300), modus: x.modus === 'opp' ? 'opp' : 'ned',
+                   visning: x.visning === 'skive' ? 'skive' : 'bjelke' };
+  }
+  for (const side of s.sider) {
+    for (const w of side.widget_layout) {
+      const id = w.id.replace(/^card-/, '');
+      if (/^timer-\d{1,6}$/.test(id) && !timere[id]) timere[id] = { varighet: 300, modus: 'ned', visning: 'bjelke' };
+    }
+  }
+  s.timere = timere;
+  s.timer_teller = Math.max(heltall(s.timer_teller, 0, 999999, 0), størsteId(s.timere));
+  const tilfeldige = {};
+  for (const id of Object.keys(erObjekt(s.tilfeldige) ? s.tilfeldige : {})) if (/^tilfeldig-\d{1,6}$/.test(id)) tilfeldige[id] = {};
+  for (const side of s.sider) {
+    for (const w of side.widget_layout) {
+      const id = w.id.replace(/^card-/, '');
+      if (/^tilfeldig-\d{1,6}$/.test(id)) tilfeldige[id] = {};
+    }
+  }
+  s.tilfeldige = tilfeldige;
+  s.tilfeldig_teller = Math.max(heltall(s.tilfeldig_teller, 0, 999999, 0), størsteId(s.tilfeldige));
   s.bilde_teller   = Math.max(heltall(s.bilde_teller, 0, 999999, 0), størsteId(s.bilder));
   s.youtube_teller = Math.max(heltall(s.youtube_teller, 0, 999999, 0), størsteId(s.youtube));
 
@@ -725,20 +803,7 @@ let værData = null;    // siste værsvar fra met.no, delt mellom topptekst, pop
 let pollenData = null; // siste pollensvar fra Open-Meteo, brukt av klokkekortet
 let stedsTreff = [];   // siste geokodingstreff, slik at klikk kan slå opp på indeks
 
-// Timerens løpende tilstand. Lagres ikke i state (den er ikke en del av klassens data),
-// men per fane i sessionStorage, så den overlever en omlasting (se lagreTimerØkt).
-// Mens timeren går, er timerSlutt klokkeslettet (ms) den treffer null; timerRemaining
-// regnes ut fra det. Se «Timer» for hvorfor.
-let timerRemaining = state.timer_varighet;
-let timerRunning   = false;
-let timerInterval  = null;
-let timerSlutt     = null;
-// Stoppeklokka har sin egen tilstand, så en nedtelling kan gå videre mens klassen ser
-// stoppeklokka (og omvendt). Mens den går, er oppStart klokkeslettet (ms) den startet,
-// justert for pauser; ellers står tiden i oppGått (sekunder).
-let oppKjører = false;
-let oppStart  = null;
-let oppGått   = 0;
+// Timernes løpende tilstand: se «Timer» (timerKjøring).
 
 // Leser lagret tilstand fra localStorage og migrerer eldre dataformater opp til
 // dagens struktur (flat state → sider, enkelt-notat → flerinstans osv.). Returnerer
@@ -1970,41 +2035,61 @@ function backlogTomMelding(s, backlog, tekstAlle) {
 
 // Enkelt tilfeldig trekk: velg én elev. Eneste regel er at man ikke trekker
 // samme elev to ganger på rad (med mindre det bare er én elev inne).
-function trekkTilfeldig() {
+// Backlog og trukket for ett Tilfeldig elev-kort. Det første kortet («card-tilfeldig»)
+// bruker de gamle feltene, kopiene hvert sitt felt i tilfeldig_flere. Begge deler
+// ligger i trekk(s), så de følger klasselista.
+function tilfeldigTilstand(r, kort) {
+  if (kort === 'card-tilfeldig') {
+    return {
+      get backlog() { return r.tilfeldig_backlog; }, set backlog(v) { r.tilfeldig_backlog = v; },
+      get valgt() { return r.tilfeldig_valgt; },     set valgt(v) { r.tilfeldig_valgt = v; },
+    };
+  }
+  r.tilfeldig_flere ??= {};
+  return (r.tilfeldig_flere[kort] ??= { backlog: [], valgt: null });
+}
+
+// Kortet r og R gjelder: Tilfeldig elev-kortet musa er over, ellers det første.
+function aktivtTilfeldigKort() {
+  const side = aktivSide();
+  const synlig = id => side.widget_layout.some(w => w.id === id) && !(side.widget_hidden ?? []).includes(id);
+  if (sistPekerKort && kortType(sistPekerKort) === 'tilfeldig' && synlig(sistPekerKort)) return sistPekerKort;
+  return 'card-tilfeldig';
+}
+
+function trekkTilfeldig(kort = 'card-tilfeldig') {
   const s = aktivSide();
-  const r = trekk(s);
+  const x = tilfeldigTilstand(trekk(s), kort);
   const elever = trekkbareElever(s);
   if (!elever) return;
   // Utelat forrige trukne fra utvalget, så vi ikke får samme navn igjen umiddelbart.
   const pool = elever.length > 1
-    ? elever.filter(e => e !== r.tilfeldig_valgt)
+    ? elever.filter(e => e !== x.valgt)
     : elever;
-  r.tilfeldig_valgt = pool[Math.floor(Math.random() * pool.length)];
+  x.valgt = pool[Math.floor(Math.random() * pool.length)];
   saveState();
-  renderTilfeldig();
+  renderTilfeldig(kort);
 }
 
 // «Rettferdig» tilfeldig trekk: hver elev trekkes nøyaktig én gang før noen
 // gjentas. Backlogen husker hvem som alt er trukket; når alle er brukt opp må
 // læreren tømme den (🔄 på kortet). Forskjellen fra trekkTilfeldig er nettopp denne
 // sporingen.
-function trekkTilfeldigBacklog() {
+function trekkTilfeldigBacklog(kort = 'card-tilfeldig') {
   const s = aktivSide();
-  const r = trekk(s);
+  const x = tilfeldigTilstand(trekk(s), kort);
   const elever = trekkbareElever(s);
   if (!elever) return;
   // Trekk kun blant elever som ikke alt står i backlogen.
-  const pool = elever.filter(e => !r.tilfeldig_backlog.includes(e));
+  const pool = elever.filter(e => !x.backlog.includes(e));
   if (!pool.length) {
-    backlogTomMelding(s, r.tilfeldig_backlog, t('Alle elever er trukket. Trykk 🔄 på kortet for å starte på nytt.'));
+    backlogTomMelding(s, x.backlog, t('Alle elever er trukket. Trykk 🔄 på kortet for å starte på nytt.'));
     return;
   }
-  r.tilfeldig_valgt = pool[Math.floor(Math.random() * pool.length)];
-  if (!r.tilfeldig_backlog.includes(r.tilfeldig_valgt)) {
-    r.tilfeldig_backlog.push(r.tilfeldig_valgt);
-  }
+  x.valgt = pool[Math.floor(Math.random() * pool.length)];
+  if (!x.backlog.includes(x.valgt)) x.backlog.push(x.valgt);
   saveState();
-  renderTilfeldig();
+  renderTilfeldig(kort);
 }
 
 // Trekker `antall` elever blant dem som er her (`elever`), i runder: alle får tur før
@@ -2124,25 +2209,97 @@ function trekkUlv() {
 
 // Viser resultatet av tilfeldig-trekket (eller en oppfordring hvis ingen er trukket),
 // og en liten teller over hvor mange som ligger i backlogen.
-function renderTilfeldig() {
+function renderTilfeldig(kort = 'card-tilfeldig') {
+  const card = document.getElementById(kort);
+  if (!card) return;
   const s = aktivSide();
-  const vis = document.getElementById('tilfeldig-vis');
-  const bl  = document.getElementById('tilfeldig-backlog-count');
-  const r   = trekk(s);
-  document.getElementById('btn-tilfeldig-tom').disabled = !r.tilfeldig_backlog.length && !r.tilfeldig_valgt;
-  if (r.tilfeldig_valgt) {
-    vis.className   = 'draw-result';
-    vis.innerHTML   = `<div class="drawn-name">🙋 ${esc(elevNavn(r.tilfeldig_valgt, s))}</div>`;
+  const x = tilfeldigTilstand(trekk(s), kort);
+  const vis = card.querySelector('.tilfeldig-vis');
+  const bl  = card.querySelector('.tilfeldig-backlog-count');
+  card.querySelector('.btn-tilfeldig-tom').disabled = !x.backlog.length && !x.valgt;
+  if (x.valgt) {
+    vis.className   = 'tilfeldig-vis draw-result';
+    vis.innerHTML   = `<div class="drawn-name">🙋 ${esc(elevNavn(x.valgt, s))}</div>`;
   } else {
-    vis.className   = 'draw-placeholder';
+    vis.className   = 'tilfeldig-vis draw-placeholder';
     vis.textContent = t('Trykk Trekk for å velge en tilfeldig elev');
   }
-  if (r.tilfeldig_backlog.length) {
-    bl.className    = 'backlog-count';
-    bl.textContent  = t('{antall} trukket (backlog)', { antall: r.tilfeldig_backlog.length });
+  if (x.backlog.length) {
+    bl.className    = 'tilfeldig-backlog-count backlog-count';
+    bl.textContent  = t('{antall} trukket (backlog)', { antall: x.backlog.length });
   } else {
-    bl.className    = 'backlog-count hidden';
+    bl.className    = 'tilfeldig-backlog-count backlog-count hidden';
   }
+}
+
+function renderAlleTilfeldig() {
+  renderTilfeldig('card-tilfeldig');
+  Object.keys(state.tilfeldige).forEach(id => renderTilfeldig(`card-${id}`));
+}
+
+// Ekstra Tilfeldig elev-kort (v2.48), som notatene: state.tilfeldige har ett felt per
+// kopi, kortet står i oppsettet til siden det er laget på. Backlogen ligger i trekkene.
+function lagTilfeldigElement(id) {
+  const div = document.createElement('div');
+  div.className = 'card';
+  div.id = `card-${id}`;
+  div.innerHTML = `
+    <button class="kl-widget-close" data-klikk="fjern-tilfeldig" data-id="${id}" title="${t('Fjern kortet')}">✕</button>
+    <div class="card-header">
+      <span class="drag-handle" title="${t('Dra for å flytte')}">⠿</span>
+      <h2>${t('Tilfeldig elev')}</h2>
+      <div class="card-controls">
+        <button class="btn btn-ghost btn-sm btn-icon btn-tilfeldig-tom" title="${t('Tøm backlog: alle kan trekkes igjen')}">🔄</button>
+      </div>
+    </div>
+    <div class="tilfeldig-vis draw-placeholder">${t('Trykk Trekk for å velge en tilfeldig elev')}</div>
+    <div class="tilfeldig-backlog-count backlog-count hidden"></div>
+    <div class="flex gap-2">
+      <button class="btn btn-primary flex-1 btn-tilfeldig" title="${t('Trekk tilfeldig (r)')}">${t('Trekk')}</button>
+      <button class="btn btn-ghost flex-1 btn-tilfeldig-backlog" title="${t('Trekk uten repetisjon (R)')}">${t('Trekk (bl)')}</button>
+    </div>`;
+  return div;
+}
+
+// Én lytter per kort tar knappene (også det første kortet fra index.html).
+function setupTilfeldig(kort) {
+  document.getElementById(kort).addEventListener('click', e => {
+    if (e.target.closest('.btn-tilfeldig')) trekkTilfeldig(kort);
+    else if (e.target.closest('.btn-tilfeldig-backlog')) trekkTilfeldigBacklog(kort);
+    else if (e.target.closest('.btn-tilfeldig-tom')) nullstillTilfeldig(kort);
+  });
+}
+
+function leggTilTilfeldig() {
+  const id = `tilfeldig-${++state.tilfeldig_teller}`;
+  state.tilfeldige[id] = {};
+  aktivSide().widget_layout.push(nyPlassering(`card-${id}`));
+  const el = lagTilfeldigElement(id);
+  settInnKort(el);
+  setupTilfeldig(`card-${id}`);
+  pakkSkaler(el);
+  applyLayout();
+  renderTilfeldig(`card-${id}`);
+  renderWidgetMeny();
+  saveState();
+}
+
+// ✕ på en kopi: kortet og trekkene dets forsvinner (fra alle lister og sider).
+function fjernTilfeldig(id) {
+  const kort = `card-${id}`;
+  for (const s of state.sider) {
+    s.widget_layout = s.widget_layout.filter(w => w.id !== kort);
+    s.widget_hidden = (s.widget_hidden ?? []).filter(x => x !== kort);
+    delete s.kort_navn?.[kort];
+    delete s.tilfeldig_flere?.[kort];
+  }
+  for (const r of Object.values(state.liste_trekk)) delete r.tilfeldig_flere?.[kort];
+  delete state.tilfeldige[id];
+  if (fokusKort === kort) lukkFokus();
+  fjernKortEl(kort);
+  applyLayout();
+  renderWidgetMeny();
+  saveState();
 }
 
 // Viser de to trukne ordenselevene (eller en oppfordring), pluss backlog-teller.
@@ -2202,77 +2359,276 @@ function renderUlv() {
 
 // Snarvei: tegn alle tre trekk-widgetene på nytt samtidig (etter f.eks. elevendring).
 function renderAlleTrekk() {
-  renderTilfeldig();
+  renderAlleTilfeldig();
   renderOrdenselev();
   renderUlv();
 }
 
 // ===================== Timer =====================
+// Flere timere (v2.48). Hver timer er et kort «card-timer-N» som hører til én side,
+// slik notatene gjør. Innstillingene ligger i state.timere[id] ({ varighet, modus,
+// visning }), navnet i sidens kort_navn (✏️). Den løpende tilstanden (går den, når er
+// den ferdig) ligger i timerKjøring og per fane i sessionStorage, så en omlasting ikke
+// stopper en timer. Ett felles intervall tikker alle som går, også timere på andre
+// sider: de går videre i bakgrunnen og sier fra med navnet sitt når tiden er ute.
+//
 // Tiden regnes fra klokkeslettet, ikke ved å telle tikk. Nettlesere kaller timere
 // sjeldnere i faner som ikke vises (Chrome ned til én gang i minuttet etter fem
-// minutter), så en timer som trakk fra ett sekund per tikk, gikk for sakte når
-// læreren viste noe i en annen fane. Nå huskes når nedtellingen er ferdig
-// (timerSlutt), og hvert tikk regner ut hvor mye som er igjen.
+// minutter), så en timer som trakk fra ett sekund per tikk, gikk for sakte. Nå huskes
+// når nedtellingen er ferdig (slutt) og når stoppeklokka startet (oppStart).
+const timerKjøring = new Map(); // id → { remaining, running, slutt, oppKjører, oppStart, oppGått, vistOpp }
+let timerInterval = null;
+let timerSettMål  = null;       // timeren «Sett tid»-vinduet gjelder
+
+function timerKjør(id) {
+  let k = timerKjøring.get(id);
+  if (!k) {
+    k = { remaining: state.timere[id]?.varighet ?? 300, running: false, slutt: null,
+          oppKjører: false, oppStart: null, oppGått: 0, vistOpp: -1 };
+    timerKjøring.set(id, k);
+  }
+  return k;
+}
 
 // Sekunder igjen akkurat nå. Rundes opp, så 4,2 s vises som 00:05 og null kommer
 // når tiden faktisk er ute.
-function timerGjenstår() {
-  if (!timerRunning || timerSlutt === null) return timerRemaining;
-  return Math.max(0, Math.ceil((timerSlutt - Date.now()) / 1000));
+function timerGjenstår(id) {
+  const k = timerKjør(id);
+  if (!k.running || k.slutt === null) return k.remaining;
+  return Math.max(0, Math.ceil((k.slutt - Date.now()) / 1000));
 }
 
-// Intervallet tikker så lenge nedtellingen eller stoppeklokka går, og stoppes først
-// når ingen av dem gjør det.
-function stoppTimerIntervall() {
-  if (timerRunning || oppKjører) return;
-  clearInterval(timerInterval);
-  timerInterval = null;
+// Sekunder stoppeklokka har gått, uten pausene.
+function stoppeklokkeGått(id) {
+  const k = timerKjør(id);
+  return k.oppKjører ? Math.floor((Date.now() - k.oppStart) / 1000) : k.oppGått;
+}
+
+// Intervallet tikker fire ganger i sekundet så lenge minst én timer eller stoppeklokke
+// går, og stoppes når ingen gjør det.
+function oppdaterTimerIntervall() {
+  const noen = [...timerKjøring.values()].some(k => k.running || k.oppKjører);
+  if (noen && !timerInterval) timerInterval = setInterval(timerTick, 250);
+  else if (!noen && timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+}
+
+// Lagrer alle timernes løpende tilstand for denne fanen. Kalles ved hver endring og
+// før omlasting.
+function lagreTimerØkt() {
+  try {
+    const timere = {};
+    for (const [id, k] of timerKjøring) {
+      if (!state.timere[id]) continue;
+      timere[id] = { kjører: k.running, slutt: k.slutt, gjenstår: k.remaining, varighet: state.timere[id].varighet,
+                     oppKjører: k.oppKjører, oppStart: k.oppStart, oppGått: stoppeklokkeGått(id) };
+    }
+    sessionStorage.setItem(TIMER_ØKT_KEY, JSON.stringify({ versjon: 2, timere }));
+  } catch (_) { /* ingen sessionStorage: timerne starter bare på nytt ved omlasting */ }
+}
+
+// Henter timerne tilbake etter en omlasting i samme fane. Er tiden gått ut mens siden
+// lastet, vises den som ferdig, uten pip. Lagret med en annen varighet enn den som
+// gjelder nå, starter nedtellingen fra den nye. Økter fra før v2.48 (én felles timer)
+// gis til den første timeren på siden.
+function hentTimerØkt() {
+  let økt = null;
+  try { økt = JSON.parse(sessionStorage.getItem(TIMER_ØKT_KEY)); } catch (_) { return; }
+  if (!erObjekt(økt)) return;
+  let timere = økt.versjon === 2 && erObjekt(økt.timere) ? økt.timere : {};
+  if (økt.versjon !== 2) {
+    const første = sideTimere()[0];
+    if (første) timere = { [første]: økt };
+  }
+  for (const [id, ø] of Object.entries(timere)) {
+    if (!state.timere[id] || !erObjekt(ø)) continue;
+    const k = timerKjør(id);
+    if (ø.oppKjører && Number.isFinite(ø.oppStart)) { k.oppKjører = true; k.oppStart = ø.oppStart; }
+    else if (Number.isFinite(ø.oppGått)) k.oppGått = Math.max(0, ø.oppGått);
+    if (ø.varighet !== state.timere[id].varighet) continue;
+    if (ø.kjører && Number.isFinite(ø.slutt)) {
+      if (ø.slutt > Date.now()) { k.running = true; k.slutt = ø.slutt; k.remaining = timerGjenstår(id); }
+      else k.remaining = 0;
+    } else if (Number.isFinite(ø.gjenstår)) {
+      k.remaining = Math.max(0, Math.min(ø.gjenstår, state.timere[id].varighet));
+    }
+  }
+  oppdaterTimerIntervall();
+}
+
+// Timerne på aktiv side, i rekkefølgen de står i oppsettet (id-er uten «card-»).
+function sideTimere(s = aktivSide()) {
+  return s.widget_layout.map(w => w.id).filter(id => /^card-timer-\d+$/.test(id))
+    .map(id => id.replace(/^card-/, '')).filter(id => state.timere[id]);
+}
+
+// Timeren hurtigtastene (t, s) gjelder: den musa er over, ellers den første på siden.
+// Finnes ingen og lag er sann, lages en ny.
+function aktivTimer({ lag = false } = {}) {
+  const liste = sideTimere();
+  const under = sistPekerKort?.replace(/^card-/, '');
+  if (under && liste.includes(under)) return under;
+  if (liste.length) return liste[0];
+  return lag ? leggTilTimer() : null;
+}
+
+// Hovedknappen for timeren med tre tilstander avhengig av hvor vi er:
+//  - tiden er ute  → nullstill til full varighet (knappen blir «start på nytt»)
+//  - kjører        → pause (husk hvor mye som er igjen)
+//  - pauset/klar   → start (regn ut når den er ferdig)
+function timerToggle(id) {
+  if (!state.timere[id]) return;
+  if (state.timere[id].modus === 'opp') { stoppeklokkeToggle(id); return; }
+  const k = timerKjør(id);
+  if (timerGjenstår(id) <= 0) {
+    k.remaining = state.timere[id].varighet;
+    k.running = false;
+    k.slutt = null;
+  } else if (k.running) {
+    k.remaining = timerGjenstår(id);
+    k.running = false;
+    k.slutt = null;
+  } else {
+    k.running = true;
+    k.slutt = Date.now() + k.remaining * 1000;
+    visTimerKort(id);
+  }
+  oppdaterTimerIntervall();
+  lagreTimerØkt();
+  renderTimer(id);
+}
+
+// Starter timeren med hurtigtasten t mens kortet ligger under andre kort, ville
+// nedtellingen gått uten at noen så den. Da legges kortet øverst, med et lite sprett
+// så blikket finner det. I fokus røres ikke bordet bak.
+function visTimerKort(id) {
+  if (fokusKort) return;
+  const cardId = `card-${id}`;
+  const w = aktivSide().widget_layout.find(x => x.id === cardId);
+  if (!w) return; // timeren står på en annen side
+  if (w.z < høyesteZ()) {
+    w.z = høyesteZ() + 1;
+    saveState();
+    applyLayout();
+  }
+  const kort = document.getElementById(cardId);
+  if (!kort) return;
+  kort.classList.remove('kort-sprett');
+  void kort.offsetWidth; // tving ny layout, så animasjonen starter på nytt
+  kort.classList.add('kort-sprett');
+  kort.addEventListener('animationend', () => kort.classList.remove('kort-sprett'), { once: true });
+}
+
+// Kjøres mens minst én timer går. Regner ut hvor mye som er igjen for hver, og når en
+// når null: stopp den, varsle med navnet og spill en pip.
+function timerTick() {
+  for (const [id, k] of timerKjøring) {
+    const oppsett = state.timere[id];
+    if (!oppsett) { timerKjøring.delete(id); continue; }
+    if (k.oppKjører && oppsett.modus === 'opp') {
+      if (stoppeklokkeGått(id) !== k.vistOpp) renderTimer(id); else tegnTimerFramdrift(id);
+    }
+    if (!k.running) continue;
+    const igjen = timerGjenstår(id);
+    if (igjen <= 0) {
+      k.running = false;
+      k.slutt = null;
+      k.remaining = 0;
+      lagreTimerØkt();
+      renderTimer(id);
+      notify(timerUteMelding(id), 'warning');
+      spillPip();
+      continue;
+    }
+    if (igjen !== k.remaining) { k.remaining = igjen; renderTimer(id); }
+    else if (oppsett.modus === 'ned') tegnTimerFramdrift(id); // skiva glir mellom sekundene
+  }
+  oppdaterTimerIntervall();
+}
+
+// «⏰ Tiden er ute!», med timerens navn hvis den har fått et (✏️). Navnet hentes fra
+// siden timeren står på, som ikke må være siden som vises.
+function timerUteMelding(id) {
+  const cardId = `card-${id}`;
+  const side = state.sider.find(s => s.widget_layout.some(w => w.id === cardId));
+  const navn = side?.kort_navn?.[cardId];
+  return navn ? t('⏰ {navn}: tiden er ute!', { navn }) : t('⏰ Tiden er ute!');
+}
+
+// Stopper nedtellingen og setter den tilbake til valgt varighet.
+function timerReset(id) {
+  const k = timerKjør(id);
+  k.running = false;
+  k.slutt = null;
+  k.remaining = state.timere[id].varighet;
+  oppdaterTimerIntervall();
+  lagreTimerØkt();
+  renderTimer(id);
+}
+
+// Setter ny varighet (i minutter → sekunder) for én timer, stopper og nullstiller.
+function timerSett(id, minutter) {
+  state.timere[id].varighet = minutter * 60;
+  const k = timerKjør(id);
+  k.running = false;
+  k.slutt = null;
+  k.remaining = state.timere[id].varighet;
+  oppdaterTimerIntervall();
+  saveState();
+  lagreTimerØkt();
+  renderTimer(id);
+  notify(t('⏱️ Timer satt til {min} min', { min: minutter }));
+}
+
+// «Sett tid»: vinduet er felles, timerSettMål sier hvilken timer det gjelder. Fra
+// stoppeklokka går timeren over til nedtelling.
+function åpneTimerSett(id) {
+  if (!id) return;
+  timerSettMål = id;
+  if (state.timere[id].modus === 'opp') settTimerModus(id, 'ned');
+  document.getElementById('input-timer-minutter').value = '';
+  åpneModal('modal-timer-sett');
 }
 
 // ----- Stoppeklokke -----
-// Sekunder siden start, uten pausene.
-function stoppeklokkeGått() {
-  return oppKjører ? Math.floor((Date.now() - oppStart) / 1000) : oppGått;
-}
-
-function stoppeklokkeToggle() {
-  if (oppKjører) {
-    oppGått   = stoppeklokkeGått();
-    oppKjører = false;
-    oppStart  = null;
-    stoppTimerIntervall();
+function stoppeklokkeToggle(id) {
+  const k = timerKjør(id);
+  if (k.oppKjører) {
+    k.oppGått = stoppeklokkeGått(id);
+    k.oppKjører = false;
+    k.oppStart = null;
   } else {
-    oppKjører = true;
-    oppStart  = Date.now() - oppGått * 1000; // fortsetter der den ble stoppet
-    startTimerIntervall();
-    visTimerKort();
+    k.oppKjører = true;
+    k.oppStart = Date.now() - k.oppGått * 1000; // fortsetter der den ble stoppet
+    visTimerKort(id);
   }
+  oppdaterTimerIntervall();
   lagreTimerØkt();
-  renderTimer();
+  renderTimer(id);
 }
 
-function stoppeklokkeReset() {
-  oppKjører = false;
-  oppStart  = null;
-  oppGått   = 0;
-  stoppTimerIntervall();
+function stoppeklokkeReset(id) {
+  const k = timerKjør(id);
+  k.oppKjører = false;
+  k.oppStart = null;
+  k.oppGått = 0;
+  oppdaterTimerIntervall();
   lagreTimerØkt();
-  renderTimer();
+  renderTimer(id);
 }
 
 // ⏳/⏱-fanene øverst i kortet. Bytter bare hva kortet viser og styrer: en nedtelling
 // som går, fortsetter og piper når tiden er ute, selv om stoppeklokka vises.
-function settTimerModus(modus) {
-  state.timer_modus = modus === 'opp' ? 'opp' : 'ned';
+function settTimerModus(id, modus) {
+  state.timere[id].modus = modus === 'opp' ? 'opp' : 'ned';
   saveState();
-  renderTimer();
+  renderTimer(id);
 }
 
 // ▬/◔ øverst i kortet: framdriften som bjelke eller som skive (timeglass).
-function byttTimerVisning() {
-  state.timer_visning = state.timer_visning === 'skive' ? 'bjelke' : 'skive';
+function byttTimerVisning(id) {
+  state.timere[id].visning = state.timere[id].visning === 'skive' ? 'bjelke' : 'skive';
   saveState();
-  renderTimer();
+  renderTimer(id);
 }
 
 // Tid som tekst: MM:SS, og H:MM:SS fra én time (stoppeklokka kan gå lenge).
@@ -2282,192 +2638,47 @@ function formaterTid(sek) {
   return h ? `${h}:${t2(m)}:${t2(x)}` : `${t2(m)}:${t2(x)}`;
 }
 
-// Tikker fire ganger i sekundet, så visningen ikke hopper over et sekund når et tikk
-// kommer litt sent. renderTimer tegner bare om når tallet endrer seg.
-function startTimerIntervall() {
-  stoppTimerIntervall();
-  timerInterval = setInterval(timerTick, 250);
-}
+// Oppdaterer hele visningen av én timer ut fra modusen (nedtelling eller
+// stoppeklokke): fanene, tallene, framdriften (bjelke eller skive), statustekst og
+// knappene.
+function renderTimer(id) {
+  const card = document.getElementById(`card-${id}`);
+  const oppsett = state.timere[id];
+  if (!card || !oppsett) return;
+  const q = sel => card.querySelector(sel);
+  const k = timerKjør(id);
+  const opp     = oppsett.modus === 'opp';
+  const skive   = oppsett.visning === 'skive';
+  const kjører  = opp ? k.oppKjører : k.running;
+  const ferdig  = !opp && k.remaining === 0;
+  const display = q('.timer-display');
+  const status  = q('.timer-status');
+  const btnToggle = q('.btn-timer-toggle');
 
-// Lagrer timerens tilstand for denne fanen. Kalles ved hver endring og før omlasting.
-function lagreTimerØkt() {
-  try {
-    sessionStorage.setItem(TIMER_ØKT_KEY, JSON.stringify({
-      kjører: timerRunning, slutt: timerSlutt, gjenstår: timerRemaining, varighet: state.timer_varighet,
-      oppKjører, oppStart, oppGått: stoppeklokkeGått(),
-    }));
-  } catch (_) { /* ingen sessionStorage: timeren starter bare på nytt ved omlasting */ }
-}
-
-// Henter timeren tilbake etter en omlasting i samme fane. Er tiden gått ut mens siden
-// lastet, vises den som ferdig, uten pip (det ville kommet uventet). Lagret med en
-// annen varighet enn den som gjelder nå, starter timeren fra den nye varigheten.
-function hentTimerØkt() {
-  let økt = null;
-  try { økt = JSON.parse(sessionStorage.getItem(TIMER_ØKT_KEY)); } catch (_) { return; }
-  if (!økt) return;
-  // Stoppeklokka: tiden regnes fra startklokkeslettet, så den har gått videre mens
-  // siden lastet.
-  if (økt.oppKjører && Number.isFinite(økt.oppStart)) {
-    oppKjører = true;
-    oppStart  = økt.oppStart;
-    startTimerIntervall();
-  } else if (Number.isFinite(økt.oppGått)) {
-    oppGått = Math.max(0, økt.oppGått);
-  }
-  if (økt.varighet !== state.timer_varighet) return;
-  if (økt.kjører && Number.isFinite(økt.slutt)) {
-    if (økt.slutt > Date.now()) {
-      timerRunning = true;
-      timerSlutt   = økt.slutt;
-      timerRemaining = timerGjenstår();
-      startTimerIntervall();
-    } else {
-      timerRemaining = 0;
-    }
-  } else if (Number.isFinite(økt.gjenstår)) {
-    timerRemaining = Math.max(0, Math.min(økt.gjenstår, state.timer_varighet));
-  }
-}
-
-// Hovedknappen for timeren med tre tilstander avhengig av hvor vi er:
-//  - tiden er ute  → nullstill til full varighet (knappen blir «start på nytt»)
-//  - kjører        → pause (husk hvor mye som er igjen)
-//  - pauset/klar   → start (regn ut når den er ferdig)
-function timerToggle() {
-  if (state.timer_modus === 'opp') { stoppeklokkeToggle(); return; }
-  if (timerGjenstår() <= 0) {
-    timerRemaining = state.timer_varighet;
-    timerRunning   = false;
-    timerSlutt     = null;
-    stoppTimerIntervall();
-  } else if (timerRunning) {
-    timerRemaining = timerGjenstår();
-    timerRunning   = false;
-    timerSlutt     = null;
-    stoppTimerIntervall();
-  } else {
-    timerRunning = true;
-    timerSlutt   = Date.now() + timerRemaining * 1000;
-    startTimerIntervall();
-    visTimerKort();
-  }
-  lagreTimerØkt();
-  renderTimer();
-}
-
-// Starter timeren med hurtigtasten t mens timerkortet er skjult eller ligger under
-// andre kort, ville nedtellingen gått uten at noen så den. Da hentes kortet fram og
-// legges øverst, med et lite sprett så blikket finner det.
-function visTimerKort() {
-  const id = 'card-timer';
-  const side = aktivSide();
-  if (fokusKort) return; // et kort er i fokus: ikke rydd om bordet bak det
-  if ((side.widget_hidden ?? []).includes(id)) {
-    toggleWidgetSynlighet(id, true); // finner ledig plass, legger øverst og lagrer
-  } else {
-    const w = side.widget_layout.find(x => x.id === id);
-    if (w && w.z < høyesteZ()) {
-      w.z = høyesteZ() + 1;
-      saveState();
-      applyLayout();
-    }
-  }
-  const kort = document.getElementById(id);
-  if (!kort) return;
-  kort.classList.remove('kort-sprett');
-  void kort.offsetWidth; // tving ny layout, så animasjonen starter på nytt
-  kort.classList.add('kort-sprett');
-  kort.addEventListener('animationend', () => kort.classList.remove('kort-sprett'), { once: true });
-}
-
-// Kjøres mens timeren går. Regner ut hvor mye som er igjen, og når det er null:
-// stopp, varsle og spill en pip.
-function timerTick() {
-  if (oppKjører && state.timer_modus === 'opp') {
-    const gått = stoppeklokkeGått();
-    if (gått !== oppGåttVist) renderTimer(); else tegnTimerFramdrift();
-  }
-  if (!timerRunning) return;
-  const igjen = timerGjenstår();
-  if (igjen <= 0) {
-    timerRunning   = false;
-    timerSlutt     = null;
-    timerRemaining = 0;
-    stoppTimerIntervall();
-    lagreTimerØkt();
-    renderTimer();
-    notify(t('⏰ Tiden er ute!'), 'warning');
-    spillPip();
-    return;
-  }
-  if (igjen !== timerRemaining) {
-    timerRemaining = igjen;
-    renderTimer();
-  } else if (state.timer_modus === 'ned') {
-    tegnTimerFramdrift(); // skiva glir mellom sekundene
-  }
-}
-
-// Stopper timeren og setter gjenstående tid tilbake til valgt varighet.
-function timerReset() {
-  timerRunning   = false;
-  timerSlutt     = null;
-  stoppTimerIntervall();
-  timerRemaining = state.timer_varighet;
-  lagreTimerØkt();
-  renderTimer();
-}
-
-// Setter ny timer-varighet (i minutter → sekunder), stopper og nullstiller.
-// timer_varighet er global (lagres), så valget huskes på tvers av sider og økter.
-function timerSett(minutter) {
-  state.timer_varighet = minutter * 60;
-  timerRunning         = false;
-  timerSlutt           = null;
-  stoppTimerIntervall();
-  timerRemaining = state.timer_varighet;
-  saveState();
-  lagreTimerØkt();
-  renderTimer();
-  notify(t('⏱️ Timer satt til {min} min', { min: minutter }));
-}
-
-// Oppdaterer hele timer-visningen ut fra modusen (nedtelling eller stoppeklokke):
-// fanene, tallene, framdriften (bjelke eller skive), statustekst og knappene.
-let oppGåttVist = -1; // sekundet stoppeklokka sist ble tegnet med (se timerTick)
-function renderTimer() {
-  const opp     = state.timer_modus === 'opp';
-  const skive   = state.timer_visning === 'skive';
-  const kjører  = opp ? oppKjører : timerRunning;
-  const ferdig  = !opp && timerRemaining === 0;
-  const display = document.getElementById('timer-display');
-  const status  = document.getElementById('timer-status');
-  const btnToggle = document.getElementById('btn-timer-toggle');
-
-  document.querySelectorAll('.timer-fane').forEach(f => {
-    const valgt = f.dataset.modus === state.timer_modus;
+  card.querySelectorAll('.timer-fane').forEach(f => {
+    const valgt = f.dataset.modus === oppsett.modus;
     f.classList.toggle('valgt', valgt);
     f.setAttribute('aria-selected', valgt);
   });
-  const visning = document.getElementById('btn-timer-visning');
+  const visning = q('.btn-timer-visning');
   visning.textContent = skive ? '▬' : '◔';
   visning.title = skive ? t('Vis som bjelke') : t('Vis som skive');
 
-  oppGåttVist = stoppeklokkeGått();
-  display.textContent = formaterTid(opp ? oppGåttVist : timerRemaining);
-  display.className   = kjører ? 'running' : (ferdig ? 'ferdig' : '');
+  k.vistOpp = stoppeklokkeGått(id);
+  display.textContent = formaterTid(opp ? k.vistOpp : k.remaining);
+  display.classList.toggle('running', kjører);
+  display.classList.toggle('ferdig', ferdig && !kjører);
 
   // Bjelken viser hvor mye som er igjen, og har ingen mening for stoppeklokka. Skiva
   // viser det samme som et timeglass, og for stoppeklokka et sveip per minutt.
-  document.getElementById('timer-bar-wrap').classList.toggle('hidden', skive || opp);
-  document.getElementById('timer-skive').classList.toggle('hidden', !skive);
-  document.getElementById('btn-timer-sett').classList.toggle('hidden', opp);
+  q('.timer-bar-wrap').classList.toggle('hidden', skive || opp);
+  q('.timer-skive').classList.toggle('hidden', !skive);
+  q('.btn-timer-sett').classList.toggle('hidden', opp);
   // Temaets hovedfarge, også når den går. Rødt bare når tiden er ute (alarm).
   const farge = ferdig ? 'var(--red)' : 'var(--primary)';
-  document.getElementById('timer-bar').style.background = farge;
-  document.getElementById('timer-skive').style.setProperty('--skive-farge', farge);
-  tegnTimerFramdrift();
+  q('.timer-bar').style.background = farge;
+  q('.timer-skive').style.setProperty('--skive-farge', farge);
+  tegnTimerFramdrift(id);
 
   if (kjører) {
     status.textContent = t('▶ Kjører');
@@ -2482,24 +2693,111 @@ function renderTimer() {
     status.style.color = 'var(--muted)';
     btnToggle.textContent = t('▶ Start');
   }
-  // Mens tiden går, får knappen temaets hovedfarge (se .timer-kjører i style.css), så
-  // «Stopp» skiller seg fra den grønne «Start» og passer i alle temaene.
+  // Mens tiden går, får knappen den myke varianten av hovedfargen (se .timer-kjører),
+  // så «Stopp» skiller seg fra «Start» og passer i alle temaene.
   btnToggle.classList.toggle('timer-kjører', kjører);
+}
+
+function renderAlleTimere() {
+  Object.keys(state.timere).forEach(renderTimer);
 }
 
 // Tegner bare framdriften (bjelke og skive), med brøkdeler av sekunder, så skiva glir
 // i stedet for å hoppe. Kalles fra renderTimer og fra hvert tikk.
-function tegnTimerFramdrift() {
+function tegnTimerFramdrift(id) {
+  const card = document.getElementById(`card-${id}`);
+  const oppsett = state.timere[id];
+  if (!card || !oppsett) return;
+  const k = timerKjør(id);
   let andel;
-  if (state.timer_modus === 'opp') {
-    const ms = oppKjører ? Date.now() - oppStart : oppGått * 1000;
+  if (oppsett.modus === 'opp') {
+    const ms = k.oppKjører ? Date.now() - k.oppStart : k.oppGått * 1000;
     andel = (ms % 60_000) / 60_000;
   } else {
-    const ms = timerRunning && timerSlutt !== null ? Math.max(0, timerSlutt - Date.now()) : timerRemaining * 1000;
-    andel = state.timer_varighet > 0 ? Math.min(1, ms / (state.timer_varighet * 1000)) : 1;
+    const ms = k.running && k.slutt !== null ? Math.max(0, k.slutt - Date.now()) : k.remaining * 1000;
+    andel = oppsett.varighet > 0 ? Math.min(1, ms / (oppsett.varighet * 1000)) : 1;
   }
-  document.getElementById('timer-bar').style.width = `${andel * 100}%`;
-  document.getElementById('timer-skive').style.setProperty('--andel', `${andel * 360}deg`);
+  card.querySelector('.timer-bar').style.width = `${andel * 100}%`;
+  card.querySelector('.timer-skive').style.setProperty('--andel', `${andel * 360}deg`);
+}
+
+// Bygger et timerkort. Alle timere er like; navnet kommer fra ✏️ (kort_navn).
+function lagTimerElement(id) {
+  const div = document.createElement('div');
+  div.className = 'card';
+  div.id = `card-${id}`;
+  div.innerHTML = `
+    <button class="kl-widget-close" data-klikk="fjern-timer" data-id="${id}" title="${t('Fjern timeren')}">✕</button>
+    <div class="card-header">
+      <span class="drag-handle" title="${t('Dra for å flytte')}">⠿</span>
+      <h2>${t('Timer')}</h2>
+      <div class="card-controls">
+        <button class="btn btn-ghost btn-sm btn-icon btn-timer-visning" title="${t('Vis som skive')}">◔</button>
+      </div>
+    </div>
+    <div class="timer-faner" role="tablist">
+      <button class="timer-fane" data-modus="ned" role="tab">${t('⏳ Nedtelling')}</button>
+      <button class="timer-fane" data-modus="opp" role="tab">${t('⏱ Stoppeklokke')}</button>
+    </div>
+    <div class="timer-display">05:00</div>
+    <div class="timer-bar-wrap"><div class="timer-bar"></div></div>
+    <div class="timer-skive hidden" aria-hidden="true"></div>
+    <div class="timer-status">${t('⏸ Pauset')}</div>
+    <div class="timer-controls">
+      <button class="btn btn-primary flex-1 btn-timer-toggle" title="${t('Start/stopp (t)')}">${t('▶ Start')}</button>
+      <button class="btn btn-ghost btn-timer-sett" title="${t('Sett tid (s)')}">${t('Sett tid')}</button>
+      <button class="btn btn-ghost btn-icon btn-timer-reset" title="${t('Nullstill timer')}">↺</button>
+    </div>`;
+  return div;
+}
+
+// Kobler knappene i ett timerkort. Én lytter på kortet tar alle knappene.
+function setupTimer(id) {
+  const card = document.getElementById(`card-${id}`);
+  card.addEventListener('click', e => {
+    const fane = e.target.closest('.timer-fane');
+    if (fane) { settTimerModus(id, fane.dataset.modus); return; }
+    if (e.target.closest('.btn-timer-toggle')) timerToggle(id);
+    else if (e.target.closest('.btn-timer-sett')) åpneTimerSett(id);
+    else if (e.target.closest('.btn-timer-reset')) {
+      if (state.timere[id].modus === 'opp') stoppeklokkeReset(id); else timerReset(id);
+    } else if (e.target.closest('.btn-timer-visning')) byttTimerVisning(id);
+  });
+}
+
+// «+ ⏱ Timer» i ⊞ Kort (og t/s når siden ikke har noen timer): ny timer på aktiv side.
+function leggTilTimer() {
+  const id = `timer-${++state.timer_teller}`;
+  state.timere[id] = { varighet: 300, modus: 'ned', visning: 'bjelke' };
+  aktivSide().widget_layout.push(nyPlassering(`card-${id}`));
+  const el = lagTimerElement(id);
+  settInnKort(el);
+  setupTimer(id);
+  pakkSkaler(el);
+  applyLayout();
+  renderTimer(id);
+  renderWidgetMeny();
+  saveState();
+  return id;
+}
+
+// ✕ på et timerkort: timeren stoppes og fjernes fra siden og lagringen.
+function fjernTimer(id) {
+  const cardId = `card-${id}`;
+  for (const s of state.sider) {
+    s.widget_layout = s.widget_layout.filter(w => w.id !== cardId);
+    s.widget_hidden = (s.widget_hidden ?? []).filter(x => x !== cardId);
+    delete s.kort_navn?.[cardId];
+  }
+  delete state.timere[id];
+  timerKjøring.delete(id);
+  if (fokusKort === cardId) lukkFokus();
+  fjernKortEl(cardId);
+  oppdaterTimerIntervall();
+  lagreTimerØkt();
+  applyLayout();
+  renderWidgetMeny();
+  saveState();
 }
 
 // Spiller en kort pipetone via Web Audio når timeren er ute — uten lydfil. Lager en
@@ -2552,7 +2850,7 @@ function lagNotatElement(instansId) {
     <button class="kl-widget-close" data-klikk="fjern-notat" data-id="${instansId}" title="${t('Slett dette notatet')}">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="${t('Dra for å flytte')}">⠿</span>
-      <h2>${t('📝 Notat')}</h2>
+      <h2>${t('Notat')}</h2>
       <div class="card-controls">
         <button class="btn btn-ghost btn-sm btn-icon" id="btn-notat-mindre-${instansId}" title="${t('Mindre tekst')}">A−</button>
         <button class="btn btn-ghost btn-sm btn-icon" id="btn-notat-storre-${instansId}" title="${t('Større tekst')}">A+</button>
@@ -3636,7 +3934,7 @@ function migrerTilFlate(side) {
     w.z = i + 1;
     // Kort med fast innhold beholder den utregnede høyden og skalerer innholdet i
     // stedet. Ellers ville de krympet til innholdet ved første lasting og laget hull.
-    if (SKALER_MED_KORT.includes(w.id)) w.fast = true;
+    if (erSkalerKort(w.id)) w.fast = true;
   });
 }
 
@@ -3712,8 +4010,9 @@ let fokusKort = null;      // id-en til kortet i fokus, eller null
 let sistPekerKort = null;  // kortet musa sist var over, for tasten f
 let fokusObservatør = null;
 
-// Legger ⛶ i overskriften på et kort (én gang). Kortet får .card-controls om det
-// ikke har det fra før.
+// Legger ✏️ (nytt navn) og ⛶ (fokus) i overskriften på et kort (én gang). Kortet får
+// .card-controls om det ikke har det fra før. Klokka får ikke ✏️: overskriften der er
+// knappen som bytter visning.
 function leggTilFokusKnapp(card) {
   const topp = card.querySelector(':scope > .card-header');
   if (!topp || GUIDE_KORT.includes(card.id) || topp.querySelector('.kl-fokus')) return;
@@ -3723,6 +4022,17 @@ function leggTilFokusKnapp(card) {
     kontroller.className = 'card-controls';
     topp.appendChild(kontroller);
   }
+  const h2 = topp.querySelector('h2');
+  if (h2 && card.id !== 'card-klokke') {
+    h2.dataset.standard ??= h2.textContent.trim(); // allerede oversatt (oversettStatisk/t)
+    const navnKnapp = document.createElement('button');
+    navnKnapp.className = 'btn btn-ghost btn-sm btn-icon kl-gi-navn';
+    navnKnapp.textContent = '✏️';
+    navnKnapp.title = t('Gi kortet et navn');
+    navnKnapp.setAttribute('aria-label', navnKnapp.title);
+    navnKnapp.addEventListener('click', e => { e.stopPropagation(); startKortNavn(card.id); });
+    kontroller.appendChild(navnKnapp);
+  }
   const knapp = document.createElement('button');
   knapp.className = 'btn btn-ghost btn-sm btn-icon kl-fokus';
   knapp.textContent = '⛶';
@@ -3730,6 +4040,63 @@ function leggTilFokusKnapp(card) {
   knapp.setAttribute('aria-label', knapp.title);
   knapp.addEventListener('click', e => { e.stopPropagation(); byttFokus(card.id); });
   kontroller.appendChild(knapp);
+}
+
+// ===================== Navn på kortene =====================
+// ✏️ i overskriften gjør tittelen om til et skrivefelt. Navnet lagres per side i
+// s.kort_navn; tomt navn gir standardnavnet tilbake. Klassebamse lagrer i ulv_navn,
+// fordi navnet også står i meldingene («Bo tar med Teddy hjem»).
+function kortNavn(id, s = aktivSide()) {
+  if (id === 'card-ulv') return s.ulv_navn || t('Klassebamse');
+  const h2 = document.querySelector(`#${id} > .card-header h2`);
+  return s.kort_navn[id] || h2?.dataset.standard || '';
+}
+
+// Setter titlene på kortene på aktiv side. Kalles fra applyLayout (sidebytte).
+function visKortNavn() {
+  document.querySelectorAll('#flate .card > .card-header h2[data-standard]').forEach(h2 => {
+    const id = h2.closest('.card').id;
+    if (id !== 'card-ulv' && !h2.querySelector('input')) h2.textContent = kortNavn(id);
+  });
+}
+
+function startKortNavn(id) {
+  const h2 = document.querySelector(`#${id} > .card-header h2`);
+  if (!h2 || h2.querySelector('input')) return;
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.className = 'kort-navn-input';
+  inp.maxLength = 40;
+  inp.value = kortNavn(id);
+  inp.setAttribute('aria-label', t('Navn på kortet'));
+  h2.replaceChildren(inp);
+  let ferdig = false;
+  const avslutt = lagre => {
+    if (ferdig) return;
+    ferdig = true;
+    const s = aktivSide();
+    const nytt = inp.value.trim().slice(0, 40);
+    if (lagre) {
+      if (id === 'card-ulv') {
+        s.ulv_navn = nytt || 'Klassebamse';
+      } else if (!nytt || nytt === h2.dataset.standard) {
+        delete s.kort_navn[id];
+      } else {
+        s.kort_navn[id] = nytt;
+      }
+      saveState();
+      renderWidgetStørrelseMeny(); // Skriftstørrelse-menyen viser kortnavnene
+    }
+    if (id === 'card-ulv') renderUlv();
+    else h2.textContent = kortNavn(id);
+  };
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); avslutt(true); }
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); avslutt(false); }
+  });
+  inp.addEventListener('blur', () => avslutt(true));
+  inp.focus();
+  inp.select();
 }
 
 function byttFokus(id) {
@@ -3851,6 +4218,7 @@ function applyLayout() {
     følgInnhold(card);
     leggTilFokusKnapp(card);
   });
+  visKortNavn();
   settStabelRekkefølge();
 
   // Skriftstørrelse-menyen viser bare widgets som er synlige på denne siden.
@@ -4030,6 +4398,10 @@ function følgInnhold(card) {
 const MAKS_SKALERING = 6;
 const MIN_SKALERING = 0.5; // så langt ned skaleres innholdet i et for lite kort
 
+// Observatørene lages én gang (settOppSkalering). pakkSkaler kobler et kort til dem,
+// også kort som lages senere (en ny timer eller Tilfeldig elev).
+let skalerObservere = null;
+
 function settOppSkalering() {
   const venter = new Set();
   let planlagt = false;
@@ -4043,29 +4415,32 @@ function settOppSkalering() {
       venter.clear();
     });
   };
-  const størrelse = new ResizeObserver(oppføringer =>
-    oppføringer.forEach(o => planlegg(o.target.querySelector('.kl-skaler'))));
-  const innhold = new MutationObserver(endringer =>
-    endringer.forEach(e => {
-      const boks = (e.target.nodeType === 1 ? e.target : e.target.parentElement)?.closest('.kl-skaler');
-      if (boks) planlegg(boks);
-    }));
+  skalerObservere = {
+    størrelse: new ResizeObserver(oppføringer =>
+      oppføringer.forEach(o => planlegg(o.target.querySelector('.kl-skaler')))),
+    innhold: new MutationObserver(endringer =>
+      endringer.forEach(e => {
+        const boks = (e.target.nodeType === 1 ? e.target : e.target.parentElement)?.closest('.kl-skaler');
+        if (boks) planlegg(boks);
+      })),
+  };
+  document.querySelectorAll('.card[id]').forEach(card => { if (erSkalerKort(card.id)) pakkSkaler(card); });
+}
 
-  for (const id of SKALER_MED_KORT) {
-    const card = document.getElementById(id);
-    if (!card || card.querySelector('.kl-skaler')) continue;
-    const boks = document.createElement('div');
-    boks.className = 'kl-skaler';
-    [...card.children]
-      .filter(el => !el.classList.contains('card-header') && !el.classList.contains('kl-widget-close'))
-      .forEach(el => boks.appendChild(el));
-    card.appendChild(boks);
-    størrelse.observe(card);
-    // class/hidden fanger innhold som vises og skjules med en klasse (f.eks.
-    // backlog-linja i trekket). Ikke style: det er der vi selv setter zoomen.
-    innhold.observe(boks, { childList: true, subtree: true, characterData: true,
-                            attributes: true, attributeFilter: ['class', 'hidden'] });
-  }
+// Pakker alt under overskrifta i en .kl-skaler og følger med på størrelse og innhold.
+function pakkSkaler(card) {
+  if (!card || !skalerObservere || card.querySelector('.kl-skaler')) return;
+  const boks = document.createElement('div');
+  boks.className = 'kl-skaler';
+  [...card.children]
+    .filter(el => !el.classList.contains('card-header') && !el.classList.contains('kl-widget-close'))
+    .forEach(el => boks.appendChild(el));
+  card.appendChild(boks);
+  skalerObservere.størrelse.observe(card);
+  // class/hidden fanger innhold som vises og skjules med en klasse (f.eks.
+  // backlog-linja i trekket). Ikke style: det er der vi selv setter zoomen.
+  skalerObservere.innhold.observe(boks, { childList: true, subtree: true, characterData: true,
+                                          attributes: true, attributeFilter: ['class', 'hidden'] });
 }
 
 function skalerInnhold(boks) {
@@ -4342,12 +4717,16 @@ function renderWidgetMeny() {
   // Fler-instans widgets: ingen checkbox, bare "+". Tell hvor mange siden har.
   const aktivIds = aktivSide().widget_layout.map(w => w.id);
   const antNotat   = aktivIds.filter(id => id.startsWith('card-notat-')).length;
+  const antTimer   = aktivIds.filter(id => id.startsWith('card-timer-')).length;
+  const antTilf    = aktivIds.filter(id => id.startsWith('card-tilfeldig-')).length;
   const antBilde   = aktivIds.filter(id => id.startsWith('card-bilde-')).length;
   const antYoutube = aktivIds.filter(id => id.startsWith('card-youtube-')).length;
   const leggTil = `
     <div class="widget-meny-sep"></div>
     <div class="widget-meny-tittel">${t('Legg til flere')}</div>
     <div class="widget-meny-rad" style="gap:6px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" data-klikk="ny-tilfeldig">${t('+ 🙋 Tilfeldig elev')}${antTilf ? ` (${antTilf})` : ''}</button>
+      <button class="btn btn-ghost btn-sm" data-klikk="ny-timer">${t('+ ⏱ Timer')}${antTimer ? ` (${antTimer})` : ''}</button>
       <button class="btn btn-ghost btn-sm" data-klikk="ny-notat">${t('+ 📝 Notat')}${antNotat ? ` (${antNotat})` : ''}</button>
       <button class="btn btn-ghost btn-sm" data-klikk="ny-bilde">${t('+ 🖼 Bilde')}${antBilde ? ` (${antBilde})` : ''}</button>
       <button class="btn btn-ghost btn-sm" data-klikk="ny-youtube">+ ▶️ YouTube${antYoutube ? ` (${antYoutube})` : ''}</button>
@@ -4484,7 +4863,7 @@ function byttSide(idx) {
   state.aktiv_side = idx;
   saveState();
   applyLayout();
-  // Re-rendre all per-side data for den nye siden (timeren er global og røres ikke)
+  // Re-rendre all per-side data for den nye siden (timerne går videre i bakgrunnen)
   renderElever();
   renderAlleTrekk();
   renderGrupper();
@@ -4533,7 +4912,7 @@ function fjernSide(idx) {
 // ===================== Reset =====================
 // Hver nullstill*-funksjon tømmer ett enkelt trekk/widget på aktiv side: tøm
 // valgt + backlog, lagre, tegn på nytt og varsle. Brukes fra knappene på kortene.
-function nullstillTilfeldig()   { const r = trekk(); r.tilfeldig_valgt = null; r.tilfeldig_backlog = []; saveState(); renderTilfeldig(); notify(t('🙋 Tilfeldig-trekk nullstilt')); }
+function nullstillTilfeldig(kort = 'card-tilfeldig') { const x = tilfeldigTilstand(trekk(), kort); x.valgt = null; x.backlog = []; saveState(); renderTilfeldig(kort); notify(t('🙋 Tilfeldig-trekk nullstilt')); }
 function nullstillOrdenselev()  { const r = trekk(); r.ordenselev_valgte = []; r.ordenselev_backlog = []; r.ordenselev_skyldig = []; saveState(); renderOrdenselev(); notify(t('⭐ Ordenselever-trekk nullstilt')); }
 function nullstillUlv()         { const r = trekk(); r.ulv_valgt = null; r.ulv_backlog = []; r.ulv_skyldig = []; saveState(); renderUlv(); notify(t('{bamse}-trekket er nullstilt', { bamse: aktivSide().ulv_navn })); }
 function nullstillDagsplan()    { aktivSide().dagsplan = []; saveState(); renderDagsplan(); notify(t('📋 Dagsplan nullstilt')); }
@@ -4565,6 +4944,16 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.48</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>Flere timere:</strong> <strong>+ ⏱ Timer</strong> under ⊞ Kort legger til så mange timere du vil. De hører til siden de er laget på, har hver sin tid og går videre i bakgrunnen når du bytter side. Den gamle felles timeren er blitt en vanlig timer på hver side der den var i bruk</li>
+      <li><strong>Flere Tilfeldig elev:</strong> <strong>+ 🙋 Tilfeldig elev</strong> gir et kort til, med sin egen backlog</li>
+      <li><strong>✏️ Gi kortene egne navn,</strong> for eksempel «Gruppearbeid» på en timer. Navnet gjelder siden, og varselet sier hvilken timer som er ferdig</li>
+      <li>Overskriftene på kortene er uten emoji, så de er roligere å se på. Ikonene står fortsatt i ⊞ Kort</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.47</div>
     <div class="logg-dato">4. november 2026</div>
@@ -5112,10 +5501,10 @@ const BRUKERVEILEDNING_HTML = `
   <p>Klikk <strong>+</strong> i midten av headeren for å legge til en ny side, klikk på et sidenavn for å bytte, og <strong>✕</strong> på en fane for å slette. Tanken er at <strong>hver side er sin egen klasse</strong>: lag side 1 for 1A og side 2 for 1B, og bytt fritt mellom dem gjennom dagen uten at noe blandes.</p>
   <p><strong>Gi en side nytt navn</strong> ved å dobbeltklikke på fanen. Da blir den til et lite skrivefelt — skriv inn navnet (f.eks. «1A» eller «Mattegruppe») og trykk <kbd>Enter</kbd> for å lagre. <kbd>Esc</kbd> avbryter uten å endre navnet.</p>
   <p><strong>Per side</strong> (egen for hver klasse): elevlisten, grupper, dagsplanen, klassebamsens navn, pluss oppsettet av kortene, notater og bilder.</p>
-  <p><strong>Delt mellom alle sider:</strong> lagrede klasselister (📋 Lister — et felles bibliotek du kan laste inn i hvilken som helst side) med sine trekk, tema, font, skriftstørrelse og timeren.</p>
-  <p>Timeren er felles og fortsetter å gå selv om du bytter side. Vil du f.eks. vise et bilde på en egen side mens nedtellingen ruller, går det helt fint — timeren teller videre i bakgrunnen.</p>
+  <p><strong>Delt mellom alle sider:</strong> lagrede klasselister (📋 Lister — et felles bibliotek du kan laste inn i hvilken som helst side) med sine trekk, tema, font og skriftstørrelse.</p>
+  <p>Timere hører til siden de er laget på, men fortsetter å gå når du bytter side. Vil du f.eks. vise et bilde på en egen side mens nedtellingen ruller, går det helt fint, og du får beskjed når tiden er ute.</p>
   <p>En <strong>ny side starter helt tom</strong> — ingen kort er synlige ennå. Du henter selv fram akkurat de kortene du vil ha via <strong>⊞ Kort</strong>-menyen, så hver side blir nøyaktig slik du ønsker den.</p>
-  <p><strong>Side 1 starter med et lite utvalg</strong> første gang du åpner appen: klokke og tilfeldig elev til venstre, dagsplan og notat i midten, og elevlisten til høyre. Det er med vilje få kort — da får hele siden plass på skjermen med én gang. Ordenselever, klassebamse, terning, timer og grupper ligger klare i <strong>⊞ Kort</strong> og dukker opp på sin faste plass når du krysser dem av.</p>
+  <p><strong>Side 1 starter med et lite utvalg</strong> første gang du åpner appen: klokke og tilfeldig elev til venstre, dagsplan og notat i midten, og elevlisten til høyre. Det er med vilje få kort — da får hele siden plass på skjermen med én gang. Ordenselever, klassebamse, terning og grupper ligger klare i <strong>⊞ Kort</strong> og dukker opp på sin faste plass når du krysser dem av.</p>
 
   <h4>Kom i gang</h4>
   <p>Trykk <strong>+ Legg til elev</strong> (eller tasten <kbd>a</kbd>) for å legge inn elevene i klassen din. Du kan ha opptil 35 elever inne samtidig.</p>
@@ -5142,6 +5531,7 @@ const BRUKERVEILEDNING_HTML = `
 
   <h4>Trekke elever</h4>
   <p><strong>🙋 Tilfeldig elev</strong> — trykk <strong>Trekk</strong> for å velge en tilfeldig elev fra listen. Vanlig trekk unngår å velge samme elev to ganger på rad.</p>
+  <p><strong>Flere Tilfeldig elev:</strong> <strong>+ 🙋 Tilfeldig elev</strong> under ⊞ Kort lager et kort til, med sin egen backlog, for eksempel «Leser høyt» og «Svarer på tavla». <kbd>r</kbd> og <kbd>R</kbd> trekker i kortet musa er over.</p>
   <p><strong>Trekk (bl)</strong> — trekker uten repetisjon (backlog). Hver elev trekkes én gang før noen trekkes på nytt. Antall trukket vises under knappen. Når alle er trukket, trykker du <strong>🔄</strong> øverst i kortet (vises når du holder musa over) for å starte på nytt.</p>
   <p><strong>⭐ Ordenselever</strong> — velger to elever som har ordenselev-ansvar. Alle får tur før noen gjentas, og når alle har vært ordenselev, starter en ny runde av seg selv, med en melding om det. Er det én elev igjen, kommer den eleven med i første trekk i den nye runden. To elever som ikke skal i samme gruppe (⛔), blir heller aldri ordenselever sammen. Vil du bare ha én ordenselev, trykker du <strong>👥</strong> øverst i kortet, så blir den til <strong>👤</strong>. Valget gjelder lista, som trekkene.</p>
   <p><strong>Klassebamse</strong> — velger hvem som får bamsen (eller en annen gjenstand) med hjem. Går også i runder av seg selv.</p>
@@ -5151,8 +5541,8 @@ const BRUKERVEILEDNING_HTML = `
   <h4>📝 Redigere backlog for ordenselev / klassebamse</h4>
   <p>Trykk på blyant-ikonet (📝) i kortets hjørne. Du ser alle elevene som chips — grå chips er allerede «brukt». Trykk på en elev for å sette eller fjerne «brukt»-markeringen. Nyttig hvis du har mistet lokal data og trenger å rekonstruere hvem som har vært ordenselev eller hatt med bamsen.</p>
 
-  <h4>✏️ Gi klassebamsen et eget navn</h4>
-  <p>Trykk på blyant-ikonet (✏️) i Klassebamse-kortets hjørne, skriv inn det nye navnet og trykk Lagre. Navnet huskes selv etter at du lukker nettleseren.</p>
+  <h4>✏️ Gi et kort et eget navn</h4>
+  <p>Hold musa over kortet og trykk <strong>✏️</strong> øverst. Tittelen blir et skrivefelt: skriv navnet og trykk <kbd>Enter</kbd>, eller <kbd>Esc</kbd> for å avbryte. Tømmer du feltet, får kortet standardnavnet tilbake. Navnet gjelder den siden du er på. Gir du Klassebamse et navn, brukes det også i meldingene («Bo tar med Teddy hjem»). Klokka har ikke ✏️, fordi overskriften der bytter visning.</p>
 
   <h4>Grupper</h4>
   <p>Trykk <strong>🎲 Del inn</strong> i Grupper-kortet (eller tasten <kbd>g</kbd>). Skriv inn antall grupper, og elevene fordeles tilfeldig. Gruppefarger vises også i elevlisten. Trykk <strong>✕</strong> for å fjerne gruppeinndelingen.</p>
@@ -5167,7 +5557,7 @@ const BRUKERVEILEDNING_HTML = `
   <p><strong>Velg terningtype</strong> i knapperaden: <strong>d4, d6, d8, d10, d12</strong> eller <strong>d20</strong> — tallet forteller hvor mange sider terningen har. Den vanlige sekssidede (d6) vises med prikker, slik elevene kjenner den igjen fra brettspill. De andre har tall på flatene, akkurat som ekte terninger av den typen.</p>
   <p><strong>Flere terninger:</strong> bruk <strong>−</strong> og <strong>+</strong> ved siden av kast-knappen for å kaste opptil 36 om gangen. Terningene legges i rader som er så kvadratiske som mulig, og kortet tilpasser seg. Da vises <strong>summen</strong> under terningene. Det er nyttig i matte, eller når to terninger skal gi et tall mellom 2 og 12.</p>
   <p>Bytter du type eller antall, kastes det automatisk på nytt, slik at det aldri ligger et gammelt resultat igjen som ikke passer terningen. Siste kast huskes til neste gang du åpner siden.</p>
-  <p>Terningoppsettet er <strong>felles for alle sider</strong>, på samme måte som timeren.</p>
+  <p>Terningoppsettet er <strong>felles for alle sider</strong>.</p>
 
   <h4>🕐 Klokke</h4>
   <p>Viser en <strong>analog urskive</strong> med tallene 1–12 og tre visere, og den <strong>digitale tiden</strong> rett under. Time- og minuttviseren glir jevnt slik ekte klokker gjør — er den 09:55, står timeviseren nesten på 10, ikke rett på 9. Det gjør kortet trygt å bruke når klassen øver på å lese klokka.</p>
@@ -5194,7 +5584,9 @@ const BRUKERVEILEDNING_HTML = `
   <p>Lukk med <kbd>Esc</kbd>, <kbd>f</kbd>, <strong>✕ Lukk fokus</strong> øverst til høyre eller et klikk utenfor kortet. Kortet ligger der det lå på bordet, med samme størrelse. Vil du ha hele skjermen uten fanene og adressefeltet, trykker du <kbd>F11</kbd> i tillegg.</p>
 
   <h4>Timer</h4>
+  <p>Legg til en timer med <strong>+ ⏱ Timer</strong> under <strong>⊞ Kort</strong>. Du kan ha så mange du vil på en side, for eksempel én for gruppearbeidet og én for pausen. Gi dem navn med ✏️, så sier varselet hvilken som er ferdig. Hver timer har sin egen tid, og ✕ fjerner den.</p>
   <p>Standard er 5 minutter. Trykk <strong>Sett tid</strong> (eller <kbd>s</kbd>) for å velge en annen varighet (1–60 min). Start og stopp med <strong>▶ Start</strong> (eller <kbd>t</kbd>). En lyd spilles av når tiden er ute.</p>
+  <p>Med flere timere gjelder <kbd>t</kbd> og <kbd>s</kbd> timeren musa er over, ellers den første på siden. Har siden ingen timer, lager <kbd>t</kbd> en ny og starter den.</p>
   <p>Starter du timeren med <kbd>t</kbd> mens timerkortet ikke er framme, hentes kortet fram av seg selv og legges øverst, så klassen ser nedtellingen.</p>
   <p>Timeren går riktig selv om du viser noe i en annen fane en stund, og laster du siden inn på nytt, fortsetter den der den var.</p>
   <p><strong>⏱ Stoppeklokke:</strong> velg fanen øverst i kortet for å telle oppover i stedet. Start og stopp på samme måte, og ↺ setter den tilbake til null. Nedtellingen og stoppeklokka går hver for seg: en nedtelling du har startet, fortsetter og piper når tiden er ute, selv om du ser på stoppeklokka.</p>
@@ -5528,7 +5920,7 @@ function settWidgetSkriftstørrelse(widgetId, prosent) {
 function applyWidgetStørrelser() {
   const map = state.widget_størrelser ?? {};
   // Widgets som skalerer med kortet, har ikke prosent lenger (se SKALER_MED_KORT).
-  SKALER_MED_KORT.forEach(id => delete map[id]);
+  Object.keys(map).filter(erSkalerKort).forEach(id => delete map[id]);
   Object.entries(map).forEach(([id, pst]) => settWidgetSkriftstørrelse(id, pst));
 }
 
@@ -5540,7 +5932,7 @@ function renderWidgetStørrelseMeny() {
   if (!liste) return;
   const skjult = aktivSide().widget_hidden ?? [];
   const synlige = Object.keys(WIDGET_NAVN)
-    .filter(id => !skjult.includes(id) && !SKALER_MED_KORT.includes(id));
+    .filter(id => !skjult.includes(id) && !erSkalerKort(id));
   // Forklarer hvorfor klokka og de andre ikke står i lista.
   const skalerHint = `<div class="widget-str-tom">${t('Klokke, timer, trekk, klassebamse og terning blir større når du drar kortet større.')}</div>`;
   if (!synlige.length) {
@@ -5548,10 +5940,8 @@ function renderWidgetStørrelseMeny() {
     return;
   }
   liste.innerHTML = synlige.map(id => {
-    // Klassebamse kan ha fått eget navn på siden.
-    const navn = id === 'card-ulv'
-      ? (aktivSide().ulv_navn || WIDGET_NAVN[id])
-      : t(WIDGET_NAVN[id]);
+    // Kortet kan ha fått eget navn på siden (✏️).
+    const navn = kortNavn(id) || t(WIDGET_NAVN[id]);
     const pst = state.widget_størrelser?.[id] ?? 0;
     return `
       <label class="widget-str-rad" for="str-${id}">
@@ -5593,7 +5983,6 @@ function settOppHendelser() {
       document.getElementById('btn-legg-til').click();
     },
   });
-  document.getElementById('btn-tilfeldig-tom').onclick = nullstillTilfeldig;
   document.getElementById('btn-lagring-last').onclick = lastInnPåNytt;
   document.getElementById('btn-fokus-lukk').onclick = lukkFokus;
   document.getElementById('fokus-bakgrunn').onclick = lukkFokus;
@@ -5609,18 +5998,9 @@ function settOppHendelser() {
   inputEnter('input-elev-navn', bekreftLeggTil);
 
   // Timer
-  document.getElementById('btn-timer-toggle').onclick = timerToggle;
-  document.getElementById('btn-timer-reset').onclick  = () => (state.timer_modus === 'opp' ? stoppeklokkeReset() : timerReset());
-  document.querySelectorAll('.timer-fane').forEach(f => { f.onclick = () => settTimerModus(f.dataset.modus); });
-  document.getElementById('btn-timer-visning').onclick = byttTimerVisning;
-  document.getElementById('btn-timer-sett').onclick   = () => {
-    if (state.timer_modus === 'opp') settTimerModus('ned'); // s fra stoppeklokka: til nedtelling
-    document.getElementById('input-timer-minutter').value = '';
-    åpneModal('modal-timer-sett');
-  };
   const bekreftTimerSett = () => {
     const m = parseInt(document.getElementById('input-timer-minutter').value);
-    if (m >= 1 && m <= 60) { timerSett(m); lukkModal(); }
+    if (m >= 1 && m <= 60) { if (state.timere[timerSettMål]) timerSett(timerSettMål, m); lukkModal(); }
     else notify(t('Skriv inn 1–60 minutter'), 'warning');
   };
   document.getElementById('btn-timer-sett-bekreft').onclick = bekreftTimerSett;
@@ -5628,8 +6008,7 @@ function settOppHendelser() {
   inputEnter('input-timer-minutter', bekreftTimerSett);
 
   // Draws
-  document.getElementById('btn-tilfeldig').onclick        = trekkTilfeldig;
-  document.getElementById('btn-tilfeldig-backlog').onclick = trekkTilfeldigBacklog;
+  setupTilfeldig('card-tilfeldig');
   document.getElementById('btn-ordenselev').onclick       = trekkOrdenselev;
   document.getElementById('btn-ulv').onclick              = trekkUlv;
 
@@ -5867,12 +6246,12 @@ function settOppHendelser() {
     // Enkelt-tast → handling. Speiler knappene i grensesnittet.
     const hurtigtaster = {
       a: () => document.getElementById('btn-legg-til').click(),
-      r: () => trekkTilfeldig(),
-      R: () => trekkTilfeldigBacklog(),
+      r: () => trekkTilfeldig(aktivtTilfeldigKort()),
+      R: () => trekkTilfeldigBacklog(aktivtTilfeldigKort()),
       o: () => trekkOrdenselev(),
       u: () => trekkUlv(),
-      t: () => timerToggle(),
-      s: () => document.getElementById('btn-timer-sett').click(),
+      t: () => timerToggle(aktivTimer({ lag: true })),
+      s: () => åpneTimerSett(aktivTimer({ lag: true })),
       d: () => document.getElementById('btn-dagsplan-legg-til').click(),
       p: () => nesteDagsplanPunkt(),
       P: () => nesteDagsplanPunkt(true),
@@ -5898,28 +6277,6 @@ function settOppHendelser() {
 }
 
 // ===================== Init =====================
-// ===================== Rename Klassebamse =====================
-// Kobler opp «gi nytt navn til klassebamsen»-modalen (egen funksjon fordi den ble
-// lagt til etter settOppHendelser). Lagrer det nye navnet på aktiv side.
-function settOppRename() {
-  document.getElementById('btn-ulv-rename').onclick = () => {
-    document.getElementById('rename-input').value = aktivSide().ulv_navn || 'Klassebamse';
-    åpneModal('modal-ulv-rename');
-  };
-  document.getElementById('btn-rename-avbryt').onclick = lukkModal;
-  document.getElementById('btn-rename-lagre').onclick = () => {
-    const nyttNavn = document.getElementById('rename-input').value.trim();
-    if (nyttNavn) {
-      aktivSide().ulv_navn = nyttNavn;
-      saveState();
-      renderUlv();
-      renderWidgetStørrelseMeny(); // Skriftstørrelse-menyen viser også bamsenavnet
-    }
-    lukkModal();
-  };
-  inputEnter('rename-input', () => document.getElementById('btn-rename-lagre').click());
-}
-
 // ===================== Backlog-editor =====================
 // Åpner backlog-editoren for ordenselev eller ulv (`type` velger hvilken). Viser én
 // «chip» per elev; klikk på en chip legger eleven til / fjerner den fra backlogen
@@ -6121,7 +6478,7 @@ function lagBildeElement(instansId) {
     <button class="kl-widget-close" data-klikk="fjern-bilde-widget" data-id="${instansId}" title="${t('Slett dette bildekortet')}">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="${t('Dra for å flytte')}">⠿</span>
-      <h2>${t('🖼 Bilde')}</h2>
+      <h2>${t('Bilde')}</h2>
     </div>
     <div class="card-body">
       <div id="bilde-vis-${instansId}" class="bilde-vis">
@@ -6295,7 +6652,7 @@ function lagYoutubeElement(instansId) {
     <button class="kl-widget-close" data-klikk="fjern-youtube-widget" data-id="${instansId}" title="${t('Slett dette YouTube-kortet')}">✕</button>
     <div class="card-header">
       <span class="drag-handle" title="${t('Dra for å flytte')}">⠿</span>
-      <h2>▶️ YouTube</h2>
+      <h2>YouTube</h2>
     </div>
     <div id="youtube-body-${instansId}" class="youtube-body"></div>
   `;
@@ -6769,6 +7126,10 @@ async function eksporterData() {
         bilde_teller:   state.bilde_teller,
         youtube_teller: state.youtube_teller,
         arbeid_egne:    state.arbeid_egne,
+        timere:         state.timere,
+        timer_teller:   state.timer_teller,
+        tilfeldige:     state.tilfeldige,
+        tilfeldig_teller: state.tilfeldig_teller,
       },
     },
   };
@@ -6893,6 +7254,10 @@ async function bekreftImport() {
   if (wi.bilde_teller   !== undefined) ny.bilde_teller = wi.bilde_teller;
   if (wi.youtube_teller !== undefined) ny.youtube_teller = wi.youtube_teller;
   if (wi.arbeid_egne    !== undefined) ny.arbeid_egne = wi.arbeid_egne;
+  if (wi.timere         !== undefined) ny.timere = wi.timere;
+  if (wi.timer_teller   !== undefined) ny.timer_teller = wi.timer_teller;
+  if (wi.tilfeldige     !== undefined) ny.tilfeldige = wi.tilfeldige;
+  if (wi.tilfeldig_teller !== undefined) ny.tilfeldig_teller = wi.tilfeldig_teller;
   ny.aktiv_side = Math.min(
     typeof innhold.aktiv_side === 'number' ? innhold.aktiv_side : 0,
     ny.sider.length - 1,
@@ -6980,8 +7345,17 @@ function init() {
     setupNotat(instansId);
   }
 
-  hentTimerØkt(); // en nedtelling som gikk før omlastingen, fortsetter
-  renderTimer();
+  for (const id of Object.keys(state.timere)) {
+    settInnKort(lagTimerElement(id));
+    setupTimer(id);
+  }
+  for (const id of Object.keys(state.tilfeldige)) {
+    settInnKort(lagTilfeldigElement(id));
+    setupTilfeldig(`card-${id}`);
+  }
+  renderAlleTilfeldig();
+  hentTimerØkt(); // timere som gikk før omlastingen, fortsetter
+  renderAlleTimere();
   setupTerning();
   setupArbeid();
   følgAndreFaner();
@@ -7037,7 +7411,6 @@ function init() {
     saveState();
   });
   settOppHendelser();
-  settOppRename();
   settOppBegrensning();
   settOppFlate();
   settOppSkalering();
@@ -7104,6 +7477,10 @@ const KLIKK_HANDLINGER = {
   'ny-bilde':             () => leggTilBilde(),
   'ny-youtube':           () => leggTilYoutube(),
   'fjern-notat':          el => fjernNotat(el.dataset.id),
+  'ny-timer':             () => { leggTilTimer(); },
+  'ny-tilfeldig':         () => leggTilTilfeldig(),
+  'fjern-tilfeldig':      el => fjernTilfeldig(el.dataset.id),
+  'fjern-timer':          el => fjernTimer(el.dataset.id),
   'fjern-bilde-widget':   el => fjernBildeWidget(el.dataset.id),
   'fjern-bilde-data':     el => fjernBildeData(el.dataset.id),
   'fjern-youtube-widget': el => fjernYoutubeWidget(el.dataset.id),
