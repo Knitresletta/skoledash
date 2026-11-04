@@ -133,6 +133,21 @@ const NYNORSK = {
   'Gi nytt navn': 'Gi nytt namn',
   'Par som ikke skal i samme gruppe': 'Par som ikkje skal i same gruppe',
   'Slett?': 'Slette?',
+  'Skoledash klarte ikke å lese det som var lagret. Ingenting lagres nå, så dataene ikke skrives over. Prøv å laste inn på nytt, og si fra via 💬 Tilbakemelding hvis det ikke hjelper.': 'Skoledash klarte ikkje å lese det som var lagra. Ingenting blir lagra no, så dataa ikkje blir skrivne over. Prøv å laste inn på nytt, og sei frå via 💬 Tilbakemelding om det ikkje hjelper.',
+  'uke': 'veke',
+  'Teller': 'Teljar',
+  'Én mindre': 'Éin mindre',
+  'Én mer': 'Éin meir',
+  'Nullstill telleren': 'Nullstill teljaren',
+  'Trykk igjen for å sette telleren til 0': 'Trykk ein gong til for å setje teljaren til 0',
+  'Klikk for å skrive en beskjed til klassen': 'Klikk for å skrive ein beskjed til klassen',
+  'Nedtelling til dato': 'Nedteljing til dato',
+  'Klikk for å velge dato': 'Klikk for å velje dato',
+  'dager til {navn}': 'dagar til {navn}',
+  '{navn} var for {antall} dager siden': '{navn} var for {antall} dagar sidan',
+  'Velg en dato': 'Vel ein dato',
+  'F.eks. Juleferie': 'T.d. Juleferie',
+  'Hva skjer': 'Kva skjer',
   'Bare kort som vokser med innholdet (elever, grupper, dagsplan) har prosent. De andre blir større når du drar kortet større, og notat har A− og A+ i kortet.': 'Berre kort som veks med innhaldet (elevar, grupper, dagsplan) har prosent. Dei andre blir større når du dreg kortet større, og notat har A− og A+ i kortet.',
   'Det navnet kan ikke brukes': 'Det namnet kan ikkje brukast',
   'Ingen Tilfeldig elev-kort på siden': 'Ingen Tilfeldig elev-kort på sida',
@@ -303,7 +318,6 @@ const ROADMAP_KORT_NN = `
     <p>Dette er idear, ikkje lovnader. Rekkjefølgja kan endre seg. Saknar du noko? Sei frå via <strong>💬 Tilbakemelding</strong>.</p>
     <strong>Neste</strong>
     <ul>
-      <li>🔢 <strong>Teljar, instruksjonskort, nedteljing til ein dato og vekenummer</strong></li>
       <li>📑 <strong>Malar for sider,</strong> og deling av ei side med ein kollega, utan elevnamn</li>
     </ul>
     <strong>Seinare</strong>
@@ -401,6 +415,10 @@ const BRUKERVEILEDNING_NN = `
   <p><strong>Vel stad for vêret.</strong> Første gongen kan du trykkje <strong>📍 Vis vêret der du er</strong> i velkomstmeldinga. Då spør nettlesaren om å få bruke posisjonen din, og vêret blir sett til staden der du er. Under stadnamnet står det kvar staden kom frå, så du aldri er i tvil.</p>
   <p><strong>Vil du byte stad?</strong> Nedst i vêrvindauget ligg <strong>📍 Bruk posisjonen min</strong>, og eit søkjefelt der du kan skrive inn kva stad som helst og trykkje <kbd>Enter</kbd>. Fylke og land står under kvart treff, så du ikkje hamnar i feil land. Staden blir ståande til du byter han sjølv. Appen spør ikkje om posisjonen din kvar gong du opnar han.</p>
   <p>Har du ikkje valt nokon stad, eller seier nei til posisjon, blir <strong>Eidsvoll</strong> brukt til du vel noko anna. Har du valt ein stad tidlegare, blir han brukt.</p>
+
+  <h4>🔢 Teljar, 📣 Instruksjon og 📅 Nedteljing til dato</h4>
+  <p>Alle tre blir lagde til under <strong>⊞ Kort</strong>, så mange du vil, og får namn med ✏️. <strong>Teljar</strong> er eit stort tal med + og −, for poeng per gruppe, rundar eller åtvaringar. Han går ikkje under null, og ↺ må trykkjast to gonger. <strong>Instruksjon</strong> er eitt stort skilt: klikk på teksten, skriv beskjeden («Jobb stille til 10.15») og trykk <kbd>Enter</kbd>. <strong>Nedteljing til dato</strong> viser kor mange dagar det er til noko: klikk på kortet, vel datoen og skriv kva som skjer. Kortet seier «i dag!» på dagen, og viser etterpå at det er over.</p>
+  <p>Vekenummeret står ved datoen øvst, slik at det alltid er synleg.</p>
 
   <h4>🤫 Arbeidssymbol</h4>
   <p>Hent kortet fram under <strong>⊞ Kort</strong>. Trykk på eit symbol i rada nedst for å vise det stort: 🤫 Stille arbeid, 🗣️ Kviskrestemme, 👫 Pararbeid, 👥 Gruppearbeid, 🙋 Rekk opp handa eller 👀 Sjå hit. Trykk på det same symbolet igjen for å fjerne det.</p>

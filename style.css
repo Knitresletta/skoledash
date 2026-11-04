@@ -2445,6 +2445,93 @@ textarea[id^="notat-textarea"]:focus {
 }
 
 /* ===================== Terning-widget ===================== */
+/* ===================== Teller, Instruksjon, Nedtelling til dato ===================== */
+.teller-verdi {
+    font-size: 3rem;
+    font-weight: 800;
+    text-align: center;
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    padding: 6px 0;
+}
+.teller-knapper {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+}
+.teller-knapper .btn-icon {
+    font-size: 1.3rem;
+    width: 44px;
+    height: 40px;
+}
+.teller-knapper .teller-null {
+    font-size: 1rem;
+    width: 34px;
+    height: 34px;
+}
+/* Instruksjonen er et skilt: stor, fet, midtstilt tekst som bryter over linjer. */
+.instruksjon-tekst {
+    font-size: 1.5rem;
+    font-weight: 800;
+    text-align: center;
+    color: var(--primary);
+    padding: 10px 8px;
+    border-radius: var(--r-sm);
+    background: var(--primary-l);
+    cursor: text;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+}
+.instruksjon-tekst.tom {
+    background: none;
+    border: 2px dashed var(--border);
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+.instruksjon-input {
+    width: 100%;
+    font: inherit;
+    text-align: center;
+    color: var(--text);
+    background: var(--card);
+    border: 1px solid var(--primary);
+    border-radius: 4px;
+    padding: 2px 6px;
+    outline: none;
+}
+.dato-boks {
+    text-align: center;
+    padding: 8px 6px;
+    border-radius: var(--r-sm);
+    background: var(--primary-l);
+    cursor: pointer;
+}
+.dato-boks.tom {
+    background: none;
+    border: 2px dashed var(--border);
+}
+.dato-tall {
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--primary);
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+.dato-tekst {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    overflow-wrap: anywhere;
+}
+.dato-boks.tom .dato-tekst {
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 0.85rem;
+}
+
 /* ===================== Arbeidssymboler og Trafikklys ===================== */
 /* Arbeidssymboler: symbolet øverst, velgeren under. Begge kortene ligger i SKALER_MED_KORT,
    så alt blir større når kortet blir større. */

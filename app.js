@@ -104,6 +104,7 @@ const MIN_STØRRELSE = {
   terning: [200, 160], timer: [200, 150], dagsplan: [220, 160], elever: [200, 180],
   grupper: [220, 160], notat: [180, 120], bilde: [160, 120], youtube: [220, 170],
   arbeid: [200, 150], trafikklys: [100, 180],
+  teller: [160, 130], instruksjon: [220, 110], dato: [180, 130],
 };
 // Standardstørrelse i prosent (bredde, høyde) når et kort plasseres automatisk.
 const STANDARD_STØRRELSE = {
@@ -111,6 +112,7 @@ const STANDARD_STØRRELSE = {
   terning: [26, 34], timer: [26, 32], dagsplan: [34, 50], elever: [26, 70],
   grupper: [34, 45], notat: [30, 35], bilde: [28, 38], youtube: [34, 45],
   arbeid: [26, 36], trafikklys: [12, 40],
+  teller: [18, 28], instruksjon: [34, 22], dato: [22, 28],
 };
 // Hvor stor andel av en gammel kolonne hvert kort fikk ved migreringen: omtrent hvor
 // høyt kortet er naturlig, i hundre piksler (klokka med urskive og tall er ca. 320).
@@ -119,7 +121,7 @@ const STANDARD_STØRRELSE = {
 const HØYDEVEKT = {
   klokke: 3.2, tilfeldig: 1.6, ordenselev: 1.6, ulv: 1.6, terning: 2.6, timer: 2.1,
   dagsplan: 2.5, elever: 3.5, grupper: 1.8, notat: 1.8, bilde: 2, youtube: 2.5,
-  arbeid: 2.2, trafikklys: 2.6,
+  arbeid: 2.2, trafikklys: 2.6, teller: 1.8, instruksjon: 1.4, dato: 1.8,
 };
 
 // Guidekortene nye brukere møter på et tomt bord, ett ved hver meny. De er vanlige
@@ -138,7 +140,7 @@ const SKALER_MED_KORT = ['card-klokke', 'card-tilfeldig',
 
 // Kort som skalerer med størrelsen, også kopier som «card-timer-3» (se kortType).
 function erSkalerKort(id) {
-  return SKALER_MED_KORT.includes(id) || ['timer', 'tilfeldig'].includes(kortType(id));
+  return SKALER_MED_KORT.includes(id) || ['timer', 'tilfeldig', 'teller', 'instruksjon', 'dato'].includes(kortType(id));
 }
 
 // Arbeidssymbolene i Arbeidssymboler-kortet (v2.47). Læreren kan legge til egne
@@ -278,6 +280,14 @@ function defaultState() {
     // Ekstra Tilfeldig elev-kort (v2.48): «tilfeldig-N» → {}. Backlogene ligger i trekkene.
     tilfeldige:          {},
     tilfeldig_teller:    0,
+    // Små kort som kan kopieres (v2.50), se SMÅKORT: «teller-N» → { verdi },
+    // «instruksjon-N» → { tekst }, «dato-N» → { dato: 'ÅÅÅÅ-MM-DD', tekst }.
+    tellere:             {},
+    teller_teller:       0,
+    instruksjoner:       {},
+    instruksjon_teller:  0,
+    datoer:              {},
+    dato_teller:         0,
     timer_varighet:      300,
     arbeid_egne:         [],        // lærerens egne arbeidssymboler { id, emoji, tekst }, v2.47
     timer_modus:         'ned',     // 'ned' (nedtelling) eller 'opp' (stoppeklokke), v2.43
@@ -429,7 +439,24 @@ function trygtJsonParse(tekst) {
 
 // Gyldige ID-er for flerinstans-widgets. ID-ene havner i element-ID-er og onclick, så
 // alt annet enn «type-tall» forkastes.
-const INSTANS_ID = /^(notat|bilde|youtube|timer|tilfeldig)-\d{1,6}$/;
+const INSTANS_ID = /^(notat|bilde|youtube|timer|tilfeldig|teller|instruksjon|dato)-\d{1,6}$/;
+
+// Lagringsfeltene for de små kortene (teller, instruksjon, dato). Står her oppe fordi
+// normaliserState() bruker dem under loadState(), før resten av fila er kjørt: en
+// const lenger nede ville kastet (TDZ), og da startet appen blank. Hvordan kortene
+// ser ut og virker, står i SMÅKORT under «Små kort som kan kopieres».
+const SMÅKORT_FELT = {
+  teller: { felt: 'tellere', teller: 'teller_teller',
+    ny: () => ({ verdi: 0 }),
+    vask: x => ({ verdi: heltall(x.verdi, 0, 999999, 0) }) },
+  instruksjon: { felt: 'instruksjoner', teller: 'instruksjon_teller',
+    ny: () => ({ tekst: '' }),
+    vask: x => ({ tekst: tekstEllerNull(x.tekst, 120) || '' }) },
+  dato: { felt: 'datoer', teller: 'dato_teller',
+    ny: () => ({ dato: null, tekst: '' }),
+    vask: x => ({ dato: typeof x.dato === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x.dato) && !Number.isNaN(Date.parse(x.dato)) ? x.dato : null,
+                  tekst: tekstEllerNull(x.tekst, 40) || '' }) },
+};
 const YOUTUBE_VIDEO_ID = /^[\w-]{11}$/;
 const SKRIFT_NØKLER = ['liten', 'normal', 'stor', 'xl']; // speiler STØRRELSER lenger ned
 
@@ -785,6 +812,19 @@ function normaliserState(s) {
   for (const id of Object.keys(tilfeldige)) if (!brukteKort.has(`card-${id}`)) delete tilfeldige[id];
   s.tilfeldige = tilfeldige;
   s.tilfeldig_teller = Math.max(heltall(s.tilfeldig_teller, 0, 999999, 0), størsteId(s.tilfeldige));
+  // Små kort: gyldige verdier, ett felt per kort som står i et oppsett, foreldreløse ut.
+  for (const [type, { felt, teller, vask }] of Object.entries(SMÅKORT_FELT)) {
+    const ut = {};
+    const rå = erObjekt(s[felt]) ? s[felt] : {};
+    for (const side of s.sider) {
+      for (const w of side.widget_layout) {
+        const id = w.id.replace(/^card-/, '');
+        if (kortType(w.id) === type && INSTANS_ID.test(id)) ut[id] = vask(erObjekt(rå[id]) ? rå[id] : {});
+      }
+    }
+    s[felt] = ut;
+    s[teller] = Math.max(heltall(s[teller], 0, 999999, 0), størsteId(ut));
+  }
   s.bilde_teller   = Math.max(heltall(s.bilde_teller, 0, 999999, 0), størsteId(s.bilder));
   s.youtube_teller = Math.max(heltall(s.youtube_teller, 0, 999999, 0), størsteId(s.youtube));
 
@@ -958,11 +998,12 @@ function loadState() {
     }
   } catch (e) {
     console.warn('loadState:', e);
-    // Appen starter blank og vil snart lagre over det som lå der. Ta vare på det
-    // uleselige først, så dataene kan reddes (se nødmeldingen i startOppTrygt).
+    // Appen starter blank. Den skal IKKE lagre over det som lå der: feilen kan like
+    // gjerne være i koden (en ny versjon som snubler i gamle data) som i dataene, og
+    // da må dataene ligge urørt til neste versjon leser dem. Reservekopi i tillegg.
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) localStorage.setItem(RESERVE_KEY, raw);
+      if (raw) { localStorage.setItem(RESERVE_KEY, raw); lagringSperre = 'uleselig'; }
     } catch (_) { /* full lagring eller ingen tilgang: ingenting mer å gjøre */ }
   }
   return defaultState();
@@ -1033,7 +1074,7 @@ function saveState() {
 function følgAndreFaner() {
   window.addEventListener('storage', e => {
     if (e.key !== STORAGE_KEY || e.storageArea !== localStorage || sletterAlt) return;
-    if (lagringSperre === 'nyere-versjon') return;
+    if (lagringSperre === 'nyere-versjon' || lagringSperre === 'uleselig') return;
     // Lagret den andre fanen akkurat det denne fanen har, er det ingen konflikt.
     if (e.newValue === JSON.stringify(state)) return;
     lagringSperre = 'annen-fane';
@@ -1056,6 +1097,8 @@ function visLagringVarsel() {
   if (!el || !lagringSperre) return;
   document.getElementById('lagring-varsel-tekst').textContent = lagringSperre === 'nyere-versjon'
     ? t('Dataene er lagret av en nyere versjon av Skoledash. Endringer her blir ikke lagret.')
+    : lagringSperre === 'uleselig'
+    ? t('Skoledash klarte ikke å lese det som var lagret. Ingenting lagres nå, så dataene ikke skrives over. Prøv å laste inn på nytt, og si fra via 💬 Tilbakemelding hvis det ikke hjelper.')
     : t('Skoledash er endret i en annen fane. Endringer her blir ikke lagret før du laster inn på nytt.');
   el.classList.remove('hidden');
 }
@@ -1090,8 +1133,13 @@ function norskDato() {
 }
 
 // Skriver dagens dato inn i toppteksten. Kalles ved oppstart og hvert minutt.
+let sistDato = null;
 function oppdaterDato() {
-  document.getElementById('header-dato').textContent = norskDato();
+  document.getElementById('header-dato').textContent = `${norskDato()} · ${t('uke')} ${ukenummer()}`;
+  // Ved midnatt skal nedtellingene til dato vise ett dag mindre.
+  const iDag = new Date().toDateString();
+  if (sistDato && sistDato !== iDag) Object.keys(state.datoer).forEach(id => renderSmåkort('dato', id));
+  sistDato = iDag;
 }
 
 // Runder av en koordinat til 4 desimaler. met.no avviser kall med flere desimaler
@@ -1268,6 +1316,193 @@ function tegnVærPopup() {
 // Id-en til den pågående kast-animasjonen. Ligger utenfor funksjonen så et nytt kast
 // kan avbryte et som fortsatt ruller — ellers ville to setInterval-er tegne om hverandre.
 let terningAnimasjon = null;
+
+// ===================== Små kort som kan kopieres =====================
+// Teller, Instruksjon og Nedtelling til dato (v2.50). Samme modell som timerne: hvert
+// kort er «type-N», hører til én side, og har et lite felt i state[felt]. SMÅKORT
+// beskriver hver type: feltet, telleren, hvordan lagrede verdier vaskes, HTML-en inni
+// kortet, og hvordan det tegnes. Resten (lage, slette, koble knapper) er felles.
+const SMÅKORT = {
+  teller: {
+    ...SMÅKORT_FELT.teller, ikon: '🔢', navn: 'Teller',
+    html: () => `
+      <div class="teller-verdi">0</div>
+      <div class="teller-knapper">
+        <button class="btn btn-ghost btn-icon teller-minus" title="${t('Én mindre')}" aria-label="${t('Én mindre')}">−</button>
+        <button class="btn btn-ghost btn-icon btn-sm teller-null" title="${t('Nullstill telleren')}" aria-label="${t('Nullstill telleren')}">↺</button>
+        <button class="btn btn-primary btn-icon teller-pluss" title="${t('Én mer')}" aria-label="${t('Én mer')}">+</button>
+      </div>`,
+    render: (card, x) => { card.querySelector('.teller-verdi').textContent = x.verdi; },
+    setup: (card, id) => {
+      const endre = d => { const x = state.tellere[id]; x.verdi = Math.max(0, Math.min(999999, x.verdi + d)); saveState(); renderSmåkort('teller', id); };
+      card.querySelector('.teller-minus').addEventListener('click', () => endre(-1));
+      card.querySelector('.teller-pluss').addEventListener('click', () => endre(1));
+      toTrykk(card.querySelector('.teller-null'), { spørsmål: t('Nullstille?'), tittel: () => t('Trykk igjen for å sette telleren til 0'),
+        utfør: () => { state.tellere[id].verdi = 0; saveState(); renderSmåkort('teller', id); } });
+    },
+  },
+  instruksjon: {
+    ...SMÅKORT_FELT.instruksjon, ikon: '📣', navn: 'Instruksjon',
+    html: () => `<div class="instruksjon-tekst" role="button" tabindex="0" title="${t('Klikk for å skrive')}"></div>`,
+    render: (card, x) => {
+      const el = card.querySelector('.instruksjon-tekst');
+      if (el.querySelector('input')) return; // skrives i akkurat nå
+      el.textContent = x.tekst || t('Klikk for å skrive en beskjed til klassen');
+      el.classList.toggle('tom', !x.tekst);
+    },
+    setup: (card, id) => {
+      const el = card.querySelector('.instruksjon-tekst');
+      const start = () => {
+        if (el.querySelector('input')) return;
+        const inp = document.createElement('input');
+        inp.type = 'text'; inp.maxLength = 120; inp.className = 'instruksjon-input';
+        inp.value = state.instruksjoner[id].tekst; inp.setAttribute('aria-label', t('Beskjed til klassen'));
+        el.replaceChildren(inp);
+        let ferdig = false;
+        const avslutt = lagre => {
+          if (ferdig) return;
+          ferdig = true;
+          if (lagre) { state.instruksjoner[id].tekst = inp.value.trim().slice(0, 120); saveState(); }
+          el.replaceChildren();
+          renderSmåkort('instruksjon', id);
+        };
+        inp.addEventListener('keydown', e => {
+          if (e.key === 'Enter') { e.preventDefault(); avslutt(true); }
+          if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); avslutt(false); }
+        });
+        inp.addEventListener('blur', () => avslutt(true));
+        inp.focus(); inp.select();
+      };
+      el.addEventListener('click', start);
+      el.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target === el) start(); });
+    },
+  },
+  dato: {
+    ...SMÅKORT_FELT.dato, ikon: '📅', navn: 'Nedtelling til dato',
+    html: () => `<div class="dato-boks" role="button" tabindex="0" title="${t('Klikk for å velge dato')}">
+        <div class="dato-tall"></div><div class="dato-tekst"></div></div>`,
+    render: (card, x) => {
+      const tall = card.querySelector('.dato-tall'), tekst = card.querySelector('.dato-tekst');
+      const boks = card.querySelector('.dato-boks');
+      if (!x.dato) { tall.textContent = '📅'; tekst.textContent = t('Klikk for å velge dato'); boks.classList.add('tom'); return; }
+      boks.classList.remove('tom');
+      const dager = dagerTil(x.dato);
+      const navn = x.tekst || x.dato;
+      if (dager > 0) { tall.textContent = dager; tekst.textContent = dager === 1 ? t('dag til {navn}', { navn }) : t('dager til {navn}', { navn }); }
+      else if (dager === 0) { tall.textContent = '🎉'; tekst.textContent = t('{navn} er i dag!', { navn }); }
+      else { tall.textContent = '✓'; tekst.textContent = -dager === 1 ? t('{navn} var i går', { navn }) : t('{navn} var for {antall} dager siden', { navn, antall: -dager }); }
+    },
+    setup: (card, id) => {
+      const boks = card.querySelector('.dato-boks');
+      const åpne = () => {
+        datoMål = id;
+        const x = state.datoer[id];
+        document.getElementById('input-dato-dato').value = x.dato ?? '';
+        document.getElementById('input-dato-tekst').value = x.tekst;
+        åpneModal('modal-dato');
+      };
+      boks.addEventListener('click', åpne);
+      boks.addEventListener('keydown', e => { if (e.key === 'Enter') åpne(); });
+    },
+  },
+};
+let datoMål = null; // kortet «Velg dato»-vinduet gjelder
+
+// Hele dager fra i dag til datoen (negativt hvis den er passert). Regnes på
+// kalenderdager ved midnatt lokal tid, så klokkeslettet ikke spiller inn.
+function dagerTil(iso) {
+  const [å, m, d] = iso.split('-').map(Number);
+  const mål = new Date(å, m - 1, d);
+  const nå = new Date(); const iDag = new Date(nå.getFullYear(), nå.getMonth(), nå.getDate());
+  return Math.round((mål - iDag) / 86_400_000);
+}
+
+function lagSmåkortElement(type, id) {
+  const k = SMÅKORT[type];
+  const div = document.createElement('div');
+  div.className = 'card';
+  div.id = `card-${id}`;
+  div.innerHTML = `
+    <button class="kl-widget-close" data-klikk="fjern-småkort" data-type="${type}" data-id="${id}" title="${t('Fjern kortet')}">✕</button>
+    <div class="card-header">
+      <span class="drag-handle" title="${t('Dra for å flytte')}">⠿</span>
+      <h2>${t(k.navn)}</h2>
+    </div>
+    ${k.html()}`;
+  return div;
+}
+
+function renderSmåkort(type, id) {
+  const card = document.getElementById(`card-${id}`);
+  const x = state[SMÅKORT[type].felt][id];
+  if (card && x) SMÅKORT[type].render(card, x);
+}
+
+function renderAlleSmåkort() {
+  for (const [type, k] of Object.entries(SMÅKORT)) Object.keys(state[k.felt]).forEach(id => renderSmåkort(type, id));
+}
+
+function settInnSmåkort(type, id) {
+  const el = lagSmåkortElement(type, id);
+  settInnKort(el);
+  SMÅKORT[type].setup(el, id);
+  pakkSkaler(el);
+}
+
+function leggTilSmåkort(type) {
+  const k = SMÅKORT[type];
+  const id = `${type}-${++state[k.teller]}`;
+  state[k.felt][id] = k.ny();
+  aktivSide().widget_layout.push(nyPlassering(`card-${id}`));
+  settInnSmåkort(type, id);
+  applyLayout();
+  renderSmåkort(type, id);
+  renderWidgetMeny();
+  saveState();
+  return id;
+}
+
+// Sletter kortet fra alle sider og lagringen, uten å tegne på nytt (fjernSide bruker den).
+function kastSmåkort(type, id) {
+  const kort = `card-${id}`;
+  for (const s of state.sider) {
+    s.widget_layout = s.widget_layout.filter(w => w.id !== kort);
+    s.widget_hidden = (s.widget_hidden ?? []).filter(x => x !== kort);
+    delete s.kort_navn?.[kort];
+  }
+  delete state[SMÅKORT[type].felt][id];
+  if (fokusKort === kort) lukkFokus();
+  fjernKortEl(kort);
+}
+
+function fjernSmåkort(type, id) {
+  kastSmåkort(type, id);
+  applyLayout();
+  renderWidgetMeny();
+  saveState();
+}
+
+// «Velg dato»-vinduet
+function lagreDato() {
+  const x = datoMål && state.datoer[datoMål];
+  if (!x) { lukkModal(); return; }
+  const dato = document.getElementById('input-dato-dato').value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dato)) { notify(t('Velg en dato'), 'warning'); return; }
+  x.dato = dato;
+  x.tekst = document.getElementById('input-dato-tekst').value.trim().slice(0, 40);
+  saveState();
+  lukkModal();
+  renderSmåkort('dato', datoMål);
+}
+
+// ISO-ukenummer (uke 1 er uka med årets første torsdag).
+function ukenummer(d = new Date()) {
+  const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dag = x.getUTCDay() || 7;
+  x.setUTCDate(x.getUTCDate() + 4 - dag);
+  const årStart = new Date(Date.UTC(x.getUTCFullYear(), 0, 1));
+  return Math.ceil(((x - årStart) / 86_400_000 + 1) / 7);
+}
 
 // ===================== Arbeidssymboler og Trafikklys =====================
 // To kort. 🤫 Arbeidssymboler viser et stort arbeidssymbol (🤫 Stille arbeid, 👫 Pararbeid ...).
@@ -4771,6 +5006,9 @@ function renderWidgetMeny() {
   const antNotat   = aktivIds.filter(id => id.startsWith('card-notat-')).length;
   const antTimer   = aktivIds.filter(id => id.startsWith('card-timer-')).length;
   const antTilf    = aktivIds.filter(id => id.startsWith('card-tilfeldig-')).length;
+  const antAv = type => aktivIds.filter(id => kortType(id) === type).length;
+  const småknapper = Object.entries(SMÅKORT).map(([type, k]) =>
+    `<button class="btn btn-ghost btn-sm" data-klikk="ny-småkort" data-type="${type}">+ ${k.ikon} ${t(k.navn)}${antAv(type) ? ` (${antAv(type)})` : ''}</button>`).join('');
   const antBilde   = aktivIds.filter(id => id.startsWith('card-bilde-')).length;
   const antYoutube = aktivIds.filter(id => id.startsWith('card-youtube-')).length;
   const leggTil = `
@@ -4782,6 +5020,7 @@ function renderWidgetMeny() {
       <button class="btn btn-ghost btn-sm" data-klikk="ny-notat">${t('+ 📝 Notat')}${antNotat ? ` (${antNotat})` : ''}</button>
       <button class="btn btn-ghost btn-sm" data-klikk="ny-bilde">${t('+ 🖼 Bilde')}${antBilde ? ` (${antBilde})` : ''}</button>
       <button class="btn btn-ghost btn-sm" data-klikk="ny-youtube">+ ▶️ YouTube${antYoutube ? ` (${antYoutube})` : ''}</button>
+      ${småknapper}
     </div>`;
 
   dropdown.innerHTML = statiske + leggTil;
@@ -4962,6 +5201,8 @@ function fjernSide(idx) {
     const id = w.id.replace(/^card-/, '');
     if (kortType(w.id) === 'timer' && state.timere[id]) kastTimer(id);
     if (kortType(w.id) === 'tilfeldig' && state.tilfeldige[id]) kastTilfeldig(id);
+    const type = kortType(w.id);
+    if (SMÅKORT[type] && state[SMÅKORT[type].felt][id]) kastSmåkort(type, id);
   }
   state.sider.splice(idx, 1);
   // byttSide lagrer og re-rendrer alt (layout + per-side data) for den nye aktive siden
@@ -4988,7 +5229,6 @@ const OPPDATERINGSLOGG_HTML = `
     <p>Dette er ideer, ikke løfter. Rekkefølgen kan endre seg. Savner du noe? Si fra via <strong>💬 Tilbakemelding</strong>.</p>
     <strong>Neste</strong>
     <ul>
-      <li>🔢 <strong>Teller, instruksjonskort, nedtelling til en dato og ukenummer</strong></li>
       <li>📑 <strong>Maler for sider,</strong> og deling av en side med en kollega, uten elevnavn</li>
     </ul>
     <strong>Senere</strong>
@@ -5003,6 +5243,15 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.50</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>Tre nye kort under ⊞ Kort,</strong> så mange du vil av hvert: <strong>🔢 Teller</strong> (stort tall med + og −, for poeng eller runder), <strong>📣 Instruksjon</strong> (ett stort skilt med beskjed til klassen) og <strong>📅 Nedtelling til dato</strong> («17 dager til Juleferie»)</li>
+      <li><strong>Ukenummer</strong> står ved datoen i toppfeltet</li>
+      <li>Klarer ikke Skoledash å lese det som er lagret, lagrer den ingenting over det, og sier fra</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.49</div>
     <div class="logg-dato">4. november 2026</div>
@@ -5644,6 +5893,10 @@ const BRUKERVEILEDNING_HTML = `
   <p><strong>Vil du bytte sted?</strong> Nederst i vær-vinduet ligger <strong>📍 Bruk min posisjon</strong>, og et søkefelt der du kan skrive inn et hvilket som helst sted og trykke <kbd>Enter</kbd>. Fylke og land står under hvert treff, så du ikke havner i feil land. Stedet blir stående til du bytter det selv. Appen spør ikke om posisjonen din hver gang du åpner den.</p>
   <p>Har du ikke valgt noe sted, eller sier nei til posisjon, brukes <strong>Eidsvoll</strong> til du velger noe annet. Har du valgt et sted tidligere, brukes det.</p>
 
+  <h4>🔢 Teller, 📣 Instruksjon og 📅 Nedtelling til dato</h4>
+  <p>Alle tre legges til under <strong>⊞ Kort</strong>, så mange du vil, og får navn med ✏️. <strong>Teller</strong> er et stort tall med + og −, for poeng per gruppe, runder eller advarsler. Det går ikke under null, og ↺ må trykkes to ganger. <strong>Instruksjon</strong> er ett stort skilt: klikk på teksten, skriv beskjeden («Jobb stille til 10.15») og trykk <kbd>Enter</kbd>. <strong>Nedtelling til dato</strong> viser hvor mange dager det er til noe: klikk på kortet, velg datoen og skriv hva som skjer. Kortet sier «i dag!» på dagen, og viser etterpå at det er over.</p>
+  <p>Ukenummeret står ved datoen øverst, slik at det alltid er synlig.</p>
+
   <h4>🤫 Arbeidssymboler</h4>
   <p>Hent kortet fram under <strong>⊞ Kort</strong>. Trykk på et symbol i raden nederst for å vise det stort: 🤫 Stille arbeid, 🗣️ Hviskestemme, 👫 Pararbeid, 👥 Gruppearbeid, 🙋 Rekk opp hånda eller 👀 Se hit. Trykk på det samme symbolet igjen for å fjerne det.</p>
   <p><strong>＋</strong> lager et eget symbol med emoji og tekst, for eksempel «📖 Lesestund». Egne symboler finnes på alle sidene dine, og slettes med ✕ i det samme vinduet. Hver side husker sitt eget symbol.</p>
@@ -6053,6 +6306,9 @@ function settOppHendelser() {
   });
   document.getElementById('btn-lagring-last').onclick = lastInnPåNytt;
   document.getElementById('btn-fokus-lukk').onclick = lukkFokus;
+  document.getElementById('btn-dato-lagre').onclick = lagreDato;
+  document.getElementById('btn-dato-avbryt').onclick = lukkModal;
+  inputEnter('input-dato-tekst', lagreDato);
   document.getElementById('fokus-bakgrunn').onclick = lukkFokus;
   window.addEventListener('resize', () => { if (fokusKort) skalerFokus(); });
   // Husk kortet musa er over, så f vet hva som skal i fokus.
@@ -7199,6 +7455,9 @@ async function eksporterData() {
         timer_teller:   state.timer_teller,
         tilfeldige:     state.tilfeldige,
         tilfeldig_teller: state.tilfeldig_teller,
+        tellere: state.tellere, teller_teller: state.teller_teller,
+        instruksjoner: state.instruksjoner, instruksjon_teller: state.instruksjon_teller,
+        datoer: state.datoer, dato_teller: state.dato_teller,
       },
     },
   };
@@ -7327,6 +7586,9 @@ async function bekreftImport() {
   if (wi.timer_teller   !== undefined) ny.timer_teller = wi.timer_teller;
   if (wi.tilfeldige     !== undefined) ny.tilfeldige = wi.tilfeldige;
   if (wi.tilfeldig_teller !== undefined) ny.tilfeldig_teller = wi.tilfeldig_teller;
+  for (const f of ['tellere', 'teller_teller', 'instruksjoner', 'instruksjon_teller', 'datoer', 'dato_teller']) {
+    if (wi[f] !== undefined) ny[f] = wi[f];
+  }
   ny.aktiv_side = Math.min(
     typeof innhold.aktiv_side === 'number' ? innhold.aktiv_side : 0,
     ny.sider.length - 1,
@@ -7423,6 +7685,8 @@ function init() {
     setupTilfeldig(`card-${id}`);
   }
   renderAlleTilfeldig();
+  for (const [type, k] of Object.entries(SMÅKORT)) Object.keys(state[k.felt]).forEach(id => settInnSmåkort(type, id));
+  renderAlleSmåkort();
   hentTimerØkt(); // timere som gikk før omlastingen, fortsetter
   renderAlleTimere();
   setupTerning();
@@ -7548,6 +7812,8 @@ const KLIKK_HANDLINGER = {
   'fjern-notat':          el => fjernNotat(el.dataset.id),
   'ny-timer':             () => { leggTilTimer(); },
   'ny-tilfeldig':         () => leggTilTilfeldig(),
+  'ny-småkort':           el => { leggTilSmåkort(el.dataset.type); },
+  'fjern-småkort':        el => fjernSmåkort(el.dataset.type, el.dataset.id),
   'fjern-tilfeldig':      el => fjernTilfeldig(el.dataset.id),
   'fjern-timer':          el => fjernTimer(el.dataset.id),
   'fjern-bilde-widget':   el => fjernBildeWidget(el.dataset.id),
