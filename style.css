@@ -473,6 +473,13 @@ header h1 {
     width: 9ch;
     min-width: 9ch;
 }
+.side-flere {
+    font-weight: 600;
+}
+/* Sidene i Flere-menyen: den aktive er fet, uten haken (den ville stått inntil ✕) */
+.side-meny .kl-dropdown-item.side-flere-side.valgt::after {
+    content: none;
+}
 .side-tab:hover:not(.aktiv) {
     background: rgba(255, 255, 255, 0.25);
 }

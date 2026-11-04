@@ -21,6 +21,10 @@ const NYNORSK = {
   // Guidekortene for nye brukere (index.html, data-t-html)
   '↘ Hurtigtaster': '↘ Snøggtastar',
   'øyne hit': 'auge hit',
+  'Flere': 'Fleire',
+  '{antall} sider til': '{antall} sider til',
+  'Klikk for de andre sidene, nytt navn eller lagre som mal': 'Klikk for dei andre sidene, nytt namn eller lagre som mal',
+  'Slett siden': 'Slett sida',
   '👀 Øyne hit': '👀 Auge hit',
   'Øyne hit!': 'Auge hit!',
   'Beskjeden fyller hele skjermen. Klikk, <kbd>Esc</kbd> eller <kbd>ø</kbd> tar den bort igjen. <kbd>Shift</kbd>+<kbd>Ø</kbd> viser den rett på, uten å spørre.': 'Meldinga fyller heile skjermen. Klikk, <kbd>Esc</kbd> eller <kbd>ø</kbd> tek henne bort att. <kbd>Shift</kbd>+<kbd>Ø</kbd> viser henne rett på, utan å spørje.',
@@ -412,6 +416,7 @@ const BRUKERVEILEDNING_NN = `
   <p>Skoledash er gratis å bruke. Du treng verken konto eller abonnement, og alt du legg inn, blir liggande i nettlesaren din. Vil du støtte utviklinga, trykkjer du på <strong>☕</strong> heilt øvst til høgre. Då blir ei side for donasjonar opna i ei ny fane. Kva som kjem framover, ser du øvst i <strong>📋 Oppdateringslogg</strong>.</p>
   <h4>Sider: eitt arbeidsbord per klasse</h4>
   <p>Klikk <strong>+</strong> midt i toppfeltet for å leggje til ei ny side (tom, eller frå ein mal du har lagra), klikk på eit sidenamn for å byte, og <strong>✕</strong> på ei fane for å slette. Tanken er at <strong>kvar side er sin eigen klasse</strong>: lag side 1 for 1A og side 2 for 1B, og byt fritt mellom dei gjennom dagen utan at noko blir blanda.</p>
+  <p>Dei tre første sidene har kvar si fane. Har du fleire, ligg resten bak <strong>Fleire ▾</strong>: klikk for å sjå dei og byte. Står du på ei av desse sidene, viser knappen namnet på sida, og menyen har dei eigne vala til sida nedst.</p>
   <p><strong>Klikk på namnet til sida du står på</strong> for å få to val: <strong>✏️ Gi nytt namn</strong> og <strong>📑 Lagre som mal</strong>. Nytt namn gjer fana til eit lite skrivefelt. Skriv inn namnet (t.d. «1A» eller «Mattegruppe») og trykk <kbd>Enter</kbd> for å lagre. <kbd>Esc</kbd> avbryt utan å endre namnet. Dobbeltklikk på fana går rett til skrivefeltet.</p>
   <p><strong>Per side</strong> (eiga for kvar klasse): elevlista, grupper, dagsplanen, namnet på klassebamsen, og i tillegg oppsettet av korta, notat og bilete.</p>
   <p><strong>Felles for alle sider:</strong> lagra klasselister (📋 Lister, eit felles bibliotek du kan laste inn på kva side som helst) med trekka sine, tema, font, skriftstorleik og målform.</p>

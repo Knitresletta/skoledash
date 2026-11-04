@@ -5840,6 +5840,8 @@ function håndterSideKlikk(idx) {
 // slette (vises kun når det finnes mer enn én side), og en «+» for å legge til side.
 // Hver knapp står i en .side-tab-wrap, som menyene (visSideMeny, visNySideMeny)
 // henges under.
+const SIDER_FANER = 3; // faner med eget navn i toppfeltet; resten bak «Flere ▾»
+
 function renderSiderNav() {
   const nav = document.getElementById('sider-nav');
   if (!nav) return;
@@ -5860,8 +5862,13 @@ function renderSiderNav() {
   const kwrap = pakk(kb);
   kb.onclick = e => { e.stopPropagation(); visKlasseMeny(kwrap); };
 
-  state.sider.forEach((side, idx) => {
-    if ((side.klasse ?? null) !== aktivKlasse) return; // bare sidene i klassen som vises
+  // Bare sidene i klassen som vises. De første SIDER_FANER får hver sin fane; resten
+  // ligger bak én knapp med meny (v2.58), så raden aldri vokser ut av toppfeltet.
+  const synlige = state.sider.map((side, idx) => ({ side, idx }))
+    .filter(({ side }) => (side.klasse ?? null) === aktivKlasse);
+  const faner = synlige.slice(0, SIDER_FANER);
+  const flere = synlige.slice(SIDER_FANER);
+  for (const { side, idx } of faner) {
     const btn = document.createElement('button');
     const aktiv = idx === state.aktiv_side;
     btn.className = 'side-tab' + (aktiv ? ' aktiv' : '');
@@ -5876,7 +5883,24 @@ function renderSiderNav() {
       btn.appendChild(x);
     }
     pakk(btn).dataset.idx = idx;
-  });
+  }
+  if (flere.length) {
+    const aktivIFlere = flere.find(({ idx }) => idx === state.aktiv_side);
+    const btn = document.createElement('button');
+    btn.className = 'side-tab side-flere' + (aktivIFlere ? ' aktiv' : '');
+    btn.textContent = `${aktivIFlere ? aktivIFlere.side.navn : t('Flere')} ▾`;
+    btn.title = aktivIFlere
+      ? t('Klikk for de andre sidene, nytt navn eller lagre som mal')
+      : t('{antall} sider til', { antall: flere.length });
+    const fwrap = pakk(btn);
+    // Menyen på sidenavnet (visSideMeny) og omdøpingen finner fanen via data-idx, så
+    // knappen står for den aktive siden når den ligger her.
+    if (aktivIFlere) {
+      fwrap.dataset.idx = aktivIFlere.idx;
+      btn.ondblclick = e => { e.stopPropagation(); startSideRename(aktivIFlere.idx); };
+    }
+    btn.onclick = e => { e.stopPropagation(); visFlereSiderMeny(fwrap, flere); };
+  }
   const leggTil = document.createElement('button');
   leggTil.className = 'side-legg-til';
   leggTil.textContent = '+';
@@ -5908,10 +5932,9 @@ function lagSideMeny(wrap, html, onValg) {
   return meny;
 }
 
-// Menyen på den aktive fanen: nytt navn, eller lagre siden som mal.
-function visSideMeny(idx) {
-  const wrap = document.getElementById('sider-nav')?.querySelector(`.side-tab-wrap[data-idx="${idx}"]`);
-  if (!wrap) return;
+// Valgene for den aktive siden: nytt navn, lagre som mal, del, flytt til klasse.
+// Brukes både av menyen på fanen (visSideMeny) og nederst i «Flere»-menyen.
+function sideMenyHtml(idx) {
   const side = state.sider[idx];
   // Flytt til klasse (v2.56): de andre klassene, ut av klassen, eller en ny.
   const andre = state.klasse_oppsett.filter(id => id !== side.klasse);
@@ -5919,17 +5942,48 @@ function visSideMeny(idx) {
     andre.map(id => `<div class="kl-dropdown-item" data-valg="flytt" data-id="${id}">📚 ${esc(state.klasser[id].navn)}</div>`).join('');
   if (side.klasse) flytt += `<div class="kl-dropdown-item" data-valg="flytt" data-id="">${t('Ut av klassen')}</div>`;
   flytt += `<div class="kl-dropdown-item" data-valg="ny-klasse">➕ ${t('Ny klasse med denne siden')}</div>`;
-  lagSideMeny(wrap, `
+  return `
     <div class="kl-dropdown-item" data-valg="navn">✏️ ${t('Gi nytt navn')}</div>
     <div class="kl-dropdown-item" data-valg="mal">📑 ${t('Lagre som mal')}</div>
-    <div class="kl-dropdown-item" data-valg="del">📤 ${t('Del siden')}</div>${flytt}`,
-  (valg, el) => {
+    <div class="kl-dropdown-item" data-valg="del">📤 ${t('Del siden')}</div>${flytt}`;
+}
+
+// Utfører et valg fra sideMenyHtml. Gir true når valget var et av dem.
+function sideMenyValg(idx, valg, el) {
+  if (valg === 'navn') startSideRename(idx);
+  else if (valg === 'mal') åpneLagreMal();
+  else if (valg === 'del') eksporterMal(malFraSide(aktivSide(), aktivSide().navn));
+  else if (valg === 'flytt') flyttSideTilKlasse(idx, el.dataset.id || null);
+  else if (valg === 'ny-klasse') åpneKlasseNavn('ny-med-side', idx);
+  else return false;
+  return true;
+}
+
+// Menyen på den aktive fanen: nytt navn, eller lagre siden som mal.
+function visSideMeny(idx) {
+  const wrap = document.getElementById('sider-nav')?.querySelector(`.side-tab-wrap[data-idx="${idx}"]`);
+  if (!wrap) return;
+  lagSideMeny(wrap, sideMenyHtml(idx), (valg, el) => {
     lukkSideMenyer();
-    if (valg === 'navn') startSideRename(idx);
-    if (valg === 'mal') åpneLagreMal();
-    if (valg === 'del') eksporterMal(malFraSide(aktivSide(), aktivSide().navn));
-    if (valg === 'flytt') flyttSideTilKlasse(idx, el.dataset.id || null);
-    if (valg === 'ny-klasse') åpneKlasseNavn('ny-med-side', idx);
+    sideMenyValg(idx, valg, el);
+  });
+}
+
+// Menyen bak «Flere ▾» (v2.58): sidene som ikke fikk egen fane, den aktive markert,
+// hver med ✕. Står læreren på en av dem, følger sidens egne valg under.
+function visFlereSiderMeny(wrap, flere) {
+  const aktivIdx = flere.some(({ idx }) => idx === state.aktiv_side) ? state.aktiv_side : null;
+  const sider = flere.map(({ side, idx }) => `
+    <div class="kl-dropdown-item side-meny-mal side-flere-side${idx === aktivIdx ? ' valgt' : ''}" data-valg="side" data-idx="${idx}">
+      <span class="side-meny-malnavn">${esc(side.navn)}</span>
+      ${state.sider.length > 1 ? `<span class="side-mal-knapper"><span class="side-mal-slett" data-valg="slett" data-idx="${idx}" title="${t('Slett siden')}">✕</span></span>` : ''}
+    </div>`).join('');
+  const egne = aktivIdx !== null ? `<div class="kl-dropdown-sep"></div>${sideMenyHtml(aktivIdx)}` : '';
+  lagSideMeny(wrap, sider + egne, (valg, el) => {
+    const idx = Number(el.dataset.idx);
+    if (valg === 'side') { lukkSideMenyer(); if (idx !== state.aktiv_side) byttSide(idx); }
+    else if (valg === 'slett') { lukkSideMenyer(); fjernSide(idx); }
+    else { lukkSideMenyer(); sideMenyValg(aktivIdx, valg, el); }
   });
 }
 
@@ -6326,6 +6380,13 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.58</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>Flere sider i toppfeltet:</strong> de tre første sidene har hver sin fane som før. Har du flere, samles resten bak <strong>Flere ▾</strong>, så raden aldri vokser ut av toppfeltet. Står du på en av dem, viser knappen navnet på siden, og menyen har både de andre sidene og sidens egne valg (nytt navn, mal, deling, flytt til klasse)</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.57</div>
     <div class="logg-dato">4. november 2026</div>
@@ -6956,6 +7017,7 @@ const BRUKERVEILEDNING_HTML = `
   <p>Skoledash er gratis å bruke. Du trenger verken konto eller abonnement, og alt du legger inn blir liggende i nettleseren din. Vil du støtte utviklingen, trykker du på <strong>☕</strong> helt øverst til høyre. Da åpnes en side for donasjoner i en ny fane. Hva som kommer framover, ser du øverst i <strong>📋 Oppdateringslogg</strong>.</p>
   <h4>Sider — ett arbeidsbord per klasse</h4>
   <p>Klikk <strong>+</strong> i midten av headeren for å legge til en ny side (tom, eller fra en mal du har lagret), klikk på et sidenavn for å bytte, og <strong>✕</strong> på en fane for å slette. Tanken er at <strong>hver side er sin egen klasse</strong>: lag side 1 for 1A og side 2 for 1B, og bytt fritt mellom dem gjennom dagen uten at noe blandes.</p>
+  <p>De tre første sidene har hver sin fane. Har du flere, ligger resten bak <strong>Flere ▾</strong>: klikk for å se dem og bytte. Står du på en av disse sidene, viser knappen navnet på siden, og menyen har sidens egne valg nederst.</p>
   <p><strong>Klikk på navnet til siden du står på</strong> for å få to valg: <strong>✏️ Gi nytt navn</strong> og <strong>📑 Lagre som mal</strong>. Nytt navn gjør fanen til et lite skrivefelt. Skriv inn navnet (f.eks. «1A» eller «Mattegruppe») og trykk <kbd>Enter</kbd> for å lagre. <kbd>Esc</kbd> avbryter uten å endre navnet. Dobbeltklikk på fanen går rett til skrivefeltet.</p>
   <p><strong>Per side</strong> (egen for hver klasse): elevlisten, grupper, dagsplanen, klassebamsens navn, pluss oppsettet av kortene, notater og bilder.</p>
   <p><strong>Delt mellom alle sider:</strong> lagrede klasselister (📋 Lister — et felles bibliotek du kan laste inn i hvilken som helst side) med sine trekk, tema, font og skriftstørrelse.</p>
