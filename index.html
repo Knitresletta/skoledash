@@ -252,9 +252,17 @@
     <div class="card-header">
       <span class="drag-handle" title="Dra for å flytte">⠿</span>
       <h2>⏱ Timer</h2>
+      <div class="card-controls">
+        <button class="btn btn-ghost btn-sm btn-icon" id="btn-timer-visning" title="Vis som skive">◔</button>
+      </div>
+    </div>
+    <div class="timer-faner" role="tablist">
+      <button class="timer-fane" data-modus="ned" role="tab">⏳ Nedtelling</button>
+      <button class="timer-fane" data-modus="opp" role="tab">⏱ Stoppeklokke</button>
     </div>
     <div id="timer-display">05:00</div>
     <div id="timer-bar-wrap"><div id="timer-bar"></div></div>
+    <div id="timer-skive" class="hidden" aria-hidden="true"></div>
     <div id="timer-status" class="timer-status">⏸ Pauset</div>
     <div class="timer-controls">
       <button class="btn btn-success flex-1" id="btn-timer-toggle" title="Start/stopp (t)">▶ Start</button>

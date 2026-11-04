@@ -134,6 +134,7 @@ const NYNORSK = {
   'Gi nytt navn': 'Gi nytt namn',
   'Par som ikke skal i samme gruppe': 'Par som ikkje skal i same gruppe',
   'Slett?': 'Slette?',
+  '⏳ Nedtelling': '⏳ Nedteljing',
   'Dra for å flytte. Slipp på en annen liste for å lage en gruppe.': 'Dra for å flytte. Slepp på ei anna liste for å lage ei gruppe.',
   'Nytt navn på gruppa': 'Nytt namn på gruppa',
   'Gi gruppa nytt navn': 'Gi gruppa nytt namn',
@@ -278,7 +279,6 @@ const ROADMAP_KORT_NN = `
     <p>Dette er idear, ikkje lovnader. Rekkjefølgja kan endre seg. Saknar du noko? Sei frå via <strong>💬 Tilbakemelding</strong>.</p>
     <strong>Neste</strong>
     <ul>
-      <li>⏱ <strong>Stoppeklokke og timeglas:</strong> tel oppover, eller sjå tida som ei skive som krympar</li>
       <li>📋 <strong>Neste punkt i dagsplanen med éin tast,</strong> og punktet som pågår, blir utheva</li>
       <li>🔍 <strong>Fokusmodus:</strong> eitt kort fyller heile skjermen</li>
       <li>🤫 <strong>Arbeidssymbol og trafikklys</strong> i same kort</li>
@@ -384,6 +384,8 @@ const BRUKERVEILEDNING_NN = `
   <p>Standard er 5 minutt. Trykk <strong>Set tid</strong> (eller <kbd>s</kbd>) for å velje ei anna lengd (1–60 min). Start og stopp med <strong>▶ Start</strong> (eller <kbd>t</kbd>). Det kjem ein lyd når tida er ute.</p>
   <p>Startar du timeren med <kbd>t</kbd> medan timerkortet ikkje er framme, blir kortet henta fram av seg sjølv og lagt øvst, så klassen ser nedteljinga.</p>
   <p>Timeren går rett sjølv om du viser noko i ei anna fane ei stund, og lastar du sida inn på nytt, held han fram der han var.</p>
+  <p><strong>⏱ Stoppeklokke:</strong> vel fana øvst i kortet for å telje oppover i staden. Start og stopp på same måte, og ↺ set ho tilbake til null. Nedteljinga og stoppeklokka går kvar for seg: ei nedteljing du har starta, held fram og pip når tida er ute, sjølv om du ser på stoppeklokka.</p>
+  <p><strong>◔ Skive:</strong> hald musa over kortet og trykk ◔ øvst for å vise tida som ei skive som krympar, som eit timeglas. ▬ byter tilbake til bjelken. På stoppeklokka går skiva rundt éin gong i minuttet.</p>
 
   <h4>Notat</h4>
   <p>Eit felt for fritekst som veks automatisk med innhaldet. Det blir lagra automatisk i nettlesaren, så du mistar ikkje notatet når sida blir lasta på nytt.</p>

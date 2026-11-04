@@ -1369,6 +1369,53 @@ body.kl-endrer-storrelse {
         width 0.8s linear,
         background 0.3s;
 }
+/* ⏳ Nedtelling / ⏱ Stoppeklokke øverst i kortet: alltid synlige, så klassen ser hva
+   som teller. */
+.timer-faner {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    margin-bottom: 4px;
+    border-radius: 999px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+}
+.timer-fane {
+    flex: 1;
+    border: none;
+    background: none;
+    border-radius: 999px;
+    padding: 3px 8px;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    white-space: nowrap;
+}
+.timer-fane.valgt {
+    background: var(--card);
+    color: var(--text);
+    outline: 1px solid var(--border);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.12));
+}
+/* Skiva (timeglass): fargen dekker det som er igjen, fra klokka tolv og med klokka.
+   Den krymper mot tolv mens tiden går. JS setter --andel (grader) og --skive-farge. */
+#timer-skive {
+    --andel: 360deg;
+    --skive-farge: var(--primary);
+    width: min(100%, 170px);
+    aspect-ratio: 1;
+    margin: 4px auto;
+    border-radius: 50%;
+    background: conic-gradient(var(--skive-farge) var(--andel), var(--border) 0);
+    border: 3px solid var(--border);
+    box-sizing: border-box;
+}
+#timer-skive.hidden,
+#timer-bar-wrap.hidden {
+    display: none;
+}
 .timer-status {
     font-size: 0.8rem;
     color: var(--muted);

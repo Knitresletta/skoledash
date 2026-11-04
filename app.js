@@ -243,6 +243,8 @@ function defaultState() {
     // alltid først). Se «Oppsett i Lister-menyen».
     liste_oppsett:       [],
     timer_varighet:      300,
+    timer_modus:         'ned',     // 'ned' (nedtelling) eller 'opp' (stoppeklokke), v2.43
+    timer_visning:       'bjelke',  // 'bjelke' eller 'skive' (timeglass), v2.43
     tema: 'lyst',
     font: 'system',
     språk: 'nb',          // 'nb' (bokmål) eller 'nn' (nynorsk). Nynorsk-tekstene ligger i tekster.js
@@ -664,6 +666,8 @@ function normaliserState(s) {
 
   // --- Øvrige globale felt ---
   s.timer_varighet = heltall(s.timer_varighet, 1, 86400, 300);
+  s.timer_modus   = s.timer_modus === 'opp' ? 'opp' : 'ned';
+  s.timer_visning = s.timer_visning === 'skive' ? 'skive' : 'bjelke';
   if (!SKRIFT_NØKLER.includes(s.skrift_størrelse)) s.skrift_størrelse = 'normal';
   if (typeof s.tema !== 'string') s.tema = 'lyst';  // settTema() sjekker mot gyldige temaer
   if (typeof s.font !== 'string') s.font = 'system'; // settFont() sjekker mot FONTER
@@ -688,6 +692,12 @@ let timerRemaining = state.timer_varighet;
 let timerRunning   = false;
 let timerInterval  = null;
 let timerSlutt     = null;
+// Stoppeklokka har sin egen tilstand, så en nedtelling kan gå videre mens klassen ser
+// stoppeklokka (og omvendt). Mens den går, er oppStart klokkeslettet (ms) den startet,
+// justert for pauser; ellers står tiden i oppGått (sekunder).
+let oppKjører = false;
+let oppStart  = null;
+let oppGått   = 0;
 
 // Leser lagret tilstand fra localStorage og migrerer eldre dataformater opp til
 // dagens struktur (flat state → sider, enkelt-notat → flerinstans osv.). Returnerer
@@ -851,8 +861,15 @@ function aktivSide() {
 // Lagring som feiler (full lagring, sperret i et privat vindu), sies fra om én gang
 // til den virker igjen. Ellers ville læreren trodd at alt var lagret.
 let lagringFeilet = false;
+// Settes når siden lukkes eller lastes på nytt (pagehide). Mens siden rives ned, endrer
+// layouten seg, og observatørene (skalering, høyde) ville lagret den gamle tilstanden
+// over det som ligger der nå, f.eks. data en annen fane eller en nyere versjon nettopp
+// skrev. Nullstilles hvis nettleseren henter siden fram igjen fra hurtiglageret.
+let sidenLukkes = false;
+window.addEventListener('pagehide', () => { sidenLukkes = true; });
+window.addEventListener('pageshow', e => { if (e.persisted) sidenLukkes = false; });
 function saveState() {
-  if (sletterAlt) return;
+  if (sletterAlt || sidenLukkes) return;
   if (lagringSperre) { varsleLagringSperre(); return; }
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -2040,9 +2057,65 @@ function timerGjenstår() {
   return Math.max(0, Math.ceil((timerSlutt - Date.now()) / 1000));
 }
 
+// Intervallet tikker så lenge nedtellingen eller stoppeklokka går, og stoppes først
+// når ingen av dem gjør det.
 function stoppTimerIntervall() {
+  if (timerRunning || oppKjører) return;
   clearInterval(timerInterval);
   timerInterval = null;
+}
+
+// ----- Stoppeklokke -----
+// Sekunder siden start, uten pausene.
+function stoppeklokkeGått() {
+  return oppKjører ? Math.floor((Date.now() - oppStart) / 1000) : oppGått;
+}
+
+function stoppeklokkeToggle() {
+  if (oppKjører) {
+    oppGått   = stoppeklokkeGått();
+    oppKjører = false;
+    oppStart  = null;
+    stoppTimerIntervall();
+  } else {
+    oppKjører = true;
+    oppStart  = Date.now() - oppGått * 1000; // fortsetter der den ble stoppet
+    startTimerIntervall();
+    visTimerKort();
+  }
+  lagreTimerØkt();
+  renderTimer();
+}
+
+function stoppeklokkeReset() {
+  oppKjører = false;
+  oppStart  = null;
+  oppGått   = 0;
+  stoppTimerIntervall();
+  lagreTimerØkt();
+  renderTimer();
+}
+
+// ⏳/⏱-fanene øverst i kortet. Bytter bare hva kortet viser og styrer: en nedtelling
+// som går, fortsetter og piper når tiden er ute, selv om stoppeklokka vises.
+function settTimerModus(modus) {
+  state.timer_modus = modus === 'opp' ? 'opp' : 'ned';
+  saveState();
+  renderTimer();
+}
+
+// ▬/◔ øverst i kortet: framdriften som bjelke eller som skive (timeglass).
+function byttTimerVisning() {
+  state.timer_visning = state.timer_visning === 'skive' ? 'bjelke' : 'skive';
+  saveState();
+  renderTimer();
+}
+
+// Tid som tekst: MM:SS, og H:MM:SS fra én time (stoppeklokka kan gå lenge).
+function formaterTid(sek) {
+  const t2 = n => String(n).padStart(2, '0');
+  const h = Math.floor(sek / 3600), m = Math.floor((sek % 3600) / 60), x = sek % 60;
+  return h ? `${h}:${t2(m)}:${t2(x)}` : `${t2(m)}:${t2(x)}`;
 }
 
 // Tikker fire ganger i sekundet, så visningen ikke hopper over et sekund når et tikk
@@ -2057,6 +2130,7 @@ function lagreTimerØkt() {
   try {
     sessionStorage.setItem(TIMER_ØKT_KEY, JSON.stringify({
       kjører: timerRunning, slutt: timerSlutt, gjenstår: timerRemaining, varighet: state.timer_varighet,
+      oppKjører, oppStart, oppGått: stoppeklokkeGått(),
     }));
   } catch (_) { /* ingen sessionStorage: timeren starter bare på nytt ved omlasting */ }
 }
@@ -2067,7 +2141,17 @@ function lagreTimerØkt() {
 function hentTimerØkt() {
   let økt = null;
   try { økt = JSON.parse(sessionStorage.getItem(TIMER_ØKT_KEY)); } catch (_) { return; }
-  if (!økt || økt.varighet !== state.timer_varighet) return;
+  if (!økt) return;
+  // Stoppeklokka: tiden regnes fra startklokkeslettet, så den har gått videre mens
+  // siden lastet.
+  if (økt.oppKjører && Number.isFinite(økt.oppStart)) {
+    oppKjører = true;
+    oppStart  = økt.oppStart;
+    startTimerIntervall();
+  } else if (Number.isFinite(økt.oppGått)) {
+    oppGått = Math.max(0, økt.oppGått);
+  }
+  if (økt.varighet !== state.timer_varighet) return;
   if (økt.kjører && Number.isFinite(økt.slutt)) {
     if (økt.slutt > Date.now()) {
       timerRunning = true;
@@ -2087,6 +2171,7 @@ function hentTimerØkt() {
 //  - kjører        → pause (husk hvor mye som er igjen)
 //  - pauset/klar   → start (regn ut når den er ferdig)
 function timerToggle() {
+  if (state.timer_modus === 'opp') { stoppeklokkeToggle(); return; }
   if (timerGjenstår() <= 0) {
     timerRemaining = state.timer_varighet;
     timerRunning   = false;
@@ -2134,6 +2219,11 @@ function visTimerKort() {
 // Kjøres mens timeren går. Regner ut hvor mye som er igjen, og når det er null:
 // stopp, varsle og spill en pip.
 function timerTick() {
+  if (oppKjører && state.timer_modus === 'opp') {
+    const gått = stoppeklokkeGått();
+    if (gått !== oppGåttVist) renderTimer(); else tegnTimerFramdrift();
+  }
+  if (!timerRunning) return;
   const igjen = timerGjenstår();
   if (igjen <= 0) {
     timerRunning   = false;
@@ -2149,6 +2239,8 @@ function timerTick() {
   if (igjen !== timerRemaining) {
     timerRemaining = igjen;
     renderTimer();
+  } else if (state.timer_modus === 'ned') {
+    tegnTimerFramdrift(); // skiva glir mellom sekundene
   }
 }
 
@@ -2176,31 +2268,47 @@ function timerSett(minutter) {
   notify(t('⏱️ Timer satt til {min} min', { min: minutter }));
 }
 
-// Oppdaterer hele timer-visningen: tallene (MM:SS), framdriftsbjelken, statustekst
-// og toggle-knappens utseende — alt avledet av timerRemaining og timerRunning.
+// Oppdaterer hele timer-visningen ut fra modusen (nedtelling eller stoppeklokke):
+// fanene, tallene, framdriften (bjelke eller skive), statustekst og knappene.
+let oppGåttVist = -1; // sekundet stoppeklokka sist ble tegnet med (se timerTick)
 function renderTimer() {
-  const min = Math.floor(timerRemaining / 60);
-  const sek = timerRemaining % 60;
-  const tidStr = `${String(min).padStart(2, '0')}:${String(sek).padStart(2, '0')}`;
-
+  const opp     = state.timer_modus === 'opp';
+  const skive   = state.timer_visning === 'skive';
+  const kjører  = opp ? oppKjører : timerRunning;
+  const ferdig  = !opp && timerRemaining === 0;
   const display = document.getElementById('timer-display');
-  const bar     = document.getElementById('timer-bar');
   const status  = document.getElementById('timer-status');
   const btnToggle = document.getElementById('btn-timer-toggle');
 
-  display.textContent = tidStr;
-  display.className   = timerRunning ? 'running' : (timerRemaining === 0 ? 'ferdig' : '');
+  document.querySelectorAll('.timer-fane').forEach(f => {
+    const valgt = f.dataset.modus === state.timer_modus;
+    f.classList.toggle('valgt', valgt);
+    f.setAttribute('aria-selected', valgt);
+  });
+  const visning = document.getElementById('btn-timer-visning');
+  visning.textContent = skive ? '▬' : '◔';
+  visning.title = skive ? t('Vis som bjelke') : t('Vis som skive');
 
-  const prosent = state.timer_varighet > 0 ? (timerRemaining / state.timer_varighet) * 100 : 100;
-  bar.style.width      = `${prosent}%`;
-  bar.style.background = timerRunning ? 'var(--green)' : (timerRemaining === 0 ? 'var(--red)' : 'var(--primary)');
+  oppGåttVist = stoppeklokkeGått();
+  display.textContent = formaterTid(opp ? oppGåttVist : timerRemaining);
+  display.className   = kjører ? 'running' : (ferdig ? 'ferdig' : '');
 
-  if (timerRunning) {
+  // Bjelken viser hvor mye som er igjen, og har ingen mening for stoppeklokka. Skiva
+  // viser det samme som et timeglass, og for stoppeklokka et sveip per minutt.
+  document.getElementById('timer-bar-wrap').classList.toggle('hidden', skive || opp);
+  document.getElementById('timer-skive').classList.toggle('hidden', !skive);
+  document.getElementById('btn-timer-sett').classList.toggle('hidden', opp);
+  const farge = kjører ? 'var(--green)' : (ferdig ? 'var(--red)' : 'var(--primary)');
+  document.getElementById('timer-bar').style.background = farge;
+  document.getElementById('timer-skive').style.setProperty('--skive-farge', farge);
+  tegnTimerFramdrift();
+
+  if (kjører) {
     status.textContent = t('▶ Kjører');
     status.style.color = 'var(--green)';
     btnToggle.textContent = t('⏸ Stopp');
     btnToggle.style.background = 'var(--amber)';
-  } else if (timerRemaining === 0) {
+  } else if (ferdig) {
     status.textContent = t('⏹ Ferdig!');
     status.style.color = 'var(--red)';
     btnToggle.textContent = t('↺ Start på nytt');
@@ -2211,6 +2319,21 @@ function renderTimer() {
     btnToggle.textContent = t('▶ Start');
     btnToggle.style.background = '';
   }
+}
+
+// Tegner bare framdriften (bjelke og skive), med brøkdeler av sekunder, så skiva glir
+// i stedet for å hoppe. Kalles fra renderTimer og fra hvert tikk.
+function tegnTimerFramdrift() {
+  let andel;
+  if (state.timer_modus === 'opp') {
+    const ms = oppKjører ? Date.now() - oppStart : oppGått * 1000;
+    andel = (ms % 60_000) / 60_000;
+  } else {
+    const ms = timerRunning && timerSlutt !== null ? Math.max(0, timerSlutt - Date.now()) : timerRemaining * 1000;
+    andel = state.timer_varighet > 0 ? Math.min(1, ms / (state.timer_varighet * 1000)) : 1;
+  }
+  document.getElementById('timer-bar').style.width = `${andel * 100}%`;
+  document.getElementById('timer-skive').style.setProperty('--andel', `${andel * 360}deg`);
 }
 
 // Spiller en kort pipetone via Web Audio når timeren er ute — uten lydfil. Lager en
@@ -4121,7 +4244,6 @@ const OPPDATERINGSLOGG_HTML = `
     <p>Dette er ideer, ikke løfter. Rekkefølgen kan endre seg. Savner du noe? Si fra via <strong>💬 Tilbakemelding</strong>.</p>
     <strong>Neste</strong>
     <ul>
-      <li>⏱ <strong>Stoppeklokke og timeglass:</strong> tell oppover, eller se tiden som en skive som krymper</li>
       <li>📋 <strong>Neste punkt i dagsplanen med én tast,</strong> og punktet som pågår, blir uthevet</li>
       <li>🔍 <strong>Fokusmodus:</strong> ett kort fyller hele skjermen</li>
       <li>🤫 <strong>Arbeidssymboler og trafikklys</strong> i samme kort</li>
@@ -4140,6 +4262,15 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.43</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>⏱ Stoppeklokke:</strong> fanene øverst i timerkortet bytter mellom nedtelling og stoppeklokke. Stoppeklokka teller oppover, også forbi en time, og går videre selv om du ser på nedtellingen</li>
+      <li><strong>◔ Timeglass-skive:</strong> vis tiden som en skive som krymper i stedet for bjelken. Valget huskes</li>
+      <li>Fikset: mens siden lastet inn på nytt, kunne den lagre den gamle tilstanden over data som nettopp var skrevet. Nå lagrer siden ingenting mens den lukkes</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.42</div>
     <div class="logg-dato">4. november 2026</div>
@@ -4718,6 +4849,8 @@ const BRUKERVEILEDNING_HTML = `
   <p>Standard er 5 minutter. Trykk <strong>Sett tid</strong> (eller <kbd>s</kbd>) for å velge en annen varighet (1–60 min). Start og stopp med <strong>▶ Start</strong> (eller <kbd>t</kbd>). En lyd spilles av når tiden er ute.</p>
   <p>Starter du timeren med <kbd>t</kbd> mens timerkortet ikke er framme, hentes kortet fram av seg selv og legges øverst, så klassen ser nedtellingen.</p>
   <p>Timeren går riktig selv om du viser noe i en annen fane en stund, og laster du siden inn på nytt, fortsetter den der den var.</p>
+  <p><strong>⏱ Stoppeklokke:</strong> velg fanen øverst i kortet for å telle oppover i stedet. Start og stopp på samme måte, og ↺ setter den tilbake til null. Nedtellingen og stoppeklokka går hver for seg: en nedtelling du har startet, fortsetter og piper når tiden er ute, selv om du ser på stoppeklokka.</p>
+  <p><strong>◔ Skive:</strong> hold musa over kortet og trykk ◔ øverst for å vise tiden som en skive som krymper, som et timeglass. ▬ bytter tilbake til bjelken. På stoppeklokka går skiva rundt én gang i minuttet.</p>
 
   <h4>Notat</h4>
   <p>Et fritekst-felt som vokser automatisk med innholdet. Lagres automatisk i nettleseren — du mister ikke notatet ved omlasting.</p>
@@ -5117,8 +5250,11 @@ function settOppHendelser() {
 
   // Timer
   document.getElementById('btn-timer-toggle').onclick = timerToggle;
-  document.getElementById('btn-timer-reset').onclick  = timerReset;
+  document.getElementById('btn-timer-reset').onclick  = () => (state.timer_modus === 'opp' ? stoppeklokkeReset() : timerReset());
+  document.querySelectorAll('.timer-fane').forEach(f => { f.onclick = () => settTimerModus(f.dataset.modus); });
+  document.getElementById('btn-timer-visning').onclick = byttTimerVisning;
   document.getElementById('btn-timer-sett').onclick   = () => {
+    if (state.timer_modus === 'opp') settTimerModus('ned'); // s fra stoppeklokka: til nedtelling
     document.getElementById('input-timer-minutter').value = '';
     åpneModal('modal-timer-sett');
   };
