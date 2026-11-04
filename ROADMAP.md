@@ -31,8 +31,8 @@ Gruppert så det som hører til samme kort eller samme mekanisme, bygges sammen.
 | Lydnivåmåler | Mikrofonen viser hvor høyt det er i rommet | Middels | Skal være sjarmerende, med gjennomsnitt, rekord og et mål klassen kan nå. Lyden behandles lokalt |
 | «Øyne hit»-signal | Stor beskjed over hele skjermen med en mild lyd | Lett | Læreren skriver meldingen selv |
 | Skjermteppe | Dekk til deler av skjermen og avdekk litt etter litt | Middels | |
-| Klassekart | Pultene i rommet med elevnavn, flytt eller trekk ny plassering | Stor | Egen sidetype, se under. Kan bruke begrensningene fra Grupper |
-| Ukeplan | Én dagsplan per ukedag, viser dagens når appen åpnes | Middels | Egen sidetype, se under. Bytter aldri plan midt i en dag |
+| Klassekart | Pultene i rommet med elevnavn, flytt eller trekk ny plassering | Stor | Eget kort (avgjort 4. november 2026, se under): rutenett av pulter, fokusmodus fyller skjermen. Kan bruke begrensningene fra Grupper |
+| Ukeplan | Én dagsplan per ukedag, viser dagens når appen åpnes | Middels | Ferdig i v2.53 (4. november 2026), som 🗓-bryter i Dagsplan-kortet. Bytter aldri plan midt i en dag |
 | Lykkehjul | Tilfeldig elev som et hjul som snurrer | Middels | Bryter i Tilfeldig elev-kortet: «Enkel» (som i dag) eller «Hjul» |
 | Poengtavle | Poeng per gruppe eller lag | Lett | Vanlig widget + fokusmodus. Kan hente gruppene fra Grupper |
 | Kortbunke | Flashcards: egne kort trekkes ett om gangen, uten å gjenta | Lett-middels | Kortene har forside og bakside (spørsmål og svar) |
@@ -51,9 +51,9 @@ Gruppert så det som hører til samme kort eller samme mekanisme, bygges sammen.
 | Nå/etterpå | Stort felt med hva som skjer nå og etterpå | Løses heller som oppgradering av dagsplanen (aktivt punkt, se Må ha 2). Egen widget bare hvis det viser seg å trenges |
 | Dokumentkamera | Webkamera i et kort | Widget + fokusmodus, eller egen sidetype. Trenger kameratilgang |
 
-## Åpent designspørsmål: sidetyper
+## Avgjort: kort, ikke sidetyper
 
-Klassekart og ukeplan passer ikke som kort på et dashbord. Klassekartet er et rom, og ukeplanen er sju dagsplaner med logikk mellom seg. Forslaget er at en side får en type: «dashbord» (som i dag), «klassekart» eller «ukeplan». Dette må avgjøres før noen av dem bygges, fordi det påvirker lagring, eksport og sidefanene. Tegnebrett og dokumentkamera kan eventuelt bli sidetyper senere.
+Spørsmålet var om klassekart og ukeplan skulle være egne sidetyper («dashbord», «klassekart», «ukeplan»). Avgjort 4. november 2026: de bygges som kort. Fokusmodus fyller skjermen med ett kort, så «klassekartet er et rom» løses der, og maler, deling, backup, kortnavn og fanene følger med uten ombygging av lagring og sidefaner. Ukeplanen ble en bryter i Dagsplan-kortet (v2.53), klassekartet blir et eget kort med rutenett av pulter. Tegnebrett og dokumentkamera følger samme spor: kort pluss fokusmodus.
 
 ## Vurdert, ikke planlagt
 

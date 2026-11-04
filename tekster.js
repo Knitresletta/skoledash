@@ -247,6 +247,13 @@ const NYNORSK = {
 
   // ---------- Dagsplan og notat ----------
   'Legg til punkt i dagsplan': 'Legg til punkt i dagsplanen',
+  // Ukeplan (v2.53)
+  'Ukeplan: én plan per ukedag': 'Vekeplan: éin plan per vekedag',
+  'Ukeplan er på: én plan per ukedag. Klikk for én plan': 'Vekeplan er på: éin plan per vekedag. Klikk for éin plan',
+  '🗓 Ukeplan: én plan per ukedag': '🗓 Vekeplan: éin plan per vekedag',
+  '📋 Én dagsplan for alle dager': '📋 Éin dagsplan for alle dagar',
+  'Man': 'Mån',
+  'Tir': 'Tys',
   'f.eks. Gjennomgang kapittel 3…': 't.d. Gjennomgang av kapittel 3…',
   'Marker ferdig': 'Merk som ferdig',
 
@@ -340,7 +347,7 @@ const ROADMAP_KORT_NN = `
     <ul>
       <li>🔊 Lydnivåmålar med rekord og mål for klassen</li>
       <li>👀 «Auge hit»-melding over heile skjermen, med din eigen tekst</li>
-      <li>🪑 Klassekart og 🗓 vekeplan</li>
+      <li>🪑 Klassekart</li>
       <li>🎡 Lykkehjul som val i Tilfeldig elev</li>
       <li>🃏 Kortbunke med framside og bakside</li>
       <li>🏆 Poengtavle, 🙂 exit-avstemming og rask handsopprekning</li>
@@ -473,6 +480,7 @@ const BRUKERVEILEDNING_NN = `
   <p><strong>Gjennom dagen:</strong> punktet som går føre seg, er utheva. Trykk <strong>▶ Neste</strong> (eller <kbd>p</kbd>) når de er ferdige med det, så blir det kryssa av og neste punkt blir utheva. <kbd>Shift</kbd>+<kbd>P</kbd> angrar. Kryssar du av for hand med prikken, følgjer uthevinga med.</p>
   <p>Kvart punkt har tre stader du kan klikke: <strong>prikken</strong> (●) merkjer punktet som ferdig. Han blir grøn, og teksten får ein strek over (klikk igjen for å angre). <strong>Teksten</strong> opnar redigering: klikk på han, rett opp og trykk <kbd>Enter</kbd> for å lagre eller <kbd>Esc</kbd> for å avbryte. <strong>✕</strong> fjernar punktet.</p>
   <p><strong>Endre rekkjefølgja:</strong> hald inne drahandtaket <strong>⠿</strong> heilt til høgre på punktet (det kjem fram når du held musa over rada), og dra det opp eller ned. Ein blå strek viser kvar punktet hamnar når du slepper.</p>
+  <p><strong>🗓 Vekeplan:</strong> trykk <strong>🗓</strong> øvst i kortet for éin plan per skuledag. Fanene <strong>Mån</strong> til <strong>Fre</strong> lèt deg sjå og fylle kvar dag; ein prikk under fana viser dagen i dag. Når du opnar appen, viser kortet planen for i dag, og det byter aldri dag av seg sjølv, heller ikkje ved midnatt. Avkryssingane blir nullstilte når ein ny dag byrjar, så måndagsplanen er klar att neste måndag. Planen du hadde frå før, blir planen for dagen som blir vist. <kbd>d</kbd>, <kbd>p</kbd> og ▶ Neste gjeld dagen som blir vist. Trykk 🗓 ein gong til for å gå tilbake til éin plan.</p>
 
   <h4>🖼 Bilete</h4>
   <p>Biletkortet er ikkje med frå start. Legg det til via <strong>⊞ Kort → + 🖼 Bilete</strong>. Du kan ha så mange biletkort du vil.</p>

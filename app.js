@@ -252,6 +252,11 @@ function yrEmoji(kode) {
 // Norske navn for datoformatering. Rekkefølgen matcher Date: getDay() 0=søndag,
 // getMonth() 0=januar.
 const UKEDAGER = ['søndag', 'mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag'];
+// Ukeplanen (v2.53): én dagsplan per skoledag. Står her oppe fordi nySide() og
+// normaliserState() bruker lista under loadState().
+const UKEPLAN_DAGER = ['man', 'tir', 'ons', 'tor', 'fre'];
+const UKEPLAN_NAVN  = { man: 'Man', tir: 'Tir', ons: 'Ons', tor: 'Tor', fre: 'Fre' };
+const tomUkeplan = () => Object.fromEntries(UKEPLAN_DAGER.map(d => [d, []]));
 const MÅNEDER  = ['januar', 'februar', 'mars', 'april', 'mai', 'juni',
                   'juli', 'august', 'september', 'oktober', 'november', 'desember'];
 
@@ -349,6 +354,12 @@ function nySide(navn) {
     elever:              [],
     grupper:             null,
     dagsplan:            [],
+    // Ukeplan (v2.53): 'en' = én plan (dagsplan over), 'uke' = én plan per skoledag i
+    // ukeplan. ukeplan_dato er dagen avkryssingene i ukeplanen gjelder; en ny dag
+    // starter med alt uavkrysset (se nyDagIUkeplan).
+    dagsplan_modus:      'en',
+    ukeplan:             tomUkeplan(),
+    ukeplan_dato:        null,
     tilfeldig_backlog:   [],
     tilfeldig_valgt:     null,
     ordenselev_backlog:  [],
@@ -548,6 +559,15 @@ function tømSidensTrekk(s) {
 }
 
 // Gyldige trekk fra lagringen eller en importert fil: bare id-er med riktig form.
+// En dagsplan fra lagring: bare punkter med tekst, og «ferdig» som ekte boolsk.
+// Strenger er punkter fra før v2.1x.
+function normaliserDagsplan(v) {
+  return (Array.isArray(v) ? v : [])
+    .map(p => (typeof p === 'string' ? { tekst: p, ferdig: false } : p))
+    .filter(p => erObjekt(p) && typeof p.tekst === 'string')
+    .map(p => ({ tekst: p.tekst.slice(0, 200), ferdig: p.ferdig === true }));
+}
+
 function normaliserTrekk(r) {
   const id = v => (typeof v === 'string' && ELEV_ID.test(v) ? v : null);
   const ut = tomtTrekk();
@@ -737,10 +757,12 @@ function normaliserState(s) {
       ? side.grupper.filter(Array.isArray).map(idListe).filter(g => g.length)
       : [];
     side.grupper = grupper.length ? grupper : null;
-    side.dagsplan = (Array.isArray(side.dagsplan) ? side.dagsplan : [])
-      .map(p => (typeof p === 'string' ? { tekst: p, ferdig: false } : p))
-      .filter(p => erObjekt(p) && typeof p.tekst === 'string')
-      .map(p => ({ tekst: p.tekst.slice(0, 200), ferdig: p.ferdig === true }));
+    side.dagsplan = normaliserDagsplan(side.dagsplan);
+    side.dagsplan_modus = side.dagsplan_modus === 'uke' ? 'uke' : 'en';
+    const uke = erObjekt(side.ukeplan) ? side.ukeplan : {};
+    side.ukeplan = Object.fromEntries(UKEPLAN_DAGER.map(d => [d, normaliserDagsplan(uke[d])]));
+    side.ukeplan_dato = typeof side.ukeplan_dato === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(side.ukeplan_dato)
+      ? side.ukeplan_dato : null;
     side.tilfeldig_backlog  = idListe(side.tilfeldig_backlog);
     side.ordenselev_backlog = idListe(side.ordenselev_backlog);
     side.ordenselev_valgte  = idListe(side.ordenselev_valgte).slice(0, 2);
@@ -3304,22 +3326,71 @@ function fjernNotat(instansId) {
 // ===================== Dagsplan =====================
 // Legger til ett punkt i dagsplanen. Hvert punkt er { tekst, ferdig } — ferdig
 // styrer overstrekingen i visningen.
+// ===================== Ukeplan =====================
+// 🗓 i Dagsplan-kortet (v2.53) bytter mellom én plan (s.dagsplan) og én plan per
+// skoledag (s.ukeplan[man..fre]). Alle dagsplanfunksjonene går via dagsplanListe(),
+// som gir planen for dagen som vises. Dagen som vises, settes én gang når appen
+// åpnes (dagens ukedag, mandag i helga) og bytter aldri av seg selv midt i en dag;
+// læreren kan se og fylle andre dager med fanene i kortet.
+let ukeplanDag = ukedagIdag();
+
+function ukedagIdag() {
+  return UKEPLAN_DAGER[new Date().getDay() - 1] ?? 'man';
+}
+
+function dagsplanListe(s = aktivSide()) {
+  return s.dagsplan_modus === 'uke' ? s.ukeplan[ukeplanDag] : s.dagsplan;
+}
+
+// En ny dag: avkryssingene fra sist gjelder ikke lenger, så hele uka starter
+// uavkrysset. Gir true når noe ble endret.
+function nyDagIUkeplan(s) {
+  const idag = dagensDato();
+  if (s.ukeplan_dato === idag) return false;
+  for (const d of UKEPLAN_DAGER) for (const p of s.ukeplan[d]) p.ferdig = false;
+  s.ukeplan_dato = idag;
+  return true;
+}
+
+function settDagsplanModus(modus) {
+  const s = aktivSide();
+  if (s.dagsplan_modus === modus) return;
+  s.dagsplan_modus = modus;
+  if (modus === 'uke') {
+    nyDagIUkeplan(s);
+    // Første gang: planen som sto der, blir planen for dagen som vises, så ingenting
+    // forsvinner. Den ene planen ligger fortsatt i s.dagsplan til læreren bytter tilbake.
+    if (s.dagsplan.length && !s.ukeplan[ukeplanDag].length) s.ukeplan[ukeplanDag] = s.dagsplan.map(p => ({ ...p }));
+  }
+  redigerDagsplanIdx = null;
+  saveState();
+  renderDagsplan();
+  notify(modus === 'uke' ? t('🗓 Ukeplan: én plan per ukedag') : t('📋 Én dagsplan for alle dager'));
+}
+
+function visUkeplanDag(dag) {
+  if (!UKEPLAN_DAGER.includes(dag)) return;
+  ukeplanDag = dag;
+  redigerDagsplanIdx = null;
+  renderDagsplan();
+}
+
 function leggTilDagsplan(tekst) {
-  aktivSide().dagsplan.push({ tekst, ferdig: false });
+  dagsplanListe().push({ tekst, ferdig: false });
   saveState();
   renderDagsplan();
 }
 
 // Fjerner ett dagsplan-punkt ved indeks.
 function fjernDagsplan(idx) {
-  aktivSide().dagsplan.splice(idx, 1);
+  dagsplanListe().splice(idx, 1);
   saveState();
   renderDagsplan();
 }
 
 // Krysser av / fjerner avkryssing på et dagsplan-punkt (klikk på raden).
 function toggleDagsplanFerdig(idx) {
-  const p = aktivSide().dagsplan[idx];
+  const p = dagsplanListe()[idx];
   if (!p) return;
   p.ferdig = !p.ferdig;
   saveState();
@@ -3329,7 +3400,7 @@ function toggleDagsplanFerdig(idx) {
 // Punktet som pågår: det første som ikke er ferdig (-1 når alt er ferdig eller planen
 // er tom). Regnes ut, lagres ikke: krysser læreren av punkter for hånd eller endrer
 // rekkefølgen, følger uthevingen med av seg selv.
-function dagsplanPågår(dagsplan = aktivSide().dagsplan) {
+function dagsplanPågår(dagsplan = dagsplanListe()) {
   return dagsplan.findIndex(p => !p.ferdig);
 }
 
@@ -3337,7 +3408,7 @@ function dagsplanPågår(dagsplan = aktivSide().dagsplan) {
 // tilbake (Shift+P) angres det siste: punktet før det som pågår, er ikke ferdig likevel.
 // Meldingen sier hva som pågår nå, så det virker også når dagsplankortet ikke vises.
 function nesteDagsplanPunkt(tilbake = false) {
-  const dagsplan = aktivSide().dagsplan;
+  const dagsplan = dagsplanListe();
   if (!dagsplan.length) { notify(t('Dagsplanen er tom'), 'warning'); return; }
   const nå = dagsplanPågår(dagsplan);
   if (tilbake) {
@@ -3371,7 +3442,7 @@ function lagreRedigerDagsplan(idx, verdi) {
   if (redigerDagsplanIdx === null) return;
   redigerDagsplanIdx = null;
   const tekst = verdi.trim();
-  const p = aktivSide().dagsplan[idx];
+  const p = dagsplanListe()[idx];
   if (p && tekst && tekst !== p.tekst) { p.tekst = tekst; saveState(); }
   renderDagsplan();
 }
@@ -3387,7 +3458,21 @@ function avbrytRedigerDagsplan() {
 // redigering, og ✕ fjerner punktet — tre adskilte klikkmål på samme rad. Punktet som
 // redigeres viser et skrivefelt i stedet for teksten.
 function renderDagsplan() {
-  const dagsplan = aktivSide().dagsplan;
+  const s = aktivSide();
+  const uke = s.dagsplan_modus === 'uke';
+  const knapp = document.getElementById('btn-dagsplan-uke');
+  knapp.classList.toggle('aktiv', uke);
+  knapp.title = uke ? t('Ukeplan er på: én plan per ukedag. Klikk for én plan') : t('Ukeplan: én plan per ukedag');
+  const dager = document.getElementById('dagsplan-dager');
+  dager.classList.toggle('hidden', !uke);
+  if (uke) {
+    const idag = ukedagIdag();
+    dager.innerHTML = UKEPLAN_DAGER.map(d => `
+      <button class="dagsplan-dag${d === ukeplanDag ? ' valgt' : ''}${d === idag ? ' idag' : ''}${s.ukeplan[d].length ? ' har-punkter' : ''}"
+        data-dag="${d}" role="tab" aria-selected="${d === ukeplanDag}"
+        title="${d === idag ? t('I dag') : ''}">${t(UKEPLAN_NAVN[d])}</button>`).join('');
+  }
+  const dagsplan = dagsplanListe(s);
   const liste = document.getElementById('dagsplan-liste');
   const pågår = dagsplanPågår(dagsplan);
   document.getElementById('btn-dagsplan-neste').disabled = pågår === -1;
@@ -3419,7 +3504,7 @@ function renderDagsplan() {
 // regnet ut fra musa). Samme indeks-justering som widget-DnD-en: når vi flytter et
 // punkt framover, forskyver fjerningen alle senere indekser ett hakk ned.
 function flyttDagsplan(fra, til) {
-  const dagsplan = aktivSide().dagsplan;
+  const dagsplan = dagsplanListe();
   if (fra === til || fra == null) { renderDagsplan(); return; }
   const [punkt] = dagsplan.splice(fra, 1);
   if (til > fra) til--;
@@ -3525,7 +3610,7 @@ function setupDagsplanDrag() {
 
   // Innsettings-indeksen ut fra pekerens y. Punktet som dras (hopp) telles ikke med.
   function dropPosisjon(clientY, hopp) {
-    let insertAt = aktivSide().dagsplan.length;
+    let insertAt = dagsplanListe().length;
     for (const it of liste.querySelectorAll('.dagsplan-item')) {
       const idx = Number(it.dataset.idx);
       if (idx === hopp) continue;
@@ -5593,7 +5678,7 @@ function importerSideFil(input) {
 function nullstillTilfeldig(kort = 'card-tilfeldig') { const x = tilfeldigTilstand(trekk(), kort); x.valgt = null; x.backlog = []; saveState(); renderTilfeldig(kort); notify(t('🙋 Tilfeldig-trekk nullstilt')); }
 function nullstillOrdenselev()  { const r = trekk(); r.ordenselev_valgte = []; r.ordenselev_backlog = []; r.ordenselev_skyldig = []; saveState(); renderOrdenselev(); notify(t('⭐ Ordenselever-trekk nullstilt')); }
 function nullstillUlv()         { const r = trekk(); r.ulv_valgt = null; r.ulv_backlog = []; r.ulv_skyldig = []; saveState(); renderUlv(); notify(t('{bamse}-trekket er nullstilt', { bamse: aktivSide().ulv_navn })); }
-function nullstillDagsplan()    { aktivSide().dagsplan = []; saveState(); renderDagsplan(); notify(t('📋 Dagsplan nullstilt')); }
+function nullstillDagsplan()    { dagsplanListe().splice(0); saveState(); renderDagsplan(); notify(t('📋 Dagsplan nullstilt')); }
 
 // ===================== Info modal =====================
 // Ferdig HTML som vises i info-modalen via åpneInfoModal(). Disse to strengene er
@@ -5609,7 +5694,7 @@ const OPPDATERINGSLOGG_HTML = `
     <ul>
       <li>🔊 Lydnivåmåler med rekord og mål for klassen</li>
       <li>👀 «Øyne hit»-beskjed over hele skjermen, med din egen tekst</li>
-      <li>🪑 Klassekart og 🗓 ukeplan</li>
+      <li>🪑 Klassekart</li>
       <li>🎡 Lykkehjul som valg i Tilfeldig elev</li>
       <li>🃏 Kortbunke med forside og bakside</li>
       <li>🏆 Poengtavle, 🙂 exit-avstemning og rask håndsopprekning</li>
@@ -5617,6 +5702,13 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.53</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>🗓 Ukeplan:</strong> trykk 🗓 øverst i Dagsplan-kortet, så får du én plan per skoledag med faner for mandag til fredag. Kortet viser dagens plan når du åpner appen, og bytter aldri dag av seg selv. En ny dag starter uavkrysset. Planen du hadde fra før, blir planen for dagen som vises</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.52</div>
     <div class="logg-dato">4. november 2026</div>
@@ -6325,6 +6417,7 @@ const BRUKERVEILEDNING_HTML = `
   <p><strong>Gjennom dagen:</strong> punktet som pågår, er uthevet. Trykk <strong>▶ Neste</strong> (eller <kbd>p</kbd>) når dere er ferdige med det, så krysses det av og neste punkt blir uthevet. <kbd>Shift</kbd>+<kbd>P</kbd> angrer. Krysser du av for hånd med prikken, følger uthevingen med.</p>
   <p>Hvert punkt har tre klikkmål: <strong>prikken</strong> (●) markerer punktet ferdig — den blir grønn og teksten får en strek over (klikk igjen for å angre). <strong>Teksten</strong> åpner redigering — klikk på den, rett opp og trykk <kbd>Enter</kbd> for å lagre eller <kbd>Esc</kbd> for å avbryte. <strong>✕</strong> fjerner punktet.</p>
   <p><strong>Endre rekkefølge:</strong> hold inne dra-håndtaket <strong>⠿</strong> helt til høyre på punktet (vises når du holder musa over raden) og dra det opp eller ned. En blå strek viser hvor punktet havner når du slipper.</p>
+  <p><strong>🗓 Ukeplan:</strong> trykk <strong>🗓</strong> øverst i kortet for én plan per skoledag. Fanene <strong>Man</strong> til <strong>Fre</strong> lar deg se og fylle hver dag; en prikk under fanen viser dagens dag. Når du åpner appen, viser kortet dagens plan, og det bytter aldri dag av seg selv, heller ikke ved midnatt. Avkryssingene nullstilles når en ny dag begynner, så mandagens plan er klar igjen neste mandag. Planen du hadde fra før, blir planen for dagen som vises. <kbd>d</kbd>, <kbd>p</kbd> og ▶ Neste gjelder dagen som vises. Trykk 🗓 igjen for å gå tilbake til én plan.</p>
 
   <h4>🖼 Bildekort</h4>
   <p>Bildekortet er ikke med fra start. Legg det til via <strong>⊞ Kort → + 🖼 Bilde</strong> — du kan ha så mange bildekort du vil.</p>
@@ -6741,6 +6834,11 @@ function settOppHendelser() {
   document.getElementById('btn-rediger-backlog-lukk').onclick = lukkModal;
 
   // Dagsplan
+  document.getElementById('btn-dagsplan-uke').onclick = () => settDagsplanModus(aktivSide().dagsplan_modus === 'uke' ? 'en' : 'uke');
+  document.getElementById('dagsplan-dager').addEventListener('click', e => {
+    const fane = e.target.closest('[data-dag]');
+    if (fane) visUkeplanDag(fane.dataset.dag);
+  });
   document.getElementById('btn-dagsplan-legg-til').onclick = () => {
     document.getElementById('input-dagsplan-punkt').value = '';
     åpneModal('modal-dagsplan');
@@ -8067,6 +8165,9 @@ function init() {
   // formatet nå, ellers fikk elevene nye id-er ved hver lasting til noe annet ble
   // lagret. Rådataene fra før ligger trygt under FØR_ELEV_ID_KEY.
   if (elevFormatMigrert) saveState();
+  // Ukeplaner: en ny dag starter uavkrysset. Bare sider som bruker ukeplan, så vi
+  // ikke lagrer (og flagger ueksporterte endringer) for alle andre.
+  if (state.sider.filter(s => s.dagsplan_modus === 'uke').map(nyDagIUkeplan).some(Boolean)) saveState();
   oppdaterDato();
   setupKlokke();
   visKlokkeVisning();
