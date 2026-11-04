@@ -17,3 +17,6 @@ node_modules
 /AGENTS.md
 /scripts
 /docs
+# Ikonmappa: bare SVG-ene og lisensen publiseres
+/ikoner/README.md
+/ikoner/hent.py

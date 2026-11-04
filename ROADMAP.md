@@ -55,6 +55,21 @@ Gruppert så det som hører til samme kort eller samme mekanisme, bygges sammen.
 
 Spørsmålet var om klassekart og ukeplan skulle være egne sidetyper («dashbord», «klassekart», «ukeplan»). Avgjort 4. november 2026: de bygges som kort. Fokusmodus fyller skjermen med ett kort, så «klassekartet er et rom» løses der, og maler, deling, backup, kortnavn og fanene følger med uten ombygging av lagring og sidefaner. Ukeplanen ble en bryter i Dagsplan-kortet (v2.53), klassekartet blir et eget kort med rutenett av pulter. Tegnebrett og dokumentkamera følger samme spor: kort pluss fokusmodus.
 
+## Avgjort: Fluent Emoji Flat som ikonsett
+
+Avgjort 4. november 2026 etter sammenligning av ti sett i Rarity-temaet (artefakt «Ikonsett for Skoledash»). Appen bruker 104 ulike emoji og symboler i grensesnittet, og de ser forskjellige ut på Mac, Windows og Chromebook, og fargeemoji står side om side med tekstsymboler (✕ ⠿ ▾ →). Jonatan valgte Twemoji-familien (flat farge), og av de tre levende settene der (Twemoji, Noto Color, Fluent Flat) vant **Fluent Emoji Flat** (Microsoft, MIT).
+
+Bygd samme kveld som v2.60, med en DOM-vandrer (`tegnIkoner()` i `app.js`) i stedet for 300 håndendringer: koden skriver fortsatt emoji som tekst, så `t()`-nøklene og nynorsken er urørt. Planen som ble lagt:
+
+1. **Mapping** fra kodepunkt til Fluent-fil lages én gang med et script mot `microsoft/fluentui-emoji` (filene heter engelske CLDR-navn, ikke kodepunkt). Resultatet er `ikoner/<kodepunkt>.svg` for de tegnene appen bruker, pluss MIT-lisensen i mappa. Omtrent 150 KB.
+2. **Visning:** én funksjon, `ikon(tegn)`, gir `<img class="ik" src="ikoner/<kodepunkt>.svg" alt="tegn">`. Alternativet er en DOM-vandrer (som twemoji.parse) som bytter emoji i tekstnoder etter hver tegning, men bare i grensesnittet, aldri i notater, elevnavn, kortnavn eller tekstfelt. Velges når arbeidet starter.
+3. **Tekstsymbolene** ✕ ▾ ⠿ → ✓ ● finnes ikke i noe emojisett. De blir stående som tekst, med samme farge og tykkelse som teksten rundt.
+4. **Lærerens egen tekst** (notater, elevnavn, bamsens navn) beholder nettleserens emoji.
+5. Emoji-velgeren U+FE0F spiller ingen rolle for bilder, men ryddes likevel så samme tegn alltid er skrevet likt.
+6. Kontaktark i alle ti temaene før push.
+
+Filene hentes med `python3 -I ikoner/hent.py <sti til klone av microsoft/fluentui-emoji>`, som leser emojiene i `index.html`, `app.js` og `tekster.js` og skriver `ikoner/<kodepunkt>.svg`, `ikoner/LICENSE` og `ikoner/liste.js`. 👫 (Pararbeid) finnes ikke i Fluent og ble byttet til 🤝.
+
 ## Vurdert, ikke planlagt
 
 | Funksjon | Hvorfor ikke |

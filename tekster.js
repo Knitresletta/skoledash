@@ -525,7 +525,7 @@ const BRUKERVEILEDNING_NN = `
   <p>Vekenummeret står ved datoen øvst, slik at det alltid er synleg.</p>
 
   <h4>🤫 Arbeidssymbol</h4>
-  <p>Hent kortet fram under <strong>⊞ Kort</strong>. Trykk på eit symbol i rada nedst for å vise det stort: 🤫 Stille arbeid, 🗣️ Kviskrestemme, 👫 Pararbeid, 👥 Gruppearbeid, 🙋 Rekk opp handa eller 👀 Sjå hit. Trykk på det same symbolet igjen for å fjerne det.</p>
+  <p>Hent kortet fram under <strong>⊞ Kort</strong>. Trykk på eit symbol i rada nedst for å vise det stort: 🤫 Stille arbeid, 🗣️ Kviskrestemme, 🤝 Pararbeid, 👥 Gruppearbeid, 🙋 Rekk opp handa eller 👀 Sjå hit. Trykk på det same symbolet igjen for å fjerne det.</p>
   <p><strong>＋</strong> lagar eit eige symbol med emoji og tekst, til dømes «📖 Lesestund». Eigne symbol finst på alle sidene dine, og blir sletta med ✕ i det same vindauget. Kvar side hugsar sitt eige symbol.</p>
 
   <h4>🚦 Trafikklys</h4>
@@ -576,6 +576,9 @@ const BRUKERVEILEDNING_NN = `
   <p><strong>⊞ Kort-menyen</strong> (øvst til høgre) viser dei faste korta med avkryssing for på og av per side. Notat, bilete og YouTube har i staden ein <strong>«+»</strong>. Trykk for å leggje til så mange du vil. Kvart nytt kort høyrer til sida du står på.</p>
   <p><strong>Kvar hamnar eit nytt kort?</strong> På første ledige plass, rekna ovanfrå og frå venstre, anten du kryssar det av i menyen eller trykkjer «+». Er skjermen full, blir det lagt litt forskove oppå dei andre, så du ser det med ein gong. Eit kort du slår av og på att, kjem tilbake der det stod om plassen er ledig. Elles held det på storleiken sin og hamnar på første ledige plass.</p>
   <p><strong>Liten skjerm:</strong> på smale skjermar (nettbrett på høgkant, mobil) blir korta stabla under kvarandre, ovanfrå og ned i same rekkjefølgje som på den store skjermen.</p>
+
+  <h4>🎨 Ikona</h4>
+  <p>Ikona i appen er <strong>Fluent Emoji</strong> frå Microsoft (fri MIT-lisens), i flat stil. Dei ligg i appen sjølv, så ingenting blir henta frå andre, og dei ser like ut anten tavla køyrer Mac, Windows eller Chromebook. Emoji du skriv inn sjølv, i notat eller elevnamn, blir òg viste med dei.</p>
 
   <h4>Tema</h4>
   <p>Opne <strong>Skoledash-menyen</strong> (🏫 Skoledash øvst til venstre) og hald musa over <strong>🎨 Tema</strong>. Vel mellom tre standardtema (Lyst, Mørkt, Høg kontrast) eller sju kreative tema: Under vatnet, På fjellet, I skogen og I ein vulkan under <strong>Eventyr</strong>, og Fluttershy, Twilight og Rarity under <strong>Jonatan spesial</strong>. Høg kontrast er kvit tekst på svart bakgrunn, laga for å lesast på avstand. Fleire tema har eit svakt mønster i bakgrunnen. Temaet blir lagra automatisk.</p>

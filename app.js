@@ -151,7 +151,7 @@ function erSkalerKort(id) {
 const ARBEID_SYMBOLER = [
   { id: 'stille', emoji: '🤫', tekst: 'Stille arbeid' },
   { id: 'hviske', emoji: '🗣️', tekst: 'Hviskestemme' },
-  { id: 'par',    emoji: '👫', tekst: 'Pararbeid' },
+  { id: 'par',    emoji: '🤝', tekst: 'Pararbeid' }, // 🤝 fra v2.60: 👫 finnes ikke i Fluent
   { id: 'gruppe', emoji: '👥', tekst: 'Gruppearbeid' },
   { id: 'hand',   emoji: '🙋', tekst: 'Rekk opp hånda' },
   { id: 'se',     emoji: '👀', tekst: 'Se hit' },
@@ -1681,7 +1681,7 @@ function ukenummer(d = new Date()) {
 }
 
 // ===================== Arbeidssymboler og Trafikklys =====================
-// To kort. 🤫 Arbeidssymboler viser et stort arbeidssymbol (🤫 Stille arbeid, 👫 Pararbeid ...).
+// To kort. 🤫 Arbeidssymboler viser et stort arbeidssymbol (🤫 Stille arbeid, 🤝 Pararbeid ...).
 // 🚦 Trafikklys har tre lys. Begge velges per side (s.arbeid_symbol, s.arbeid_lys);
 // trykker man på det som alt er valgt, slukkes det. Trafikklyset har bare farger, ingen
 // tekst: hva rødt og grønt betyr, avtaler læreren med klassen. Lysfargene er faste
@@ -4829,7 +4829,7 @@ function endreGruppenavn(gruppe, nytt) {
 // andre trykk utfører. spørsmål og tittel kan være funksjoner, så teksten kan avhenge
 // av situasjonen når knappen trykkes. Etter 3 sekunder uten nytt trykk går knappen tilbake.
 function toTrykk(knapp, { spørsmål, tittel, utfør }) {
-  const tekst = knapp.textContent;
+  const tekst = knapp.innerHTML; // ikke textContent: ikonet er et bilde (v2.60)
   const vanligTittel = knapp.title;
   let tidtaker = null;
   // Tilbake til vanlig knapp. Skjer etter 3 sekunder, og rett etter at handlingen er
@@ -4837,7 +4837,7 @@ function toTrykk(knapp, { spørsmål, tittel, utfør }) {
   const tilbake = () => {
     clearTimeout(tidtaker);
     knapp.classList.remove('bekreft');
-    knapp.textContent = tekst;
+    knapp.innerHTML = tekst;
     knapp.title = vanligTittel;
   };
   knapp.addEventListener('click', () => {
@@ -6473,6 +6473,13 @@ const OPPDATERINGSLOGG_HTML = `
     </ul>
   </details>
   <div class="logg-entry">
+    <div class="logg-versjon">v2.60</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>🎨 Ett ikonsett overalt:</strong> emojiene i knapper, menyer og kort er nå <strong>Fluent Emoji</strong> (Microsofts åpne sett, flat stil), i stedet for nettleserens egne. Appen ser dermed lik ut på Mac, Windows og Chromebook, og ikonene passer bedre sammen. Det du skriver selv, vises også med dem. Pararbeid-symbolet er byttet fra 👫 til 🤝</li>
+    </ul>
+  </div>
+  <div class="logg-entry">
     <div class="logg-versjon">v2.59</div>
     <div class="logg-dato">4. november 2026</div>
     <ul>
@@ -7217,7 +7224,7 @@ const BRUKERVEILEDNING_HTML = `
   <p>Ukenummeret står ved datoen øverst, slik at det alltid er synlig.</p>
 
   <h4>🤫 Arbeidssymboler</h4>
-  <p>Hent kortet fram under <strong>⊞ Kort</strong>. Trykk på et symbol i raden nederst for å vise det stort: 🤫 Stille arbeid, 🗣️ Hviskestemme, 👫 Pararbeid, 👥 Gruppearbeid, 🙋 Rekk opp hånda eller 👀 Se hit. Trykk på det samme symbolet igjen for å fjerne det.</p>
+  <p>Hent kortet fram under <strong>⊞ Kort</strong>. Trykk på et symbol i raden nederst for å vise det stort: 🤫 Stille arbeid, 🗣️ Hviskestemme, 🤝 Pararbeid, 👥 Gruppearbeid, 🙋 Rekk opp hånda eller 👀 Se hit. Trykk på det samme symbolet igjen for å fjerne det.</p>
   <p><strong>＋</strong> lager et eget symbol med emoji og tekst, for eksempel «📖 Lesestund». Egne symboler finnes på alle sidene dine, og slettes med ✕ i det samme vinduet. Hver side husker sitt eget symbol.</p>
 
   <h4>🚦 Trafikklys</h4>
@@ -7268,6 +7275,9 @@ const BRUKERVEILEDNING_HTML = `
   <p><strong>⊞ Kort-menyen</strong> (øverst til høyre) viser de faste kortene med av/på-avkryssing per side. Notat, bilde og YouTube har i stedet en <strong>«+»</strong> — trykk for å legge til så mange du vil. Hvert nytt kort er eget for den siden du står på.</p>
   <p><strong>Hvor havner et nytt kort?</strong> På første ledige plass, regnet ovenfra og fra venstre, enten du krysser det av i menyen eller trykker «+». Er skjermen full, legges det litt forskjøvet oppå de andre, så du ser det med en gang. Et kort du skrur av og på igjen, kommer tilbake der det sto hvis plassen er ledig. Ellers beholder det størrelsen sin og havner på første ledige plass.</p>
   <p><strong>Liten skjerm:</strong> på smale skjermer (nettbrett på høykant, mobil) stables kortene under hverandre, ovenfra og ned i samme rekkefølge som på den store skjermen.</p>
+
+  <h4>🎨 Ikonene</h4>
+  <p>Ikonene i appen er <strong>Fluent Emoji</strong> fra Microsoft (fri MIT-lisens), i flat stil. De ligger i appen selv, så ingenting hentes fra andre, og de ser like ut uansett om tavla kjører Mac, Windows eller Chromebook. Emoji du skriver inn selv, i notater eller elevnavn, vises også med dem.</p>
 
   <h4>Tema</h4>
   <p>Åpne <strong>Skoledash-menyen</strong> (🏫 Skoledash øverst til venstre) og hold musen over <strong>🎨 Tema</strong>. Velg blant tre standardtemaer (Lyst, Mørkt, Høy kontrast) eller sju kreative temaer: Under vann, På fjellet, I skogen og I en vulkan under <strong>Eventyr</strong>, og Fluttershy, Twilight og Rarity under <strong>Jonatan spesial</strong>. Høy kontrast er hvit tekst på svart bakgrunn, laget for å leses på avstand. Flere temaer har et svakt mønster i bakgrunnen. Temaet lagres automatisk.</p>
@@ -9013,8 +9023,80 @@ function setupVelkommen() {
   if (!localStorage.getItem(VELKOMMEN_KEY)) modal.style.display = 'flex';
 }
 
+// ===================== Ikoner (Fluent Emoji Flat, v2.60) =====================
+// Emojiene i grensesnittet tegnes som små bilder fra ikoner/, så appen ser lik ut på
+// Mac, Windows og Chromebook. Koden skriver fortsatt emoji som tekst (t()-nøklene og
+// nynorsken er urørt): tegnIkoner() bytter dem ut i tekstnodene etter at de er tegnet,
+// og en MutationObserver gjør det samme for alt som tegnes senere. Bare tegn som står i
+// IKONER (ikoner/liste.js, generert av ikoner/hent.py) byttes; andre vises som før.
+// Tekstfelt, nedtrekkslister og alt under data-ikoner="av" røres ikke. alt-teksten er
+// emojien selv, så kopiering og skjermlesere får samme tegn som før.
+const IKON_RX = /\p{Extended_Pictographic}\uFE0F?(?:\u200D\p{Extended_Pictographic}\uFE0F?)*/gu;
+const IKON_HOPP = 'script, style, textarea, select, option, [data-ikoner="av"]';
+
+function ikonNøkkel(tegn) {
+  return [...tegn.replace(/\uFE0F/g, '')].map(c => c.codePointAt(0).toString(16)).join('-');
+}
+
+function ikonElement(tegn, nøkkel) {
+  const img = document.createElement('img');
+  img.className = 'ik';
+  img.src = `ikoner/${nøkkel}.svg`;
+  img.alt = tegn;
+  img.draggable = false;
+  return img;
+}
+
+// Bytter emojiene i én tekstnode. Teksten mellom dem beholdes som egne tekstnoder.
+function byttIkonerI(node) {
+  const tekst = node.nodeValue;
+  if (!tekst || !/\p{Extended_Pictographic}/u.test(tekst)) return;
+  if (node.parentElement?.closest(IKON_HOPP)) return;
+  const frag = document.createDocumentFragment();
+  let sist = 0, byttet = false;
+  for (const m of tekst.matchAll(IKON_RX)) {
+    const nøkkel = ikonNøkkel(m[0]);
+    if (!IKONER.has(nøkkel)) continue;
+    if (m.index > sist) frag.appendChild(document.createTextNode(tekst.slice(sist, m.index)));
+    frag.appendChild(ikonElement(m[0], nøkkel));
+    sist = m.index + m[0].length;
+    byttet = true;
+  }
+  if (!byttet) return;
+  if (sist < tekst.length) frag.appendChild(document.createTextNode(tekst.slice(sist)));
+  node.replaceWith(frag);
+}
+
+// Bytter emojiene i alle tekstnoder under rot (eller i rot selv når den er en tekstnode).
+// Nodene samles først: å endre treet mens vandreren går, hopper over noder.
+function tegnIkoner(rot) {
+  if (rot.nodeType === Node.TEXT_NODE) { byttIkonerI(rot); return; }
+  if (rot.nodeType !== Node.ELEMENT_NODE) return;
+  if (rot.closest(IKON_HOPP)) return;
+  const noder = [];
+  const gå = document.createTreeWalker(rot, NodeFilter.SHOW_TEXT, {
+    acceptNode: n => (n.parentElement?.closest(IKON_HOPP) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+  });
+  for (let n = gå.nextNode(); n; n = gå.nextNode()) noder.push(n);
+  noder.forEach(byttIkonerI);
+}
+
+// Første pass over siden, og en observatør for alt som tegnes etterpå. Observatørens
+// egne bytter gir bare bilder og tekst uten emoji, så den stopper av seg selv.
+function setupIkoner() {
+  if (typeof IKONER === 'undefined') return; // ikoner/liste.js mangler: emoji som før
+  tegnIkoner(document.body);
+  new MutationObserver(poster => {
+    for (const p of poster) {
+      if (p.type === 'characterData') byttIkonerI(p.target);
+      else p.addedNodes.forEach(tegnIkoner);
+    }
+  }).observe(document.body, { childList: true, subtree: true, characterData: true });
+}
+
 function init() {
   oversettStatisk(); // først, før noe tegnes (se kommentaren ved funksjonen)
+  setupIkoner();     // så ikonene, før kortene tegnes: observatøren tar resten
   // Gamle navnelister ble gjort om til elever med id i loadState(). Lagre det nye
   // formatet nå, ellers fikk elevene nye id-er ved hver lasting til noe annet ble
   // lagret. Rådataene fra før ligger trygt under FØR_ELEV_ID_KEY.

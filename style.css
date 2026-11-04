@@ -2498,6 +2498,19 @@ textarea[id^="notat-textarea"]:focus {
     cursor: pointer;
 }
 
+/* ===================== Ikoner (Fluent Emoji Flat, v2.60) ===================== */
+/* Emojiene i grensesnittet er bilder (tegnIkoner i app.js). Størrelsen følger teksten
+   rundt, så de skalerer med kortene og fokusmodus som emoji gjorde. pointer-events av,
+   så klikk på et ikon treffer knappen det står i. */
+img.ik {
+    width: 1.2em;
+    height: 1.2em;
+    vertical-align: -0.22em;
+    display: inline-block;
+    pointer-events: none;
+    user-select: none;
+}
+
 /* ===================== Info modal ===================== */
 .info-modal {
     background: var(--card);
