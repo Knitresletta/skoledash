@@ -3604,6 +3604,28 @@ img.ik {
 .kl-plass.fokus .card-header {
     cursor: default;
 }
+/* I fokus (v2.62) vokser bare innholdet. Knapperadene beholder vanlig størrelse, og
+   da skal de ikke strekkes over en 1600 px bred skjerm: de samles midt på med en
+   rimelig bredde. Timerens faner og dagsplanens knapper likeså. */
+.kl-plass.fokus .flex.gap-2,
+.kl-plass.fokus .timer-controls,
+.kl-plass.fokus .terning-kontroller {
+    justify-content: center;
+}
+.kl-plass.fokus .btn.flex-1,
+.kl-plass.fokus .btn.w-full {
+    flex: 0 1 280px;
+    width: auto;
+}
+.kl-plass.fokus .timer-faner,
+.kl-plass.fokus .dagsplan-dager {
+    max-width: 520px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.kl-plass.fokus .elev-count {
+    text-align: center;
+}
 #btn-fokus-lukk {
     position: fixed;
     top: 10px;

@@ -1524,6 +1524,7 @@ const SMÅKORT = {
       const el = card.querySelector('.instruksjon-tekst');
       if (el.querySelector('input')) return; // skrives i akkurat nå
       el.textContent = x.tekst || t('Klikk for å skrive en beskjed til klassen');
+      el.classList.toggle('tom', !x.tekst); // fokus: hjelpeteksten vokser lite
       el.classList.toggle('tom', !x.tekst);
     },
     setup: (card, id) => {
@@ -5264,6 +5265,7 @@ function lukkFokus() {
   if (!card) return;
   card.parentElement?.classList.remove('fokus');
   card.style.width = card.style.height = card.style.transform = card.style.transformOrigin = '';
+  for (const el of fokusInnhold(card)) el.style.zoom = '';
   // Tilbake på flata: la den vanlige skaleringen og høyden måle kortet på nytt.
   const boks = card.querySelector('.kl-skaler');
   if (boks) skalerInnhold(boks);
@@ -5273,20 +5275,49 @@ function lukkFokus() {
 // Finner største skala der hele kortet får plass i vinduet: kortet legges ut i et
 // område på (bredde / z) × (høyde / z) og skaleres med z. Binærsøk som skalerInnhold,
 // mellom 0,5 (lange lister i et lavt vindu) og 6.
+// Innholdet som vokser i fokus (v2.62), per korttype: det klassen skal se fra pultene.
+// Resten av kortet (overskrift, knapper, brytere, chips, ramme) beholder vanlig
+// størrelse. Korttyper som ikke står her (bilde, YouTube) fyller skjermen uten zoom.
+const FOKUS_INNHOLD = {
+  elever: '#elev-liste', grupper: '#grupper-vis', tilfeldig: '.tilfeldig-vis',
+  ordenselev: '#ordenselev-vis', ulv: '#ulv-vis', dagsplan: '#dagsplan-liste',
+  klokke: '.kl-skaler', terning: '#terning-flater, #terning-sum', arbeid: '#arbeid-vis',
+  trafikklys: '#trafikklys', klassekart: '#klassekart-rom',
+  timer: '.timer-display, .timer-bar, .timer-skive', teller: '.teller-verdi',
+  instruksjon: '.instruksjon-tekst', dato: '.dato-boks', notat: 'textarea',
+};
+const FOKUS_HINT_MAKS = 1.5; // hjelpetekster («Trykk Trekk …») er til læreren og vokser lite
+
+function fokusInnhold(card) {
+  const velger = FOKUS_INNHOLD[kortType(card.id)];
+  return velger ? [...card.querySelectorAll(velger)] : [];
+}
+
+// Står innholdet tomt (bare en hjelpetekst), skal det ikke fylle skjermen.
+function fokusErHint(deler) {
+  return deler.some(el => el.classList.contains('draw-placeholder') || el.classList.contains('tom')
+    || el.querySelector('.tom-tekst') || (el.tagName === 'TEXTAREA' && !el.value.trim()));
+}
+
+// Kortet fyller vinduet i vanlig skala, og bare innholdsdelen (FOKUS_INNHOLD) får zoom
+// til den fyller plassen. Binærsøk som skalerInnhold: opp til MAKS_SKALERING når det
+// er plass, ned mot MIN_SKALERING når lista er lengre enn vinduet.
 function skalerFokus() {
   if (!fokusKort) return;
   const card = document.getElementById(fokusKort);
   const plass = card?.parentElement;
   if (!plass) return;
-  const B = plass.clientWidth, H = plass.clientHeight;
-  card.style.transformOrigin = 'top left';
+  card.style.transform = card.style.transformOrigin = '';
+  card.style.width  = `${plass.clientWidth}px`;
+  card.style.height = `${plass.clientHeight}px`;
+  const deler = fokusInnhold(card);
+  if (!deler.length) return;
+  const bokser = [card, card.querySelector('.kl-skaler'), ...deler].filter(Boolean);
   const passer = z => {
-    card.style.width  = `${B / z}px`;
-    card.style.height = `${H / z}px`;
-    card.style.transform = `scale(${z})`;
-    return card.scrollHeight <= card.clientHeight + 1 && card.scrollWidth <= card.clientWidth + 1;
+    for (const el of deler) el.style.zoom = z === 1 ? '' : String(z);
+    return bokser.every(el => el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1);
   };
-  let lav = MIN_SKALERING, høy = MAKS_SKALERING;
+  let lav = MIN_SKALERING, høy = fokusErHint(deler) ? FOKUS_HINT_MAKS : MAKS_SKALERING;
   if (passer(1)) lav = 1; else høy = 1;
   for (let i = 0; i < 10; i++) {
     const midt = (lav + høy) / 2;
@@ -5571,8 +5602,8 @@ function pakkSkaler(card) {
 
 function skalerInnhold(boks) {
   if (!boks) return;
+  if (boks.closest('.card')?.id === fokusKort) return; // fokus setter sin egen zoom (skalerFokus)
   boks.style.zoom = '';
-  if (boks.closest('.card')?.id === fokusKort) return; // fokus skalerer hele kortet
   if (smalSkjerm() || !boks.offsetParent) return;
   const card = boks.closest('.card');
   const w = aktivSide().widget_layout.find(x => x.id === card.id);
@@ -6473,6 +6504,13 @@ const OPPDATERINGSLOGG_HTML = `
     </ul>
   </details>
   <div class="logg-entry">
+    <div class="logg-versjon">v2.62</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li><strong>Roligere fokus:</strong> i fokusmodus vokser nå bare det klassen skal se, som navnet som ble trukket, timeren, elevlista, dagsplanen, terningen og symbolet. Overskriften, knappene, bryterne og rammen beholder vanlig størrelse i stedet for å blåses opp sammen med innholdet. Hjelpetekster som «Trykk Trekk …» vokser bare litt</li>
+    </ul>
+  </div>
+  <div class="logg-entry">
     <div class="logg-versjon">v2.61</div>
     <div class="logg-dato">4. november 2026</div>
     <ul>
@@ -7238,7 +7276,7 @@ const BRUKERVEILEDNING_HTML = `
   <p>Et eget kort under <strong>⊞ Kort</strong>, med rødt, gult og grønt lys og ingen tekst. Hva fargene betyr, avtaler du med klassen. Trykk på et lys for å tenne det, og igjen for å slukke. Hver side husker sitt eget lys.</p>
 
   <h4>🔍 Fokus: ett kort på hele skjermen</h4>
-  <p>Hold musa over et kort og trykk <strong>⛶</strong> øverst i kortet, eller tasten <kbd>f</kbd>. Kortet fyller hele vinduet, og innholdet blir så stort det får plass til: timeren for hele klassen, elevlista, dagsplanen eller trekket. Alt virker som vanlig inne i fokus, så du kan starte timeren og krysse av dagsplanen der.</p>
+  <p>Hold musa over et kort og trykk <strong>⛶</strong> øverst i kortet, eller tasten <kbd>f</kbd>. Kortet fyller hele vinduet, og innholdet blir så stort det får plass til: timeren for hele klassen, elevlista, dagsplanen eller trekket. Overskriften og knappene beholder vanlig størrelse, det er bare det klassen skal se som vokser. Alt virker som vanlig inne i fokus, så du kan starte timeren og krysse av dagsplanen der.</p>
   <p>Lukk med <kbd>Esc</kbd>, <kbd>f</kbd>, <strong>✕ Lukk fokus</strong> øverst til høyre eller et klikk utenfor kortet. Kortet ligger der det lå på bordet, med samme størrelse. Vil du ha hele skjermen uten fanene og adressefeltet, trykker du <kbd>F11</kbd> i tillegg.</p>
 
   <h4>Timer</h4>

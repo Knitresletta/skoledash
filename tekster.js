@@ -532,7 +532,7 @@ const BRUKERVEILEDNING_NN = `
   <p>Eit eige kort under <strong>⊞ Kort</strong>, med raudt, gult og grønt lys og ingen tekst. Kva fargane tyder, avtaler du med klassen. Trykk på eit lys for å tenne det, og igjen for å sløkkje. Kvar side hugsar sitt eige lys.</p>
 
   <h4>🔍 Fokus: eitt kort på heile skjermen</h4>
-  <p>Hald musa over eit kort og trykk <strong>⛶</strong> øvst i kortet, eller tasten <kbd>f</kbd>. Kortet fyller heile vindauget, og innhaldet blir så stort det får plass til: timeren for heile klassen, elevlista, dagsplanen eller trekket. Alt verkar som vanleg inne i fokus, så du kan starte timeren og krysse av dagsplanen der.</p>
+  <p>Hald musa over eit kort og trykk <strong>⛶</strong> øvst i kortet, eller tasten <kbd>f</kbd>. Kortet fyller heile vindauget, og innhaldet blir så stort det får plass til (overskrifta og knappane held vanleg storleik, det er berre det klassen skal sjå som veks): timeren for heile klassen, elevlista, dagsplanen eller trekket. Alt verkar som vanleg inne i fokus, så du kan starte timeren og krysse av dagsplanen der.</p>
   <p>Lukk med <kbd>Esc</kbd>, <kbd>f</kbd>, <strong>✕ Lukk fokus</strong> øvst til høgre eller eit klikk utanfor kortet. Kortet ligg der det låg på bordet, med same storleik. Vil du ha heile skjermen utan fanene og adressefeltet, trykkjer du <kbd>F11</kbd> i tillegg.</p>
 
   <h4>Timer</h4>
