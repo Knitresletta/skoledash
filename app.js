@@ -2788,10 +2788,11 @@ function renderElever() {
 
   const status = oppmøteIdag(s);
   const antallBorte = klasse(s).elever.filter(e => status[e.id] === 'borte').length;
-  document.getElementById('elev-antall').textContent = antall;
-  document.getElementById('elev-tekst').textContent  = antall === 1 ? t('elev inne') : t('elever inne');
+  // Er noen markert borte, teller linja de som er her: «14/16 elever her i dag · 2 borte».
+  document.getElementById('elev-antall').textContent = antallBorte ? `${antall - antallBorte}/${antall}` : antall;
+  document.getElementById('elev-tekst').textContent  = antallBorte ? t('elever her i dag') : antall === 1 ? t('elev inne') : t('elever inne');
   const borteEl = document.getElementById('elev-borte');
-  borteEl.textContent = antallBorte ? t('· {antall} borte i dag', { antall: antallBorte }) : '';
+  borteEl.textContent = antallBorte ? t('· {antall} borte', { antall: antallBorte }) : '';
   borteEl.classList.toggle('hidden', !antallBorte);
 
   if (!antall) {
@@ -6503,6 +6504,15 @@ const OPPDATERINGSLOGG_HTML = `
       <li>✏️ Tegnebrett, 🔳 QR-kode og skjermteppe</li>
     </ul>
   </details>
+  <div class="logg-entry">
+    <div class="logg-versjon">v2.63</div>
+    <div class="logg-dato">4. november 2026</div>
+    <ul>
+      <li>Tellelinja under elevlista sier nå <strong>14/16 elever her i dag · 2 borte</strong> når noen er markert borte, i stedet for å telle hele lista</li>
+      <li><strong>Fikset:</strong> dialogene <strong>📥 Importer data</strong> og <strong>Rediger backlog</strong> lå utenfor det mørke overlegget. De dukket opp nederst til venstre, dyttet bunnlinja opp og så ut som de manglet til man klikket rundt. Nå åpner de midt på skjermen som de andre</li>
+      <li><strong>Fikset:</strong> i <strong>Slett alle data</strong> stakk knappene ut av boksen når den røde knappen ba om et trykk til. Knappene går nå på ny linje når det trengs</li>
+    </ul>
+  </div>
   <div class="logg-entry">
     <div class="logg-versjon">v2.62</div>
     <div class="logg-dato">4. november 2026</div>

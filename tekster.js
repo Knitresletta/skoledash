@@ -22,6 +22,8 @@ const NYNORSK = {
   '↘ Hurtigtaster': '↘ Snøggtastar',
   'øyne hit': 'auge hit',
   'Flere': 'Fleire',
+  'elever her i dag': 'elevar her i dag',
+  '· {antall} borte': '· {antall} borte',
   'Sett bursdag': 'Set bursdag',
   'Bursdag: {dato}': 'Bursdag: {dato}',
   '🎂 Bursdag for {navn}': '🎂 Bursdag for {navn}',

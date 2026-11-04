@@ -2142,6 +2142,7 @@ textarea[id^="notat-textarea"]:focus {
 }
 .modal-actions {
     display: flex;
+    flex-wrap: wrap; /* lange knapper («Trykk igjen for å slette alt») går på ny linje, ikke ut av boksen */
     gap: 8px;
     justify-content: flex-end;
 }
